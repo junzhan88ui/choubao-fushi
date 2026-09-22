@@ -1,0 +1,61 @@
+<view class="page-wrap" wx:if="{{food}}">
+
+  <!-- 头部 -->
+  <view class="card">
+    <view class="fd-head">
+      <text class="fd-name">{{food.name}}</text>
+      <text class="tag tag-red" wx:if="{{food.allergen}}">常见致敏</text>
+    </view>
+    <view class="fd-sub">{{food.category}} · 建议 {{food.minMonth}} 月龄起</view>
+    <view class="fd-warn" wx:if="{{!ready}}">还没到建议月龄（{{food.minMonth}} 月龄起），先别急</view>
+  </view>
+
+  <!-- 我的记录 -->
+  <view class="card">
+    <view class="card-title">我的记录</view>
+    <view class="fd-status">
+      <text>当前状态：</text>
+      <text class="fd-status-val st-{{status}}">{{statusText}}</text>
+    </view>
+    <view class="fd-btns">
+      <view class="mini-btn mini-ok" wx:if="{{status !== 'safe'}}" bindtap="markSafe">已经吃过，没问题</view>
+      <view class="mini-btn mini-obs" wx:if="{{status !== 'observing'}}" bindtap="markObserving">今天第一次试</view>
+      <view class="mini-btn mini-clear" wx:if="{{status !== 'new'}}" bindtap="clearRecord">清除记录</view>
+    </view>
+  </view>
+
+  <!-- 首次引入 -->
+  <view class="card">
+    <view class="card-title">第一次怎么给</view>
+    <view class="row">
+      <text class="row-label">建议分量</text>
+      <text class="row-value">{{food.firstIntro.amount}}</text>
+    </view>
+    <view class="fd-method">{{food.firstIntro.method}}</view>
+  </view>
+
+  <!-- 注意事项 -->
+  <view class="card" wx:if="{{food.note}}">
+    <view class="card-title">要注意</view>
+    <view class="fd-note">{{food.note}}</view>
+  </view>
+
+  <!-- 相关做法 -->
+  <view class="card" wx:if="{{recipes.length > 0}}">
+    <view class="card-title">用它能做的菜</view>
+    <view class="recipe" wx:for="{{recipes}}" wx:key="id" wx:for-item="r"
+          data-id="{{r.id}}" bindtap="toggleSteps">
+      <view class="recipe-head">
+        <text class="recipe-name">{{r.name}}</text>
+        <text class="recipe-meta">{{r.texture}} · {{r.monthText}}</text>
+      </view>
+      <view class="meal-steps" wx:if="{{expanded === r.id}}">
+        <view class="step" wx:for="{{r.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="disclaimer">
+    以上内容参考公开喂养指南整理，仅供参考，不能替代医生或注册营养师的专业意见。首次引入任何新食材都应少量开始并观察 2–3 天，出现异常立即停止并就医。
+  </view>
+</view>

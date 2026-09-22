@@ -1,0 +1,45 @@
+.head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.head-age {
+  font-size: 40rpx;
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.mt {
+  margin-top: 24rpx;
+}
+
+.mt-sm {
+  margin-top: 16rpx;
+  line-height: 1.7;
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26rpx 4rpx;
+  border-bottom: 1rpx solid var(--c-line);
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+.link-row:last-child {
+  border-bottom: none;
+}
+
+.link-arrow {
+  color: var(--c-text-3);
+  font-size: 34rpx;
+  line-height: 1;
+}
+
+.danger {
+  color: var(--c-red);
+}

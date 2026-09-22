@@ -1,0 +1,127 @@
+.age-line {
+  margin-top: 16rpx;
+}
+
+/* 选项 chips */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: var(--c-text-2);
+  background: #f4f3ef;
+  border: 1rpx solid #ecebe6;
+  border-radius: 999rpx;
+  padding: 12rpx 26rpx;
+  margin: 0 16rpx 16rpx 0;
+}
+
+.chip-on {
+  background: var(--c-green-bg);
+  border-color: #9ec96a;
+  color: var(--c-green-dark);
+  font-weight: 500;
+}
+
+.chip-flag {
+  font-size: 20rpx;
+  color: #a32d2d;
+  background: var(--c-red-bg);
+  border-radius: 6rpx;
+  padding: 0 8rpx;
+  margin-left: 8rpx;
+}
+
+/* 观察期 */
+.obs-item {
+  border-top: 1rpx solid var(--c-line);
+  padding: 20rpx 0;
+}
+
+.obs-item:first-of-type {
+  border-top: none;
+}
+
+.obs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.obs-name {
+  font-size: 29rpx;
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.obs-actions {
+  display: flex;
+}
+
+.mini-btn {
+  font-size: 25rpx;
+  padding: 10rpx 28rpx;
+  border-radius: 999rpx;
+  margin-right: 16rpx;
+}
+
+.mini-ok {
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.mini-bad {
+  background: var(--c-red-bg);
+  color: var(--c-red);
+}
+
+/* 搜索 */
+.search {
+  display: flex;
+  align-items: center;
+  background: #f4f3ef;
+  border-radius: 12rpx;
+  padding: 0 22rpx;
+  margin: 20rpx 0 8rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 27rpx;
+  padding: 20rpx 0;
+  color: var(--c-text);
+}
+
+.search-clear {
+  font-size: 24rpx;
+  color: var(--c-text-3);
+  padding-left: 16rpx;
+}
+
+/* 分组 */
+.group {
+  margin-top: 26rpx;
+}
+
+.group-name {
+  font-size: 25rpx;
+  color: var(--c-text-3);
+  margin-bottom: 14rpx;
+}
+
+.empty-hit {
+  padding: 40rpx 0;
+  text-align: center;
+}
+
+.count-line {
+  margin-top: 24rpx;
+  font-size: 25rpx;
+  color: var(--c-text-3);
+  text-align: right;
+}

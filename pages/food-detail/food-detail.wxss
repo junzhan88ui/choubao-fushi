@@ -1,0 +1,145 @@
+.fd-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.fd-name {
+  font-size: 40rpx;
+  font-weight: 500;
+  color: var(--c-text);
+  margin-right: 16rpx;
+}
+
+.fd-sub {
+  font-size: 25rpx;
+  color: var(--c-text-3);
+}
+
+.fd-warn {
+  margin-top: 16rpx;
+  font-size: 25rpx;
+  color: #633806;
+  background: var(--c-amber-bg);
+  border-radius: 10rpx;
+  padding: 14rpx 18rpx;
+}
+
+/* 状态 */
+.fd-status {
+  font-size: 27rpx;
+  color: var(--c-text-2);
+  margin-bottom: 20rpx;
+}
+
+.fd-status-val {
+  font-weight: 500;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+  margin-left: 8rpx;
+}
+
+.fd-btns {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.mini-btn {
+  font-size: 25rpx;
+  padding: 14rpx 30rpx;
+  border-radius: 999rpx;
+  margin: 0 16rpx 16rpx 0;
+}
+
+.mini-ok {
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.mini-obs {
+  background: var(--c-amber-bg);
+  color: #633806;
+}
+
+.mini-clear {
+  background: #f1efe8;
+  color: var(--c-text-2);
+}
+
+/* 引入方法 */
+.fd-method {
+  font-size: 27rpx;
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-top: 16rpx;
+}
+
+.fd-note {
+  font-size: 27rpx;
+  color: var(--c-text-2);
+  line-height: 1.7;
+}
+
+/* 菜谱 */
+.recipe {
+  padding: 20rpx 0;
+  border-top: 1rpx solid var(--c-line);
+}
+
+.recipe:first-of-type {
+  border-top: none;
+}
+
+.recipe-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.recipe-name {
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+.recipe-meta {
+  font-size: 23rpx;
+  color: var(--c-text-3);
+}
+
+.meal-steps {
+  margin-top: 14rpx;
+  background: #f7f6f2;
+  border-radius: 10rpx;
+  padding: 18rpx 20rpx;
+}
+
+.step {
+  font-size: 25rpx;
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
+.st-safe {
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.st-observing {
+  background: var(--c-amber-bg);
+  color: #633806;
+}
+
+.st-bad {
+  background: var(--c-red-bg);
+  color: var(--c-red);
+}
+
+.st-new {
+  background: #f1efe8;
+  color: var(--c-text-3);
+}

@@ -1,0 +1,85 @@
+<view class="page-wrap">
+
+  <!-- 生日 -->
+  <view class="card">
+    <view class="card-title">宝宝生日</view>
+    <picker mode="date" value="{{birthday}}" start="{{minDate}}" end="{{today}}" bindchange="onDateChange">
+      <view class="row">
+        <text class="row-label">出生日期</text>
+        <text class="row-value">{{birthday || '点击选择'}}</text>
+      </view>
+    </picker>
+    <view class="muted age-line" wx:if="{{ageText}}">现在 {{ageText}}</view>
+  </view>
+
+  <!-- 当前问题 -->
+  <view class="card">
+    <view class="card-title">最近最烦的一件事</view>
+    <view class="card-sub">选一个就好，会影响计划里菜的搭配方向</view>
+    <view class="chips">
+      <view class="chip {{issueKey === item.key ? 'chip-on' : ''}}"
+            wx:for="{{issues}}" wx:key="key" wx:for-item="item"
+            data-key="{{item.key}}" bindtap="onIssueChange">{{item.label}}</view>
+    </view>
+  </view>
+
+  <!-- 生病状态 -->
+  <view class="card">
+    <view class="card-title">宝宝生病了？</view>
+    <view class="card-sub">患病期间暂停添加新辅食，鼓励吃易消化、营养丰富的辅食；病好及时恢复正常饮食（依据 WS/T 678—2020 辅食添加营养指南）。</view>
+    <view class="chips">
+      <view class="chip {{sick ? 'chip-on' : ''}}" data-sick="1" bindtap="onSickChange">生病中</view>
+      <view class="chip {{sick ? '' : 'chip-on'}}" data-sick="0" bindtap="onSickChange">状态正常</view>
+    </view>
+  </view>
+
+  <!-- 观察期 -->
+  <view class="card" wx:if="{{observing.length > 0}}">
+    <view class="card-title">正在观察的食材</view>
+    <view class="card-sub">引入后观察 3 天，确认没问题再组合进菜单</view>
+    <view class="obs-item" wx:for="{{observing}}" wx:key="foodId" wx:for-item="o">
+      <view class="obs-head">
+        <text class="obs-name">{{o.name}}</text>
+        <text class="muted">{{o.date}} 开始</text>
+      </view>
+      <view class="obs-actions">
+        <view class="mini-btn mini-ok" data-id="{{o.foodId}}" data-ok="1" bindtap="confirmObservation">没问题</view>
+        <view class="mini-btn mini-bad" data-id="{{o.foodId}}" data-ok="0" bindtap="confirmObservation">有反应</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 已吃过的食材 -->
+  <view class="card">
+    <view class="card-title">已经吃过、没问题的食材</view>
+    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材，不用提前勾选 —— 它们会通过「新食材尝试」逐个引入。</view>
+
+    <view class="search">
+      <input class="search-input" placeholder="搜食材，如 南瓜 / 蛋黄"
+             value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
+      <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">清空</view>
+    </view>
+
+    <view class="group" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
+      <view class="group-name">{{g.category}}</view>
+      <view class="chips">
+        <view class="chip {{f.checked ? 'chip-on' : ''}}"
+              wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
+              data-id="{{f.id}}" bindtap="toggleFood">
+          <text>{{f.name}}</text>
+          <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="muted empty-hit" wx:if="{{groups.length === 0}}">没找到这个食材，换个词试试</view>
+
+    <view class="count-line">已勾选 {{totalChecked}} 种</view>
+  </view>
+
+  <button class="btn btn-primary" bindtap="goBack">完成</button>
+
+  <view class="disclaimer">
+    这里的月龄与食材信息参考公开喂养指南整理，仅供参考。每个宝宝的添加节奏不同，具体请遵医嘱。
+  </view>
+</view>

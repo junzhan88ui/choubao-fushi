@@ -1,0 +1,101 @@
+.search {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 14rpx;
+  padding: 0 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 28rpx;
+  padding: 24rpx 0;
+  color: var(--c-text);
+}
+
+.search-clear {
+  font-size: 24rpx;
+  color: var(--c-text-3);
+  padding-left: 16rpx;
+}
+
+.tip-line {
+  font-size: 24rpx;
+  color: var(--c-text-3);
+  line-height: 1.7;
+  padding: 0 8rpx 20rpx;
+}
+
+.tip-link {
+  color: var(--c-green);
+  text-decoration: underline;
+}
+
+.food-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22rpx 0;
+  border-top: 1rpx solid var(--c-line);
+}
+
+.food-row:first-of-type {
+  border-top: none;
+}
+
+.food-left {
+  display: flex;
+  align-items: center;
+}
+
+.food-name {
+  font-size: 29rpx;
+  color: var(--c-text);
+}
+
+.food-flag {
+  font-size: 20rpx;
+  color: #a32d2d;
+  background: var(--c-red-bg);
+  border-radius: 6rpx;
+  padding: 0 8rpx;
+  margin-left: 12rpx;
+}
+
+.food-right {
+  display: flex;
+  align-items: center;
+}
+
+.food-month {
+  font-size: 23rpx;
+  color: var(--c-text-3);
+  margin-right: 16rpx;
+}
+
+.food-status {
+  font-size: 22rpx;
+  padding: 4rpx 14rpx;
+  border-radius: 8rpx;
+}
+
+.st-safe {
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.st-observing {
+  background: var(--c-amber-bg);
+  color: #633806;
+}
+
+.st-bad {
+  background: var(--c-red-bg);
+  color: var(--c-red);
+}
+
+.st-new {
+  background: #f1efe8;
+  color: var(--c-text-3);
+}

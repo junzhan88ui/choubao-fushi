@@ -1,0 +1,210 @@
+.head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10rpx;
+}
+
+.head-age {
+  font-size: 40rpx;
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.head-issue {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+  color: var(--c-amber);
+}
+
+/* 提醒条 */
+.notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--c-amber-bg);
+}
+
+.notice-text {
+  font-size: 26rpx;
+  color: #633806;
+  flex: 1;
+}
+
+.notice-btn {
+  font-size: 26rpx;
+  color: #633806;
+  font-weight: 500;
+  padding-left: 20rpx;
+}
+
+/* 生病中提醒条 —— 用蓝色和「观察期」的琥珀色区分开 */
+.notice-sick {
+  background: var(--c-blue-bg);
+}
+
+.notice-sick .notice-text,
+.notice-sick .notice-btn {
+  color: var(--c-blue);
+}
+
+/* 喂养提醒 */
+.guidance .g-line {
+  font-size: 25rpx;
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-bottom: 12rpx;
+}
+
+.guidance .g-line:last-child {
+  margin-bottom: 0;
+}
+
+/* 切换 */
+.seg {
+  display: flex;
+  background: #f1efe8;
+  border-radius: 14rpx;
+  padding: 6rpx;
+  margin-bottom: 24rpx;
+}
+
+.seg-item {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: var(--c-text-2);
+  padding: 16rpx 0;
+  border-radius: 10rpx;
+}
+
+.seg-on {
+  background: #ffffff;
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+/* 天卡片 */
+.day-card {
+  padding: 24rpx 28rpx 12rpx;
+}
+
+.day-head {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 16rpx;
+}
+
+.day-week {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: var(--c-text);
+  margin-right: 14rpx;
+}
+
+.day-date {
+  font-size: 24rpx;
+  color: var(--c-text-3);
+}
+
+/* 新食材 */
+.newfood {
+  background: var(--c-amber-bg);
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.newfood-title {
+  font-size: 27rpx;
+  font-weight: 500;
+  color: #633806;
+  margin-bottom: 8rpx;
+}
+
+.newfood-body {
+  font-size: 25rpx;
+  color: #854f0b;
+  line-height: 1.6;
+}
+
+.newfood-note {
+  font-size: 23rpx;
+  color: #a32d2d;
+  margin-top: 10rpx;
+}
+
+/* 餐次 */
+.meal {
+  padding: 18rpx 0;
+  border-top: 1rpx solid var(--c-line);
+}
+
+.meal-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.meal-name {
+  font-size: 29rpx;
+  color: var(--c-text);
+  margin-bottom: 6rpx;
+}
+
+.meal-meta {
+  font-size: 24rpx;
+  color: var(--c-text-3);
+}
+
+.meal-steps {
+  margin-top: 14rpx;
+  background: #f7f6f2;
+  border-radius: 10rpx;
+  padding: 18rpx 20rpx;
+}
+
+.step {
+  font-size: 25rpx;
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+
+.step:last-child {
+  margin-bottom: 0;
+}
+
+.meal-hint {
+  padding: 20rpx 0;
+  border-top: 1rpx solid var(--c-line);
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid var(--c-line);
+  font-size: 24rpx;
+}
+
+.cat-text {
+  color: var(--c-text-3);
+}
+
+.cat-warn {
+  color: var(--c-amber);
+}
+
+.shop-tip {
+  margin-bottom: 24rpx;
+  line-height: 1.7;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  color: var(--c-text);
+  font-weight: 500;
+  margin-bottom: 14rpx;
+}

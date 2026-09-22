@@ -1,0 +1,158 @@
+const FOODS = require('../../data/foods')
+const age = require('../../utils/age')
+const storage = require('../../utils/storage')
+
+const CATEGORY_ORDER = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋奶', '豆类', '油脂']
+
+Page({
+  data: {
+    birthday: '',
+    today: '',
+    minDate: '',
+    ageText: '',
+    issues: storage.ISSUES,
+    issueKey: 'none',
+    sick: false,
+    keyword: '',
+    groups: [],
+    observing: [],
+    totalChecked: 0
+  },
+
+  onLoad() {
+    const now = new Date()
+    const min = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate())
+    this.setData({
+      today: storage.todayStr(now),
+      minDate: storage.todayStr(min)
+    })
+  },
+
+  onShow() {
+    const baby = storage.getBaby()
+    const birthday = baby && baby.birthday ? baby.birthday : ''
+    this.setData({
+      birthday: birthday,
+      ageText: birthday ? age.describeAge(birthday) : '',
+      issueKey: storage.getIssue(),
+      sick: storage.getSick()
+    })
+    this.rebuild()
+  },
+
+  /** 重建食材勾选列表 */
+  rebuild() {
+    const safe = storage.safeFoodIds()
+    const kw = (this.data.keyword || '').trim()
+    const map = {}
+
+    for (let i = 0; i < FOODS.length; i++) {
+      const f = FOODS[i]
+      // 蜂蜜只作为「禁食」提示存在，不作为可勾选食材
+      if (f.id === 'honey') continue
+      if (kw) {
+        const aliasHit = (f.alias || []).join(' ').indexOf(kw) >= 0
+        if (f.name.indexOf(kw) < 0 && !aliasHit) continue
+      }
+      if (!map[f.category]) map[f.category] = []
+      map[f.category].push({
+        id: f.id,
+        name: f.name,
+        allergen: f.allergen,
+        checked: safe.indexOf(f.id) >= 0
+      })
+    }
+
+    const groups = []
+    for (let i = 0; i < CATEGORY_ORDER.length; i++) {
+      const c = CATEGORY_ORDER[i]
+      if (map[c] && map[c].length) groups.push({ category: c, foods: map[c] })
+    }
+
+    const observing = storage.getIntroduced()
+      .filter(function (it) { return it.status === 'observing' })
+      .map(function (it) {
+        let name = it.foodId
+        for (let i = 0; i < FOODS.length; i++) {
+          if (FOODS[i].id === it.foodId) { name = FOODS[i].name; break }
+        }
+        return { foodId: it.foodId, name: name, date: it.date }
+      })
+
+    this.setData({
+      groups: groups,
+      observing: observing,
+      totalChecked: safe.length
+    })
+  },
+
+  onDateChange(e) {
+    const birthday = e.detail.value
+    storage.setBaby({ birthday: birthday })
+    this.setData({
+      birthday: birthday,
+      ageText: age.describeAge(birthday)
+    })
+    // 月龄变了，旧计划作废
+    storage.setPlan(null)
+    wx.showToast({ title: '已保存', icon: 'success' })
+  },
+
+  onIssueChange(e) {
+    const key = e.currentTarget.dataset.key
+    storage.setIssue(key)
+    this.setData({ issueKey: key })
+    storage.setPlan(null)
+  },
+
+  onSickChange(e) {
+    const v = e.currentTarget.dataset.sick === '1'
+    storage.setSick(v)
+    this.setData({ sick: v })
+    storage.setPlan(null)
+  },
+
+  onKeyword(e) {
+    this.setData({ keyword: e.detail.value })
+    this.rebuild()
+  },
+
+  clearKeyword() {
+    this.setData({ keyword: '' })
+    this.rebuild()
+  },
+
+  toggleFood(e) {
+    const id = e.currentTarget.dataset.id
+    const exist = storage.findIntro(id)
+    if (exist) {
+      storage.removeIntroduced(id)
+    } else {
+      storage.markIntroduced(id)
+      storage.setIntroStatus(id, 'safe')
+    }
+    storage.setPlan(null)
+    this.rebuild()
+  },
+
+  confirmObservation(e) {
+    const id = e.currentTarget.dataset.id
+    const ok = e.currentTarget.dataset.ok === '1'
+    storage.setIntroStatus(id, ok ? 'safe' : 'bad')
+    storage.setPlan(null)
+    this.rebuild()
+    wx.showToast({
+      title: ok ? '已标记为没问题' : '已标记为有反应',
+      icon: 'none'
+    })
+  },
+
+  goBack() {
+    const pages = getCurrentPages()
+    if (pages.length > 1) {
+      wx.navigateBack()
+    } else {
+      wx.switchTab({ url: '/pages/index/index' })
+    }
+  }
+})

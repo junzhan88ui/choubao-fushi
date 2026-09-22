@@ -1,0 +1,37 @@
+{
+  "compileType": "miniprogram",
+  "libVersion": "3.16.1",
+  "appid": "wxf18df64a1b86b6ae",
+  "projectname": "choubao-chishenme",
+  "miniprogramRoot": "./",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "enhance": true,
+    "showShadowRootInWxmlPanel": true,
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "uploadWithSourceMap": true,
+    "useCompilerPlugins": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "packOptions": {
+    "ignore": [
+      { "type": "file", "value": "_validate.js" },
+      { "type": "suffix", "value": ".bak" },
+      { "type": "suffix", "value": ".md" }
+    ],
+    "include": []
+  },
+  "condition": {},
+  "editorSetting": {
+    "tabIndent": "auto",
+    "tabSize": 2
+  }
+}

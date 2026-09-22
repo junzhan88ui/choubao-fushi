@@ -1,0 +1,129 @@
+<view class="page-wrap">
+
+  <!-- 还没建档 -->
+  <block wx:if="{{ready && !configured}}">
+    <view class="empty">
+      <view class="empty-title">先填一下宝宝的信息</view>
+      <view class="muted">只要 3 个字段，30 秒填完</view>
+    </view>
+    <button class="btn btn-primary" bindtap="goProfile">开始</button>
+  </block>
+
+  <block wx:if="{{ready && configured}}">
+
+    <!-- 顶部信息 -->
+    <view class="card">
+      <view class="head-row">
+        <text class="head-age">{{ageText}}</text>
+        <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
+      </view>
+      <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>
+      <view class="head-issue">当前关注：{{issueLabel}}</view>
+    </view>
+
+    <!-- 观察期提醒 -->
+    <view class="card card-tight notice" wx:if="{{dueObs.length > 0}}">
+      <view class="notice-text">有 {{dueObs.length}} 种食材观察期已满，去确认一下结果</view>
+      <view class="notice-btn" bindtap="goProfile">去确认</view>
+    </view>
+
+    <!-- 生病中提醒 -->
+    <view class="card card-tight notice notice-sick" wx:if="{{planData.sick}}">
+      <view class="notice-text">宝宝生病中：本周暂停尝试新食材，菜单已偏向易消化、营养丰富的辅食。病好后在「我的」改回「状态正常」，即可恢复正常饮食。</view>
+      <view class="notice-btn" bindtap="goProfile">去改</view>
+    </view>
+
+    <!-- 喂养提醒 -->
+    <view class="card guidance" wx:if="{{!tooYoung && !outOfRange}}">
+      <view class="card-title">喂养提醒</view>
+      <view class="g-line">避免腌制、卤制、烧烤：这类做法含盐高、易产生有害物质，宝宝肠胃娇嫩，1 岁内尤其不建议。</view>
+      <view class="g-line" wx:if="{{saltTip}}">{{saltTip}}</view>
+    </view>
+
+    <!-- 月龄不够 -->
+    <block wx:if="{{tooYoung}}">
+      <view class="empty">
+        <view class="empty-title">还没到加辅食的月龄</view>
+        <view class="muted">通常满 6 个月左右开始。可以先到「查一查」熟悉一下常见食材。</view>
+      </view>
+    </block>
+
+    <!-- 超出内容覆盖范围 -->
+    <block wx:if="{{outOfRange}}">
+      <view class="empty">
+        <view class="empty-title">宝宝已经超过 2 岁了</view>
+        <view class="muted">当前版本的菜谱覆盖 6–24 月龄。这个阶段宝宝基本可以和家人一起吃饭，注意少盐少糖、切成小块就好。</view>
+      </view>
+    </block>
+
+    <block wx:if="{{!tooYoung && !outOfRange && planData}}">
+
+      <!-- 切换 -->
+      <view class="seg">
+        <view class="seg-item {{tab === 'plan' ? 'seg-on' : ''}}" data-tab="plan" bindtap="switchTab">本周计划</view>
+        <view class="seg-item {{tab === 'shopping' ? 'seg-on' : ''}}" data-tab="shopping" bindtap="switchTab">采购清单</view>
+      </view>
+
+      <!-- 本周计划 -->
+      <block wx:if="{{tab === 'plan'}}">
+        <view class="card day-card" wx:for="{{planData.days}}" wx:key="date" wx:for-item="day">
+          <view class="day-head">
+            <text class="day-week">{{day.weekday}}</text>
+            <text class="day-date">{{day.dateLabel}}</text>
+          </view>
+
+          <view class="newfood" wx:if="{{day.newFood}}">
+            <view class="newfood-title">新食材尝试 · {{day.newFood.name}}</view>
+            <view class="newfood-body">{{day.newFood.amount}}；{{day.newFood.method}}</view>
+            <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
+            <view class="newfood-note">蛋、鱼、虾、豆制品这类易过敏食物要「及时引入」，不要刻意回避 —— 指南指出 1 岁内适时引入可降低过敏风险，一直避着反而没有好处。</view>
+          </view>
+
+          <view class="meal" wx:for="{{day.meals}}" wx:key="key" wx:for-item="meal"
+                data-key="{{meal.key}}" bindtap="toggleMeal">
+            <view class="meal-main">
+              <text class="meal-name">{{meal.name}}</text>
+              <text class="meal-meta">{{meal.texture}} · {{meal.amount}}</text>
+            </view>
+            <view class="meal-steps" wx:if="{{expanded === meal.key}}">
+              <view class="step" wx:for="{{meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
+            </view>
+          </view>
+
+          <view class="meal-hint muted" wx:if="{{!day.meals.length}}">暂无合适的菜谱，去「我的」补一下已吃食材</view>
+
+          <view class="cat-row" wx:if="{{day.meals.length}}">
+            <text class="cat-text">今天覆盖 {{day.catCount}} 类食物</text>
+            <text class="cat-warn" wx:if="{{day.catApplicable && !day.catOk}}">建议再补：{{day.catMissing}}</text>
+          </view>
+        </view>
+
+        <button class="btn btn-primary" bindtap="regenerate">重新生成计划</button>
+      </block>
+
+      <!-- 采购清单 -->
+      <block wx:if="{{tab === 'shopping'}}">
+        <view class="card" wx:for="{{planData.shopping}}" wx:key="category" wx:for-item="group">
+          <view class="card-title">{{group.category}}</view>
+          <view class="row" wx:for="{{group.items}}" wx:key="foodId" wx:for-item="it">
+            <text class="row-label">{{it.name}}</text>
+            <text class="row-value">本周 {{it.count}} 次</text>
+          </view>
+        </view>
+
+        <view class="muted center shop-tip">
+          共 {{planData.shoppingCount}} 种食材。宝宝每餐量很小，按出现次数估着买就行，不用买多。
+        </view>
+
+        <button class="btn btn-ghost" bindtap="regenerate">重新生成计划</button>
+      </block>
+
+    </block>
+
+    <!-- 免责声明：所有状态都要显示，尤其是「太小」和「超范围」时 -->
+    <view class="disclaimer">
+      本计划由规则自动编排，内容参考公开喂养指南整理，仅供参考，不能替代医生或注册营养师的专业意见。宝宝出现过敏、疾病或生长发育异常，请及时就医。
+    </view>
+
+  </block>
+</view>

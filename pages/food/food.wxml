@@ -1,0 +1,35 @@
+<view class="page-wrap">
+
+  <view class="search">
+    <input class="search-input" placeholder="搜食材，如 虾 / 蛋黄 / 南瓜"
+           value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
+    <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">清空</view>
+  </view>
+
+  <view class="tip-line" wx:if="{{!hasBaby}}">
+    还没填宝宝生日，先
+    <text class="tip-link" bindtap="goProfile">去填一下</text>
+    ，就能看到哪些食材到月龄了。
+  </view>
+
+  <view class="card" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
+    <view class="card-title">{{g.category}}</view>
+    <view class="food-row" wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
+          data-id="{{f.id}}" bindtap="goDetail">
+      <view class="food-left">
+        <text class="food-name">{{f.name}}</text>
+        <text class="food-flag" wx:if="{{f.allergen}}">敏</text>
+      </view>
+      <view class="food-right">
+        <text class="food-month">{{f.minMonth}} 月龄起</text>
+        <text class="food-status st-{{f.status}}">{{f.statusText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="muted center" wx:if="{{groups.length === 0}}">没找到这个食材，换个词试试</view>
+
+  <view class="disclaimer">
+    食材月龄与引入方式参考公开喂养指南整理，仅供参考，不能替代医生或注册营养师的意见。出现过敏或异常请及时就医。
+  </view>
+</view>
