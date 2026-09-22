@@ -370,7 +370,13 @@ function generate(opts) {
             if (picked.indexOf(cand) >= 0) continue
             const cov = coverageOf(rest.concat([cand]), nf)
             const sc = covScore(cov)
-            if (!best || sc > best.sc) best = { idx: idx, cand: cand, sc: sc }
+            // 覆盖度相同时，优先选「本周用得少」的那道。
+            // 否则修补循环会退化成「取池子里第一个最优解」，让靠前的高覆盖菜
+            // （例如一次补齐动物性+豆类的那道）被跨天反复选中，一周重复 4~5 次。
+            const rep = usedCount[cand.id] || 0
+            if (!best || sc > best.sc || (sc === best.sc && rep < best.rep)) {
+              best = { idx: idx, cand: cand, sc: sc, rep: rep }
+            }
           }
         }
         if (!best) break

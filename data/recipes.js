@@ -474,5 +474,163 @@ module.exports = [
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
     steps: ['玉米粒煮熟去皮（或打成泥过筛）', '豌豆煮烂去皮', '与软饭拌匀，可加一点煮软的肉末'],
     freezable: true, source: SOURCE
+  },
+
+  /* ================= 13–24 月龄段补充（补足内容覆盖：原该段仅 17–18 道） =================
+   * 本段面向 1–2 岁，性状以「小丁 / 碎末」为主，允许少量油、仍保持清淡；
+   * 均不含腌制 / 卤制 / 烧烤做法（与 App 内「喂养提醒」一致）。
+   */
+  {
+    id: 'r_beef_tomato_noodle', name: '牛肉番茄软面',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['wheat_flour', 'beef'], sideFoods: ['tomato'],
+    tags: ['补铁', '高蛋白'], allergens: ['wheat_flour'],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['牛里脊逆纹切小丁，加水炖至软烂', '番茄去皮去籽切碎，与牛肉同煮出汁', '宝宝面条煮软后剪成 2cm 短段，与肉末番茄拌匀（不加盐或极少量）'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_cod_tofu_soup', name: '鳕鱼豆腐羹',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['cod', 'tofu'], sideFoods: [],
+    tags: ['高蛋白', '补钙'], allergens: ['cod', 'tofu'],
+    amount: { '7-12': '水产 20–30g，豆类 15–25g', '13-24': '水产 30–50g，豆类 25–40g', default: '水产 20–30g，豆类 15–25g' },
+    steps: ['鳕鱼蒸熟，仔细挑净鱼刺后压碎', '嫩豆腐切小丁焯水去豆腥', '两者加水煮 3 分钟，勾薄芡成羹'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_chicken_broccoli_rice', name: '鸡肉西兰花焖饭',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['chicken', 'rice'], sideFoods: ['broccoli'],
+    tags: ['高蛋白'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['鸡胸肉煮熟切小丁', '西兰花焯水取花球切碎', '与煮软的米饭拌匀，加少量水焖 2 分钟'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_shrimp_pea_rice', name: '虾仁豌豆软饭',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['shrimp', 'rice'], sideFoods: ['pea'],
+    tags: ['高蛋白'], allergens: ['shrimp'],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，水产 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，水产 30–50g', default: '谷物 20–30g，蔬菜 20–30g，水产 20–30g' },
+    steps: ['虾去壳去虾线，煮熟后切成极小的丁', '豌豆煮烂去皮压碎', '与软饭拌匀，小火煮 2 分钟'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_pork_cabbage_dumpling', name: '猪肉白菜小饺',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['wheat_flour', 'pork'], sideFoods: ['cabbage'],
+    tags: ['高蛋白', '手抓食物'], allergens: ['wheat_flour'],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['猪肉末加焯过水剁碎的小白菜拌匀（不加盐）', '用饺子皮包成小饺，皮要薄、馅要少', '煮至浮起再煮 2 分钟，放凉后剪成两半方便咀嚼'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_beef_carrot_stew', name: '牛肉胡萝卜炖土豆',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['beef', 'potato'], sideFoods: ['carrot'],
+    tags: ['补铁'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['牛里脊切小丁，加水炖 40 分钟至软烂', '土豆、胡萝卜切小丁同炖至能压碎', '收汁至微稠，不加盐或极少量'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_liver_tomato_rice', name: '番茄猪肝软饭',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['liver_pork', 'rice'], sideFoods: ['tomato'],
+    tags: ['补铁'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['猪肝浸泡 30 分钟去血水，煮熟后剁成细末（每周不超过 1–2 次）', '番茄去皮去籽切碎煮出汁', '与软饭拌匀，小火煮 2 分钟'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_broccoli_egg_custard', name: '西兰花蒸蛋羹',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['egg_whole'], sideFoods: ['broccoli'],
+    tags: ['高蛋白'], allergens: ['egg_whole'],
+    amount: { '7-12': '蔬菜 20–30g，蛋奶 15–25g', '13-24': '蔬菜 30–50g，蛋奶 25–40g', default: '蔬菜 20–30g，蛋奶 15–25g' },
+    steps: ['鸡蛋打散，加 1.5 倍温水搅匀后过筛', '西兰花焯水取花球切碎，拌入蛋液', '盖保鲜膜中火蒸 10 分钟，至凝固无蜂窝'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_cabbage_tofu', name: '白菜豆腐小丁',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['tofu'], sideFoods: ['cabbage'],
+    tags: ['补钙', '膳食纤维'], allergens: ['tofu'],
+    amount: { '7-12': '蔬菜 20–30g，豆类 15–25g', '13-24': '蔬菜 30–50g，豆类 25–40g', default: '蔬菜 20–30g，豆类 15–25g' },
+    steps: ['嫩豆腐切 1cm 小丁焯水', '小白菜取嫩叶焯水后切碎', '两者加水煮 2 分钟，勾薄芡'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_pumpkin_pork_rice', name: '南瓜猪肉软饭',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['pork', 'rice'], sideFoods: ['pumpkin'],
+    tags: ['补铁'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['猪里脊切小丁煮熟', '南瓜蒸熟压碎', '与软饭拌匀，小火煮 2 分钟'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_salmon_potato_cake', name: '三文鱼土豆饼',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['salmon', 'potato'], sideFoods: [],
+    tags: ['高蛋白', '手抓食物'], allergens: ['salmon'],
+    amount: { '7-12': '谷物 20–30g，水产 20–30g', '13-24': '谷物 30–50g，水产 30–50g', default: '谷物 20–30g，水产 20–30g' },
+    steps: ['三文鱼蒸熟，仔细挑净鱼刺后压碎', '土豆蒸熟压成泥，与鱼肉拌匀', '不粘锅少油小火，压成小饼两面煎熟，切成条方便抓握'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_yam_chicken', name: '山药鸡肉丁',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['chicken'], sideFoods: ['yam'],
+    tags: ['高蛋白'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
+    steps: ['山药去皮切小丁（戴手套操作），蒸 15 分钟至软', '鸡胸肉煮熟切小丁', '两者加少量水煮 2 分钟'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_apple_oat_porridge', name: '苹果燕麦粥',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['oat'], sideFoods: ['apple'],
+    tags: ['膳食纤维', '易入口'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，水果 20–30g', '13-24': '谷物 30–50g，水果 30–50g', default: '谷物 20–30g，水果 20–30g' },
+    steps: ['纯燕麦片加水煮 5 分钟至软烂', '苹果去皮切小丁，煮 3 分钟至软', '两者混合，放温后食用'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_strawberry_yogurt', name: '草莓酸奶杯',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['strawberry'], sideFoods: ['milk_yogurt'],
+    tags: ['易入口'], allergens: ['strawberry', 'milk_yogurt'],
+    amount: { '7-12': '水果 20–30g，蛋奶 15–25g', '13-24': '水果 30–50g，蛋奶 25–40g', default: '水果 20–30g，蛋奶 15–25g' },
+    steps: ['草莓洗净去蒂，切成小丁（对半或四分之一）', '取无糖原味酸奶，常温放片刻', '两者拌匀，不要加热'],
+    freezable: false, source: SOURCE
+  },
+  {
+    id: 'r_winter_melon_pork_ball', name: '冬瓜猪肉小丸',
+    monthRange: [13, 24], texture: '小丁',
+    mainFoods: ['pork'], sideFoods: ['winter_melon'],
+    tags: ['高蛋白', '手抓食物'], allergens: [],
+    amount: { '7-12': '蔬菜 20–30g，肉禽 20–30g', '13-24': '蔬菜 30–50g，肉禽 30–50g', default: '蔬菜 20–30g，肉禽 20–30g' },
+    steps: ['猪肉末加少量淀粉搅打上劲（不加盐）', '搓成小丸子，与冬瓜丁同煮 10 分钟', '冬瓜煮至透明，丸子放凉后剪成小块'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_millet_pumpkin_congee', name: '南瓜小米粥',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['millet'], sideFoods: ['pumpkin'],
+    tags: ['易消化', '膳食纤维'], allergens: [],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
+    steps: ['小米洗净加 8 倍水，小火熬 30 分钟', '南瓜蒸熟压碎拌入', '熬至米粒开花、粥体浓稠'],
+    freezable: true, source: SOURCE
+  },
+  {
+    id: 'r_tomato_egg_rice', name: '番茄鸡蛋软饭',
+    monthRange: [13, 24], texture: '碎末',
+    mainFoods: ['egg_whole', 'rice'], sideFoods: ['tomato'],
+    tags: ['高蛋白'], allergens: ['egg_whole'],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
+    steps: ['鸡蛋打散，小火炒成嫩蛋碎（不加盐）', '番茄去皮去籽切碎炒出汁', '与软饭拌匀，小火煮 1 分钟'],
+    freezable: false, source: SOURCE
   }
 ]
