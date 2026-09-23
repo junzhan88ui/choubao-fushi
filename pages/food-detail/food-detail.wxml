@@ -3,7 +3,10 @@
   <!-- 头部 -->
   <view class="card">
     <view class="fd-head">
-      <text class="fd-name">{{food.name}}</text>
+      <view class="fd-title">
+        <view class="food-ic fd-ic" style="background:{{iconBg}}">{{icon}}</view>
+        <text class="fd-name">{{food.name}}</text>
+      </view>
       <text class="fd-sub">{{food.category}} · 建议 {{food.minMonth}} 月龄起</text>
       <text class="tag tag-outline" wx:if="{{food.allergen}}">常见致敏</text>
     </view>

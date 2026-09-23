@@ -18,6 +18,7 @@
     <view class="food-row" wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
           data-id="{{f.id}}" bindtap="goDetail">
       <view class="food-left">
+        <view class="food-ic" style="background:{{f.iconBg}}">{{f.icon}}</view>
         <text class="food-name">{{f.name}}</text>
         <text class="food-flag" wx:if="{{f.allergen}}">敏</text>
       </view>

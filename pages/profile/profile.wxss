@@ -84,6 +84,11 @@
 }
 
 /* 「敏」= 常见致敏食材，中性描边，不做红色警示 */
+/* chip 内 emoji（v2.0）：托底由 chip 自己的分类色承担，emoji 不再套一层徽标 */
+.chip-ic {
+  margin-right: 10rpx;
+}
+
 .chip-flag {
   font-size: var(--fs-xs);
   color: var(--c-text-3);

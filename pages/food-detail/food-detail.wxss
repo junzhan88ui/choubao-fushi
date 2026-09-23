@@ -10,6 +10,23 @@
   gap: 8rpx 16rpx;
 }
 
+/* 头部徽标（v2.0）：沿用全局 .food-ic 的形状，放大成视觉主角。
+   .fd-title 把徽标和名称包成一组居中对齐；.fd-head 仍拿这一组的
+   文字基线去和 fd-sub / 致敏标对齐 —— 原有 baseline 设计不变。 */
+.fd-title {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.fd-ic {
+  width: 104rpx;
+  height: 104rpx;
+  border-radius: var(--r-lg);
+  font-size: 56rpx;
+  margin-right: 0;
+}
+
 .fd-name {
   font-size: var(--fs-display);
   font-weight: 500;

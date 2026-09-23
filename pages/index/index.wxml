@@ -36,19 +36,37 @@
       <view class="notice-btn" bindtap="goProfile">去改</view>
     </view>
 
-    <!-- 喂养提醒 -->
-    <view class="card guidance" wx:if="{{!tooYoung && !outOfRange}}">
-      <view class="card-title">喂养提醒</view>
-      <view class="g-line">避免腌制、卤制、烧烤：这类做法含盐高、易产生有害物质，宝宝肠胃娇嫩，1 岁内尤其不建议。</view>
-      <view class="g-line" wx:if="{{saltTip}}">{{saltTip}}</view>
-      <view class="g-line">蛋、鱼、虾、豆制品这类易过敏食物要「及时引入」，不要刻意回避 —— 指南指出 1 岁内适时引入可降低过敏风险，一直避着反而没有好处。</view>
-    </view>
+    <!-- 6 月龄（满 6 不满 7）：添加要点 + 怎么做辅食。默认收起，点头部展开 -->
+    <block wx:if="{{months >= 6 && months < 7}}">
+      <view class="card card-guide card-guide6" wx:for="{{guide6}}" wx:key="key" wx:for-item="g">
+        <view class="guide-head guide-head--tap" bindtap="toggleGuide6" data-k="{{g.key}}">
+          <view class="food-ic" style="background:{{g.iconBg}}">{{g.icon}}</view>
+          <view class="card-title guide-title">{{g.title}}</view>
+          <text class="guide-arrow">{{sixOpen[g.key] ? '▾' : '▸'}}</text>
+        </view>
+        <view class="guide-body" wx:if="{{sixOpen[g.key]}}">
+          <view class="guide-point" wx:for="{{g.points}}" wx:for-item="pt" wx:key="title">
+            <view class="guide-pt-title">{{pt.title}}</view>
+            <view class="guide-pt-text">{{pt.text}}</view>
+          </view>
+          <view class="guide-line" wx:for="{{g.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view>
+        </view>
+      </view>
+    </block>
 
-    <!-- 月龄不够 -->
+    <!-- 月龄不够（<6 月龄）：铺一份「开始之前」的说明 —— 时机与风险 / 信号 / 原则 -->
     <block wx:if="{{tooYoung}}">
-      <view class="empty">
+      <view class="empty empty-guide">
         <view class="empty-title">还没到加辅食的月龄</view>
-        <view class="muted">通常满 6 个月左右开始。可以先到「查一查」熟悉一下常见食材。</view>
+        <view class="muted">通常满 6 个月开始。趁这段时间把下面几件事看明白，也可以先去「查一查」熟悉常见食材。</view>
+      </view>
+
+      <view class="card card-guide" wx:for="{{guide}}" wx:key="key" wx:for-item="g">
+        <view class="guide-head">
+          <view class="food-ic" style="background:{{g.iconBg}}">{{g.icon}}</view>
+          <view class="card-title guide-title">{{g.title}}</view>
+        </view>
+        <view class="guide-line" wx:for="{{g.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view>
       </view>
     </block>
 
@@ -85,7 +103,10 @@
           </view>
 
           <view class="newfood" wx:if="{{day.newFood}}">
-            <view class="newfood-title">新食材尝试 · {{day.newFood.name}}</view>
+            <view class="newfood-title">
+              <view class="food-ic" style="background:{{day.newFood.iconBg}}">{{day.newFood.icon}}</view>
+              <text>新食材尝试 · {{day.newFood.name}}</text>
+            </view>
             <view class="newfood-body">{{day.newFood.amount}}；{{day.newFood.method}}</view>
             <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
           </view>
@@ -112,7 +133,10 @@
         <view class="card" wx:for="{{planData.shopping}}" wx:key="category" wx:for-item="group">
           <view class="card-title">{{group.category}}</view>
           <view class="row" wx:for="{{group.items}}" wx:key="foodId" wx:for-item="it">
-            <text class="row-label">{{it.name}}</text>
+            <view class="row-label shop-label">
+              <view class="food-ic" style="background:{{it.iconBg}}">{{it.icon}}</view>
+              <text>{{it.name}}</text>
+            </view>
             <text class="row-value">本周 {{it.count}} 次</text>
           </view>
         </view>

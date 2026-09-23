@@ -1,4 +1,5 @@
 const FOODS = require('../../data/foods')
+const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 
@@ -50,7 +51,10 @@ Page({
         minMonth: f.minMonth,
         status: status,
         statusText: statusText,
-        ready: ready
+        ready: ready,
+        // v2.0 图标：列表行徽标（emoji + 分类底色）
+        icon: icons.iconFor(f),
+        iconBg: icons.bgFor(f)
       })
     }
 

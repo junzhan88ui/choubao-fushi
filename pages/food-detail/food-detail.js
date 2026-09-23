@@ -1,5 +1,6 @@
 const FOODS = require('../../data/foods')
 const RECIPES = require('../../data/recipes')
+const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 
@@ -61,6 +62,10 @@ Page({
 
     this.setData({
       food: food,
+      // v2.0 图标：单独放 data，不写进 food —— food 是 FOODS 模块
+      // 缓存里的原对象，改它会污染所有引用方
+      icon: icons.iconFor(food),
+      iconBg: icons.bgFor(food),
       recipes: recipes,
       status: status,
       statusText: STATUS_TEXT[status] || '',

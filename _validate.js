@@ -572,22 +572,34 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   console.log(`  状态多选：${sk.length} 项 + 排它的「状态正常」、无空值选项、旧单选 API 零残留 ✓`)
 }
 
-/* ---------- 6b. 喂养提醒文案（对齐膳食指南，发布前需营养师复核） ----------
- * 用户已确认：维生素 D 提示不做；此处锁定「避免腌制/卤制/烧烤」与盐摄入说明两条。
+/* ---------- 6b. 喂养文案（对齐膳食指南，发布前需营养师复核） ----------
+ * 用户已确认：维生素 D 提示不做。
+ * 历史：原「喂养提醒」卡整卡删除，内容并入六月龄「辅食添加要点」（sixMonth.points）。
+ * 用户第三轮文案（v3）再次精简：「避免腌制/卤制/烧烤」与「过敏食物及时引入」
+ * 两句**未再保留** —— 对应钉子已撤；如要恢复，先加内容再把钉子加回来。
+ * 盐钉子对齐 v3 措辞「额外加盐 + 酱油」；13~24 月龄「0~1.5g」随旧卡删除，未保留。
+ * 卡片与 saltTip 必须拆净（防死代码回潮）。
  */
 {
   const wxml = fs.readFileSync('./pages/index/index.wxml', 'utf8')
-  if (wxml.indexOf('腌制') < 0 || wxml.indexOf('卤制') < 0 || wxml.indexOf('烧烤') < 0)
-    E('index.wxml 的「喂养提醒」缺「避免腌制/卤制/烧烤」文案')
-  if (wxml.indexOf('saltTip') < 0)
-    E('index.wxml 没有绑定 saltTip（盐摄入按年龄动态提示）')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const gd = fs.readFileSync('./data/guides.js', 'utf8')
 
-  const js = fs.readFileSync('./pages/index/index.js', 'utf8')
-  if (js.indexOf('saltTipFor') < 0)
-    E('index.js 缺 saltTipFor（按年龄算盐提示）')
-  if (js.indexOf('0~1.5g') < 0)
-    E('index.js 的盐摄入说明缺官方上限「0~1.5g」')
-  console.log('  喂养提醒文案：避免腌制/卤制/烧烤 ✓，盐摄入按年龄提示 ✓')
+  if (wxml.indexOf('card guidance') >= 0)
+    E('index.wxml 还有「喂养提醒」卡 —— 已按用户要求整卡删除，内容应并入六月龄要点卡')
+  if (wxml.indexOf('saltTip') >= 0)
+    E('index.wxml 还在绑定 saltTip —— 动态盐提示随卡一起拆掉了')
+  if (ij.indexOf('saltTipFor') >= 0)
+    E('index.js 还留着 saltTipFor —— 喂养提醒卡已删，这是死代码')
+
+  const BP = [
+    [/额外加盐/, '不额外加盐的口径'],
+    [/酱油/, '酱油等含盐调料也不加']
+  ]
+  BP.forEach(([re, what]) => {
+    if (!re.test(gd)) E(`guides.js 要点卡丢了「${what}」—— 喂养提醒并入时丢内容`)
+  })
+  console.log('  喂养文案：不加盐+酱油 ✓，已并入要点卡 ✓、旧卡与 saltTip 拆净 ✓（腌制/及时引入按 v3 文案撤钉）')
 }
 
 /* ---------- 6c. 计划缓存失效判断必须覆盖所有生成输入 ----------
@@ -905,6 +917,374 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   })
   if (errs.length === errsBefore)
     console.log('  首页与「我的」：名称与月龄同行 ✓、字号同为 --fs-lg ✓、两页一致 ✓')
+}
+
+/* ---------- 6g. v2.0 食材图标：emoji + 分类底色，53/53 全覆盖 ----------
+ * 四段链路缺一不可，断在哪一段都是「死图标」—— 数据配了、样式也打包了，
+ * 用户却看不到（比死代码更难发现，同 §1c 抓 isToday 的道理）：
+ *   1. 数据：EXACT/FALLBACK/BG 结构合法、53/53 覆盖、9 色唯一且够浅
+ *   2. JS：  四处取数（查一查 / 档案 chips / 详情头 / 计划页两处）
+ *   3. WXML：绑定 {{...icon}} 且用 iconBg 挂分类底色
+ *   4. WXSS：引用的 class 都有定义，该 flex 的地方必须 flex（否则徽标把标题撑成两行）
+ * 另锁三条不变量：
+ *   - 图标取值不进指纹：改图标不该白重排一次 7 天计划
+ *   - 详情页不许把 icon 写回 food —— 那是 FOODS 模块缓存的原对象
+ *   - EXACT 不许被掏空成「全兜底」—— 精确优先是选定的策略
+ */
+{
+  const errsBefore = errs.length
+  const icons = require('./data/food-icons')
+  const rd = (p) => fs.readFileSync(p, 'utf8')
+
+  // —— 1. 数据层 ——
+  const foodIds = new Set(foods.map((f) => f.id))
+  Object.keys(icons.EXACT).forEach((id) => {
+    if (!foodIds.has(id)) E(`food-icons.EXACT 里的 id 不存在：${id} —— 拼错永远命中不了`)
+  })
+  const exactCount = Object.keys(icons.EXACT).length
+  if (exactCount < 30)
+    E(`EXACT 只剩 ${exactCount} 条 ——「精确优先 + 分类兜底」被掏空成全兜底了`)
+
+  // 用户 2026-09 定稿的关键取值 —— 防止后续「清理」时被改回撞车方案
+  const PINS = { pork: '🐖', beef: '🐂', lamb: '🐑', tofu: '🧈', soybean: '🟡', walnut_oil: '🌰' }
+  Object.keys(PINS).forEach((id) => {
+    if (icons.EXACT[id] !== PINS[id])
+      E(`${id} 的图标是 ${icons.EXACT[id]}，应为 ${PINS[id]} —— 用户定稿的取值被改动了`)
+  })
+  // 这三个被明确否决过：分别撞红薯 / 菠菜 / 胡萝卜，不许配上精确图标
+  ;['yam', 'cabbage', 'white_radish'].forEach((id) => {
+    if (icons.EXACT[id]) E(`${id} 配了精确图标 ${icons.EXACT[id]} —— 撞车方案已被否决（红薯/菠菜/胡萝卜）`)
+  })
+
+  const cats = [...new Set(foods.map((f) => f.category))]
+  cats.forEach((c) => {
+    if (!icons.FALLBACK[c]) E(`分类兜底缺失：${c}`)
+    if (!icons.BG[c]) E(`分类底色缺失：${c}`)
+  })
+  const hexes = Object.values(icons.BG)
+  hexes.forEach((h) => { if (!/^#[0-9a-f]{6}$/i.test(h)) E(`分类底色不是 6 位 hex：${h}`) })
+  if (new Set(hexes).size !== hexes.length) E('分类底色有重复 —— 9 类要能一眼区分')
+
+  // 53/53：缺一个都会让同类列表参差不齐（有的有图标有的没有）
+  let covered = 0
+  foods.forEach((f) => {
+    const ic = icons.iconFor(f)
+    if (typeof ic === 'string' && ic && !/\s/.test(ic) && [...ic].length <= 4) covered++
+    else E(`食材图标非法：${f.id} → ${JSON.stringify(ic)}`)
+  })
+  if (covered !== foods.length)
+    E(`食材图标覆盖 ${covered}/${foods.length} —— 必须全量覆盖`)
+
+  // 兜底路径真的接上了：模拟一个没有精确图标的食材
+  if (icons.iconFor({ id: '__none__', category: '谷物' }) !== icons.FALLBACK['谷物'])
+    E('iconFor 的分类兜底没接上 —— 没精确图标的食材会渲染成空白')
+  if (icons.bgFor({ id: '__none__', category: '谷物' }) !== icons.BG['谷物'])
+    E('bgFor 的分类底色没接上')
+
+  // 底色上的 chip 文字（--c-text #2c2c2a）对比度 ≥ 7:1 —— WCAG 现算，不许拿注释写死
+  const lum = (hex) => {
+    const v = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)))
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+  }
+  const textLum = lum('#2c2c2a')
+  hexes.forEach((h) => {
+    if (!/^#[0-9a-f]{6}$/i.test(h)) return
+    const ratio = (lum(h) + 0.05) / (textLum + 0.05)
+    if (ratio < 7) E(`分类底色 ${h} 上的文字对比度 ${ratio.toFixed(1)}:1 < 7:1 —— 底色太深`)
+  })
+
+  // —— 2/3/4. 四处链路：JS 取数 → WXML 绑定 → WXSS 类 ——
+  const appWxss = rd('./app.wxss')
+  const chains = [
+    {
+      where: '查一查列表',
+      js: './pages/food/food.js', wxml: './pages/food/food.wxml',
+      binds: ['{{f.icon}}', 'f.iconBg'],
+      cls: [{ name: 'food-ic', css: appWxss, from: 'app.wxss' }]
+    },
+    {
+      where: '档案页 chips',
+      js: './pages/profile/profile.js', wxml: './pages/profile/profile.wxml',
+      binds: ['{{f.icon}}', 'f.iconBg'],
+      cls: [{ name: 'chip-ic', css: rd('./pages/profile/profile.wxss'), from: 'profile.wxss' }]
+    },
+    {
+      where: '食材详情头',
+      js: './pages/food-detail/food-detail.js', wxml: './pages/food-detail/food-detail.wxml',
+      binds: ['{{icon}}', '{{iconBg}}'],
+      cls: [
+        { name: 'fd-title', css: rd('./pages/food-detail/food-detail.wxss'), from: 'food-detail.wxss' },
+        { name: 'fd-ic', css: rd('./pages/food-detail/food-detail.wxss'), from: 'food-detail.wxss' }
+      ]
+    },
+    {
+      where: '首页新食材卡 + 采购清单',
+      js: './utils/plan.js', wxml: './pages/index/index.wxml',
+      binds: ['{{day.newFood.icon}}', 'day.newFood.iconBg', '{{it.icon}}', 'it.iconBg'],
+      cls: [
+        { name: 'food-ic', css: appWxss, from: 'app.wxss' },
+        { name: 'shop-label', css: rd('./pages/index/index.wxss'), from: 'index.wxss' }
+      ]
+    }
+  ]
+  chains.forEach((c) => {
+    const js = rd(c.js)
+    const wxml = rd(c.wxml)
+    if (js.indexOf('iconFor(') < 0 || js.indexOf('bgFor(') < 0)
+      E(`${c.where}：${c.js} 没取图标数据（iconFor/bgFor）—— 数据配了页面拿不到`)
+    c.binds.forEach((b) => {
+      if (wxml.indexOf(b) < 0) E(`${c.where}：${c.wxml} 没绑定 ${b} —— 图标/底色没渲染出来`)
+    })
+    c.cls.forEach((x) => {
+      if (!new RegExp('\\.' + x.name + '\\s*\\{').test(x.css))
+        E(`${c.where}：引用了 .${x.name} 但 ${x.from} 没定义 —— 标签裸渲染成无样式黑字`)
+    })
+  })
+
+  // plan.js 要喂两处（新食材卡 + 采购清单），只喂一处另一处就没图标
+  const planJs = rd('./utils/plan.js')
+  if ((planJs.match(/iconFor\(/g) || []).length < 2)
+    E('plan.js 里 iconFor 只用了一次 —— newFood 和 shopping 应各喂一处')
+
+  // 该 flex 的地方必须 flex：徽标是块级 view，不 flex 会把标题/标签撑成两行
+  const flexChecks = [
+    ['.newfood-title', rd('./pages/index/index.wxss'), 'index.wxss'],
+    ['.shop-label', rd('./pages/index/index.wxss'), 'index.wxss'],
+    ['.fd-title', rd('./pages/food-detail/food-detail.wxss'), 'food-detail.wxss']
+  ]
+  flexChecks.forEach(([cls, css, from]) => {
+    const m = css.match(new RegExp('\\' + cls + '\\s*\\{[^}]*'))
+    if (m && m[0].indexOf('display: flex') < 0)
+      E(`${from} 的 ${cls} 不是 display:flex —— 内嵌徽标会把标题/标签撑成两行`)
+  })
+
+  // 图标取值不进指纹：把图标全换掉，指纹必须原样不动（否则换图标会白重排计划）
+  const mkSig = (name) => ({
+    getBaby() { return { birthday: '2025-07-01', name: name } },
+    getIssues() { return [] },
+    getSick() { return false },
+    safeFoodIds() { return [] },
+    badFoodIds() { return [] },
+    recordedFoodIds() { return [] },
+    observingFoodIds() { return [] }
+  })
+  const sigA = plan.planSignature(mkSig('臭宝'))
+  const origIconFor = icons.iconFor
+  const origBgFor = icons.bgFor
+  try {
+    icons.iconFor = () => '🟢'
+    icons.bgFor = () => '#000000'
+    if (plan.planSignature(mkSig('臭宝')) !== sigA)
+      E('图标取值影响了指纹 —— 换图标会白重排一次计划，图标只许做展示')
+  } finally {
+    icons.iconFor = origIconFor
+    icons.bgFor = origBgFor
+  }
+  if (plan.planSignature(mkSig('臭宝')) !== sigA)
+    E('还原图标后指纹没回来 —— 测试自身没还原干净')
+
+  // 详情页不许写回 food：那是 FOODS 模块缓存里的原对象
+  const fdJs = rd('./pages/food-detail/food-detail.js')
+  if (/food\s*\.\s*icon\s*=/.test(fdJs) || /food\s*\.\s*iconBg\s*=/.test(fdJs))
+    E('food-detail.js 把 icon 写回了 food —— 会污染 FOODS 模块缓存，影响所有引用方')
+
+  if (errs.length === errsBefore)
+    console.log('  食材图标：53/53 全覆盖 ✓、9 类底色唯一且 ≥7:1 ✓、四段链路（数据→JS→WXML→WXSS）接通 ✓、不进指纹 ✓、不污染 FOODS ✓')
+}
+
+/* ---------- 6h. <6 月龄「开始之前」说明：数据 → 首页 → WXML ----------
+ * tooYoung 分支原来是两行空状态，现在铺 3 张说明卡（时机与风险/信号/原则
+ * —— 按用户要求，「过早过晚的危害」已合并进 when 卡，不再单列）。
+ * 断链同样是死数据：guides 写了页面没绑、或绑在了 tooYoung 分支之外
+ * （= 正在吃辅食的宝宝突然看到「什么时候开始添加」）都是错的。
+ * 另钉住核心口径：这些是选题依据，被删掉说明就没营养了。
+ */
+{
+  const errsBefore = errs.length
+  const guidesMod = require('./data/guides')
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const ix = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+
+  // 1) 数据结构：4 个必备分段，字段齐全、icon/iconBg 合法
+  const NEED = ['when', 'signal', 'rules']
+  const list = guidesMod.tooYoung
+  if (!Array.isArray(list) || !list.length) {
+    E('data/guides.js 没导出非空的 tooYoung 数组')
+  } else {
+    NEED.forEach((k) => {
+      const card = list.find((c) => c.key === k)
+      if (!card) { E(`guides.tooYoung 缺少分段：${k}`); return }
+      if (!card.title || !Array.isArray(card.lines) || !card.lines.length)
+        E(`guides.${k} 的 title/lines 不完整 —— 卡片会渲染成空壳`)
+      else if (card.lines.some((l) => typeof l !== 'string' || !l.trim()))
+        E(`guides.${k} 里有空行 —— 会渲染出空的 .guide-line`)
+      const ic = card.icon
+      if (typeof ic !== 'string' || !ic || /\s/.test(ic) || [...ic].length > 4)
+        E(`guides.${k} 的 icon 非法：${JSON.stringify(ic)}`)
+      if (!/^#[0-9a-f]{6}$/i.test(card.iconBg || ''))
+        E(`guides.${k} 的 iconBg 不是 6 位 hex：${card.iconBg}`)
+    })
+
+    // 2) 核心口径不能丢（选题依据，删了说明就没营养了）
+    //    注：满 6 月龄 / 不早于 4 月龄这两段按用户要求从 when 卡删除了，
+    //    「满 6 个月」的官方口径改由 index.wxml 的 intro 承担（下面单独查）。
+    const all = JSON.stringify(list)
+    const PINS = [
+      [/4 月龄/, '「4 月龄」这个最早下限'],
+      [/过早（不满 4 月龄）/, '「过早」的危害（已并入 when 卡）'],
+      [/过晚（超过 6 月龄）/, '「过晚」的危害（已并入 when 卡）'],
+      [/挺舌/, '「挺舌反射」这个识别信号'],
+      [/2[–-]3 天/, '一次一种、观察 2–3 天'],
+      [/不加盐/, '不加盐糖的原则'],
+      [/蜂蜜/, '1 岁内不加蜂蜜']
+    ]
+    PINS.forEach(([re, what]) => {
+      if (!re.test(all)) E(`guides 里丢了「${what}」—— 说明的核心口径不完整`)
+    })
+    // when 卡的口径段删掉后，intro 是全页仅剩的「满 6 个月」依据 —— 丢了首页就不再说明何时开始
+    if (iw.indexOf('满 6 个月') < 0)
+      E('index.wxml 的 intro 丢了「满 6 个月」—— when 卡已按要求删掉口径段，首页不再说明何时开始添加')
+    if (list.length > NEED.length + 2)
+      W(`guides.tooYoung 有 ${list.length} 张卡，首页会很长 —— 确认是有意的`)
+  }
+
+  // 3) 页面链路：index.js 挂数据 → WXML 在 tooYoung 分支内渲染
+  if (ij.indexOf("require('../../data/guides')") < 0)
+    E("index.js 没引入 data/guides —— 页面拿不到说明数据")
+  if (!/guide:\s*guides\.tooYoung/.test(ij))
+    E('index.js 没把 guide 放进 data —— WXML 的 wx:for 拿不到东西')
+
+  const tgAt = iw.indexOf('<block wx:if="{{tooYoung}}">')
+  const orAt = iw.indexOf('<block wx:if="{{outOfRange}}"')
+  const gdAt = iw.indexOf('wx:for="{{guide}}"')
+  if (tgAt < 0) E('index.wxml 没有 tooYoung 分支')
+  if (gdAt < 0) E('index.wxml 没渲染 guide —— 数据配了页面不显示（死数据）')
+  else if (tgAt >= 0 && (gdAt < tgAt || (orAt > tgAt && gdAt > orAt)))
+    E('guide 的渲染不在 tooYoung 分支里 —— 正在吃辅食的宝宝会看到「什么时候开始添加」')
+
+  if (tgAt >= 0 && gdAt > tgAt) {
+    const seg = iw.slice(tgAt, orAt > tgAt ? orAt : iw.length)
+    ;['{{g.title}}', '{{g.lines}}', 'food-ic'].forEach((b) => {
+      if (seg.indexOf(b) < 0) E(`tooYoung 分支没绑 ${b} —— 卡头/徽标/正文没渲染`)
+    })
+  }
+
+  // 4) 样式段：引用的类都要有定义，卡头必须 flex（徽标是块级，不 flex 会撑成两行）
+  ;['empty-guide', 'guide-head', 'guide-line'].forEach((cls) => {
+    if (!new RegExp('\\.' + cls + '\\s*\\{').test(ix))
+      E(`index.wxss 没定义 .${cls} —— 引用了没定义的类，会裸渲染`)
+  })
+  const gh = ix.match(/\.guide-head\s*\{[^}]*/)
+  if (gh && gh[0].indexOf('display: flex') < 0)
+    E('index.wxss 的 .guide-head 不是 display:flex —— emoji 徽标会把标题撑成两行')
+
+  if (errs.length === errsBefore)
+    console.log('  <6 月龄说明：3 分段（时机与风险合并、口径段已删）✓、核心口径（满6个月→intro、4月龄、过早过晚、挺舌、2–3天、盐、蜂蜜）在 ✓、渲染锁在 tooYoung 分支 ✓、卡头 flex ✓')
+}
+
+/* ---------- 6i. 6 月龄说明（添加要点 + 怎么做辅食）：数据 → 首页 → 收起交互 ----------
+ * sixMonth 两张卡：points（5 条小标题段落，结构 points[]）+ cook（做法行，放最后一张）。
+ * 用户要求：只在满 6 不满 7 显示、默认收起点头部展开。
+ * 断链/错闸门的后果各不同：闸门写错 → 7 月龄还挂着「第一口辅食」；
+ * 展开态没接 → 点了没反应（死交互）；cook 挪位/删行 → 做法缺东西。
+ */
+{
+  const errsBefore = errs.length
+  const guidesMod = require('./data/guides')
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const ix = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+
+  // 1) 数据结构：必须是 points + cook 两张，cook 排最后（用户指定）
+  const l6 = guidesMod.sixMonth
+  if (!Array.isArray(l6) || !l6.length) {
+    E('data/guides.js 没导出非空的 sixMonth 数组')
+  } else {
+    const pt = l6.find((c) => c.key === 'points')
+    const ck = l6.find((c) => c.key === 'cook')
+    if (!pt) E('sixMonth 缺少 points 卡（辅食添加要点）')
+    if (!ck) E('sixMonth 缺少 cook 卡（怎么做辅食）')
+    if (l6.length && l6[l6.length - 1].key !== 'cook')
+      E('cook 不是最后一张卡 —— 用户要求「怎么做辅食」放最后')
+
+    // 字段与徽标合法性（同 §6h 的 icon/iconBg 校验）
+    l6.forEach((c) => {
+      const ic = c.icon
+      if (typeof ic !== 'string' || !ic || /\s/.test(ic) || [...ic].length > 4)
+        E(`sixMonth.${c.key} 的 icon 非法：${JSON.stringify(ic)}`)
+      if (!/^#[0-9a-f]{6}$/i.test(c.iconBg || ''))
+        E(`sixMonth.${c.key} 的 iconBg 不是 6 位 hex：${c.iconBg}`)
+      if (!c.title) E(`sixMonth.${c.key} 没有 title`)
+    })
+
+    // points 卡：小标题+段落组（≥4 条，字段齐全）
+    if (pt) {
+      if (!Array.isArray(pt.points) || pt.points.length < 4)
+        E(`points 卡缺 points 段或不足 4 条（现 ${Array.isArray(pt.points) ? pt.points.length : '无'}）—— 截图 5 条要点会渲染不全`)
+      else if (pt.points.some((p) => !p.title || !p.text))
+        E('points 段里有空 title/text —— 会渲染出空的小标题或空段落')
+
+      const all = JSON.stringify(pt.points)
+      const PPT = [
+        [/尽快/, '尽快添加的口径'],
+        [/第一口辅食/, '第一口辅食怎么喂'],
+        [/富含铁/, '首选富含铁的泥糊（补铁）'],
+        [/2[–-]3 天/, '新食材观察 2–3 天'],
+        [/中午/, '新食材安排中午'],
+        [/洗手|生熟/, '饮食卫生']
+      ]
+      PPT.forEach(([re, what]) => { if (!re.test(all)) E(`points 段丢了「${what}」—— 6 月龄要点不完整`) })
+    }
+
+    // cook 卡：七种做法一种都不能少（用户点名：肉/肝/鱼/虾/菜/薯/果）
+    if (ck) {
+      if (!Array.isArray(ck.lines) || ck.lines.length < 5)
+        E('cook 卡缺 lines 或不足 5 行 —— 做法列表渲染不全')
+      else if (ck.lines.some((l) => typeof l !== 'string' || !l.trim()))
+        E('cook 卡里有空行 —— 会渲染出空的 .guide-line')
+
+      const call = JSON.stringify(ck.lines)
+      const CKP = ['肉泥', '肝泥', '鱼泥', '虾泥', '菜泥', '薯类', '水果泥']
+      CKP.forEach((w) => { if (call.indexOf(w) < 0) E(`cook 卡丢了「${w}」做法 —— 用户点名要的七种之一`) })
+    }
+  }
+
+  // 2) 页面链路：数据挂载 + 月龄闸门 + 展开交互
+  if (!/guide6:\s*guides\.sixMonth/.test(ij))
+    E('index.js 没把 guide6 放进 data —— WXML 的 wx:for 拿不到六月龄卡片')
+  if (!/sixOpen:\s*\{\s*\}/.test(ij))
+    E('index.js 的 sixOpen 初始值必须是 {} —— 默认收起，不能开箱即展开')
+  if (!/toggleGuide6\s*\(/.test(ij))
+    E('index.js 缺少 toggleGuide6 方法 —— 点卡头没反应（死交互）')
+
+  if (iw.indexOf('months >= 6 && months < 7') < 0)
+    E('index.wxml 的 6 月龄闸门不是「满 6 不满 7」—— 闸门写错会让别的月龄看到第一口辅食')
+  const gd6 = iw.indexOf('wx:for="{{guide6}}"')
+  if (gd6 < 0) E('index.wxml 没渲染 guide6 —— 数据配了页面不显示（死数据）')
+  else {
+    const tg = iw.indexOf('<block wx:if="{{tooYoung}}">')
+    if (tg >= 0 && gd6 > tg)
+      E('guide6 渲染在 tooYoung 分支里 —— 会和 <6 月龄说明叠在一起')
+    const seg = iw.slice(gd6, tg > gd6 ? tg : gd6 + 1600)
+    ;['toggleGuide6', 'sixOpen[g.key]', '{{pt.title}}', '{{g.lines}}', 'guide-arrow'].forEach((b) => {
+      if (seg.indexOf(b) < 0) E(`guide6 卡没绑 ${b} —— 展开按钮/箭头/要点/做法有断链`)
+    })
+  }
+
+  // 3) 样式段：交互与要点排版的类都要有定义
+  ;['guide-head--tap', 'guide-arrow', 'guide-body', 'guide-pt-title', 'guide-pt-text'].forEach((cls) => {
+    if (!new RegExp('\\.' + cls.replace('--', '\\-\\-') + '\\s*\\{').test(ix))
+      E(`index.wxss 没定义 .${cls} —— 引用了没定义的类，会裸渲染`)
+  })
+  const ga = ix.match(/\.guide-arrow\s*\{[^}]*/)
+  if (ga && ga[0].indexOf('margin-left: auto') < 0)
+    E('index.wxss 的 .guide-arrow 没有 margin-left:auto —— 箭头不会靠右，看不出可点开')
+
+  if (errs.length === errsBefore)
+    console.log('  6 月龄说明：points(6段：5要点+并入的清淡少盐)+cook(七种做法、排最后) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

@@ -17,6 +17,8 @@
 const age = require('./age')
 const FOODS = require('../data/foods')
 const RECIPES = require('../data/recipes')
+// v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
+const icons = require('../data/food-icons')
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
@@ -467,7 +469,10 @@ function generate(opts) {
             amount: nf.firstIntro.amount,
             method: nf.firstIntro.method,
             observeDays: 3,
-            note: nf.note || ''
+            note: nf.note || '',
+            // v2.0 图标：只作展示，不进指纹（见 planSignature）
+            icon: icons.iconFor(nf),
+            iconBg: icons.bgFor(nf)
           }
         : null
     })
@@ -480,7 +485,14 @@ function generate(opts) {
     const f = FOOD_MAP[fid]
     if (!f) return
     if (!grouped[f.category]) grouped[f.category] = []
-    grouped[f.category].push({ foodId: fid, name: f.name, count: foodUse[fid] })
+    grouped[f.category].push({
+      foodId: fid,
+      name: f.name,
+      count: foodUse[fid],
+      // v2.0 图标：采购清单行徽标（只作展示，不进指纹）
+      icon: icons.iconFor(f),
+      iconBg: icons.bgFor(f)
+    })
   })
 
   const shopping = []

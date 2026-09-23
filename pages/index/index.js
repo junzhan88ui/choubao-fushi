@@ -1,18 +1,8 @@
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 const plan = require('../../utils/plan')
-
-// 盐摄入提示（依据《中国居民膳食指南(2022)》7~24 月龄喂养指南）
-// 7~12 月龄不建议额外加盐；13~24 月龄可少量，每天 0~1.5g。
-function saltTipFor(months) {
-  if (months >= 6 && months <= 12) {
-    return '7~12 月龄（含刚满 6 月龄）都不建议额外加盐，酱油、鸡精、味精等含盐调料也先不加。'
-  }
-  if (months >= 13 && months <= 24) {
-    return '13~24 月龄可少量加盐，每天总量不超过 0~1.5g（约一粒黄豆大小），仍以清淡为主。'
-  }
-  return ''
-}
+// <6 月龄的「开始之前」说明（tooYoung 分支铺开渲染）
+const guides = require('../../data/guides')
 
 // 标记「今天」，供列表做视觉锚点。
 // 只在渲染前算，不写回 storage —— 它是派生状态，存下来会过期。
@@ -34,6 +24,11 @@ Page({
   data: {
     ready: false,
     configured: false,
+    // <6 月龄说明（data/guides.js）：tooYoung 分支铺开渲染
+    guide: guides.tooYoung,
+    // 6 月龄说明：两张卡默认收起，sixOpen 记录各卡展开态（key → bool）
+    guide6: guides.sixMonth,
+    sixOpen: {},
     name: '',
     emptyHint: '',
     months: 0,
@@ -97,7 +92,6 @@ Page({
       // 全空 = 没有任何待改善项 → 用灰色，别让「正常」看起来像告警
       issueNone: statuses.length === 0,
       dueObs: dueObs,
-      saltTip: saltTipFor(months),
       tooYoung: false,
       outOfRange: false
     }
@@ -152,6 +146,12 @@ Page({
   toggleMeal(e) {
     const key = e.currentTarget.dataset.key
     this.setData({ expanded: this.data.expanded === key ? '' : key })
+  },
+
+  // 6 月龄说明卡：点卡头切换该卡的展开态（默认全收起，sixOpen 里没有 key = 收起）
+  toggleGuide6(e) {
+    const k = e.currentTarget.dataset.k
+    this.setData({ ['sixOpen.' + k]: !this.data.sixOpen[k] })
   },
 
   regenerate() {

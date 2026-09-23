@@ -1,4 +1,5 @@
 const FOODS = require('../../data/foods')
+const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 
@@ -71,7 +72,10 @@ Page({
         checked: safe.indexOf(f.id) >= 0,
         // bad 必须单独标出来：它的 chip 也是「未勾选」的样子，
         // 但点击语义完全不同（见 toggleFood）
-        status: intro ? intro.status : 'new'
+        status: intro ? intro.status : 'new',
+        // v2.0 图标：未选中的 chip 用分类色做底，选中态由 .chip-on 覆盖
+        icon: icons.iconFor(f),
+        iconBg: icons.bgFor(f)
       })
     }
 

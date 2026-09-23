@@ -68,18 +68,6 @@
   color: var(--c-blue);
 }
 
-/* 喂养提醒 */
-.guidance .g-line {
-  font-size: var(--fs-md);
-  color: var(--c-text-2);
-  line-height: 1.7;
-  margin-bottom: 12rpx;
-}
-
-.guidance .g-line:last-child {
-  margin-bottom: 0;
-}
-
 /* 切换 */
 .seg {
   display: flex;
@@ -161,6 +149,9 @@
 }
 
 .newfood-title {
+  /* v2.0：标题里嵌了 emoji 徽标，flex 才能让徽标和文字同行居中 */
+  display: flex;
+  align-items: center;
   font-size: var(--fs-base);
   font-weight: 500;
   color: var(--c-amber-ink);
@@ -250,9 +241,84 @@
   line-height: 1.7;
 }
 
+/* 采购清单行：标签里嵌了 emoji 徽标，flex 才能和右侧次数同行 */
+.shop-label {
+  display: flex;
+  align-items: center;
+}
+
+/* —— tooYoung 分支的「开始之前」说明（全部 <6 月龄可见）—— */
+.empty-guide {
+  /* 下面就要接 3 张说明卡，intro 不需要空状态那种大留白 */
+  padding: 60rpx 40rpx 24rpx;
+}
+
+/* 卡头：emoji 徽标 + 标题同行。徽标是块级 view，
+   不 flex 会把标题挤到下一行（同 §6g 对 .newfood-title 的约束） */
+.guide-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.guide-head > .card-title {
+  margin-bottom: 0;
+}
+
+.guide-line {
+  font-size: var(--fs-md);
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-bottom: 12rpx;
+}
+
+.guide-line:last-child {
+  margin-bottom: 0;
+}
+
 .empty-title {
   font-size: var(--fs-title);
   color: var(--c-text);
   font-weight: 500;
   margin-bottom: 14rpx;
+}
+
+/* —— 6 月龄说明卡（添加要点 / 怎么做辅食）：默认收起，点头部展开 —— */
+.guide-head--tap {
+  /* 头部本身就是按钮，收起时是卡片最后一行 —— 间距交给 .guide-body 负责 */
+  margin-bottom: 0;
+}
+
+.guide-arrow {
+  /* 推到最右（flex 行里 margin-left:auto），提示可点开 */
+  margin-left: auto;
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
+  padding-left: 16rpx;
+}
+
+.guide-body {
+  margin-top: 16rpx;
+  border-top: 1rpx solid var(--c-line);
+  padding-top: 16rpx;
+}
+
+.guide-pt-title {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--c-text);
+  margin-bottom: 6rpx;
+}
+
+.guide-pt-text {
+  font-size: var(--fs-md);
+  color: var(--c-text-2);
+  line-height: 1.7;
+  margin-bottom: 16rpx;
+  /* 文案里的 \n 要真换行（第一口辅食、观察过敏是分行写法） */
+  white-space: pre-line;
+}
+
+.guide-point:last-child .guide-pt-text {
+  margin-bottom: 0;
 }

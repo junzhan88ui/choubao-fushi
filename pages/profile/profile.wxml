@@ -64,8 +64,10 @@
       <view class="group-name">{{g.category}}</view>
       <view class="chips">
         <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}}"
+              style="{{!f.checked && f.status !== 'bad' ? 'background:' + f.iconBg : ''}}"
               wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
               data-id="{{f.id}}" bindtap="toggleFood">
+          <text class="chip-ic">{{f.icon}}</text>
           <text>{{f.name}}</text>
           <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
           <text class="chip-flag chip-flag-bad" wx:if="{{f.status === 'bad'}}">有反应</text>

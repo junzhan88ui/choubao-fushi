@@ -163,6 +163,25 @@ page {
   border: 1rpx solid var(--c-line);
 }
 
+/* 食材图标徽标（v2.0）：emoji 托在分类底色上。
+   底色由 data/food-icons.js 按分类给出，这里只管徽标形状，四处展示
+   （查一查列表 / 首页新食材卡 / 采购清单）共用这一份；详情页头部
+   用 .fd-ic 放大。emoji 只是视觉锚点 —— 食材名永远保留，不能只留图标。 */
+.food-ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: var(--r-md);
+  font-size: 30rpx;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-right: 14rpx;
+  /* 在白卡片上给浅底色一道边界；琥珀色新食材卡里也靠它不糊掉 */
+  border: 1rpx solid var(--c-line);
+}
+
 /* 按钮 */
 .btn {
   display: block;
