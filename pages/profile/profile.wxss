@@ -24,6 +24,26 @@
   color: var(--c-text-3);
 }
 
+/* 名称输入框：靠右，和 .row-value 落在同一视觉位置。
+   占位符用 muted，和「点击选择」那个右值一致 */
+.row-input {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.row-input-ph {
+  color: var(--c-text-3);
+}
+
+/* 必填星号（名称 / 出生日期） */
+.req {
+  color: var(--c-red);
+  margin-left: 6rpx;
+}
+
 /* 选项 chips */
 .chips {
   display: flex;

@@ -5,8 +5,23 @@
   margin-bottom: 10rpx;
 }
 
+/* 名称与月龄同一行：基线对齐（baseline），字号都用 --fs-lg。
+   原来月龄是 --fs-display 大字、名字单独占一行，两行两个字号 —— 用户要求
+   并到一行且字号一致。右侧阶段 tag 仍留在 .head-row，靠 space-between 靠右。 */
+.head-line {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+}
+
+.head-name {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  color: var(--c-text);
+}
+
 .head-age {
-  font-size: var(--fs-display);
+  font-size: var(--fs-lg);
   font-weight: 500;
   color: var(--c-text);
 }

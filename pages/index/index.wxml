@@ -1,10 +1,10 @@
 <view class="page-wrap">
 
-  <!-- 还没建档 -->
+  <!-- 还没建档（名称和出生日期都是必填，缺哪个由 emptyHint 说清楚） -->
   <block wx:if="{{ready && !configured}}">
     <view class="empty">
       <view class="empty-title">先填一下宝宝的信息</view>
-      <view class="muted">只要 3 个字段，30 秒填完</view>
+      <view class="muted">{{emptyHint}}</view>
     </view>
     <button class="btn btn-primary" bindtap="goProfile">开始</button>
   </block>
@@ -14,7 +14,10 @@
     <!-- 顶部信息 -->
     <view class="card">
       <view class="head-row">
-        <text class="head-age">{{ageText}}</text>
+        <view class="head-line">
+          <text class="head-name">{{name}}</text>
+          <text class="head-age">{{ageText}}</text>
+        </view>
         <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
       </view>
       <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>

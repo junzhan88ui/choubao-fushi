@@ -34,6 +34,8 @@ Page({
   data: {
     ready: false,
     configured: false,
+    name: '',
+    emptyHint: '',
     months: 0,
     ageText: '',
     stageLabel: '',
@@ -60,7 +62,15 @@ Page({
 
   refresh() {
     if (!storage.isConfigured()) {
-      this.setData({ ready: true, configured: false })
+      // 名称和出生日期都是必填。老用户升级后往往**只缺名称**，
+      // 必须说清楚缺的是哪个，否则看起来像档案被清空了要重填。
+      const miss = storage.missingFields()
+      this.setData({
+        ready: true,
+        configured: false,
+        name: '',
+        emptyHint: miss.length ? `还差${miss.join('和')}，填一下就能生成计划` : ''
+      })
       return
     }
 
@@ -79,6 +89,7 @@ Page({
     const base = {
       ready: true,
       configured: true,
+      name: baby.name || '',
       months: months,
       ageText: age.describeAge(baby.birthday),
       ageStatus: st.status,

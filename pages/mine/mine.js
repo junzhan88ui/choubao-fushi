@@ -6,6 +6,8 @@ const app = getApp()
 Page({
   data: {
     hasBaby: false,
+    name: '',
+    emptyHint: '',
     birthday: '',
     ageText: '',
     stageLabel: '',
@@ -20,6 +22,10 @@ Page({
   onShow() {
     const baby = storage.getBaby()
     const birthday = baby && baby.birthday ? baby.birthday : ''
+    const name = baby && baby.name ? baby.name : ''
+    // 缺哪项由 storage 算，和首页共用同一处判断
+    const miss = storage.missingFields()
+    const emptyHint = miss.length ? `还差${miss.join('和')}，填一下就能生成计划` : ''
     const months = birthday ? age.monthsBetween(birthday) : null
     const st = age.getAgeStatus(months)
 
@@ -34,7 +40,11 @@ Page({
     }
 
     this.setData({
-      hasBaby: !!birthday,
+      // 和首页共用 storage.isConfigured()：名称和生日都是必填，
+      // 两页各判各的会对「填没填完」给出不同答案
+      hasBaby: storage.isConfigured(),
+      name: name,
+      emptyHint: emptyHint,
       birthday: birthday,
       ageText: birthday ? age.describeAge(birthday) : '',
       stageLabel: stageLabel,

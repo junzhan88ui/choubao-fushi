@@ -4,15 +4,19 @@
   <view class="card">
     <block wx:if="{{hasBaby}}">
       <view class="head-row">
-        <text class="head-age">{{ageText}}</text>
+        <view class="head-line">
+          <text class="head-name">{{name}}</text>
+          <text class="head-age">{{ageText}}</text>
+        </view>
         <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
       </view>
       <view class="muted">生日 {{birthday}} · 状态：{{issueLabel}}</view>
       <view class="muted" wx:if="{{stageHint}}">{{stageHint}}</view>
     </block>
     <block wx:else>
-      <view class="card-title">还没填宝宝信息</view>
-      <view class="muted">填完才能生成计划</view>
+      <view class="card-title">还没填完宝宝信息</view>
+      <!-- 缺哪个由 storage.missingFields 算，页面不写死字段名 -->
+      <view class="muted">{{emptyHint}}</view>
     </block>
     <button class="btn btn-ghost mt" bindtap="goProfile">{{hasBaby ? '修改宝宝档案' : '去填写'}}</button>
   </view>

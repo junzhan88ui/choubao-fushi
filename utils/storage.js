@@ -161,17 +161,58 @@ function getSick() {
 
 /* ---------- 宝宝档案 ---------- */
 
+/* 名称上限。档案摘要、状态行都要跟生日挤在同一行，太长会把布局撑破 */
+const BABY_NAME_MAX = 12
+
 function getBaby() {
   return wx.getStorageSync(KEYS.BABY) || null
 }
 
-function setBaby(baby) {
-  wx.setStorageSync(KEYS.BABY, baby || null)
+/** 名称清洗：压掉换行/连续空格、去首尾、截断到上限 */
+function sanitizeBabyName(v) {
+  const s = v === null || v === undefined ? '' : String(v)
+  return s.replace(/\s+/g, ' ').trim().slice(0, BABY_NAME_MAX)
+}
+
+/**
+ * 更新宝宝档案。
+ *
+ * 必须是**字段级合并**，不能整体覆盖：档案页有两个独立控件
+ * （名称输入框、生日选择器），各自只写自己那个字段。若这里直接
+ * setStorageSync(整个对象)，用户先填名称、再改生日，先前的名字
+ * 就被 setBaby({ birthday }) 整个抹掉了。
+ *
+ * 只有传 null 才表示清空整个档案（resetAll 走 removeStorageSync）。
+ */
+function setBaby(patch) {
+  if (patch === null || patch === undefined) {
+    wx.setStorageSync(KEYS.BABY, null)
+    return
+  }
+  const cur = wx.getStorageSync(KEYS.BABY) || {}
+  const next = { name: cur.name, birthday: cur.birthday }
+  if (Object.prototype.hasOwnProperty.call(patch, 'name')) {
+    next.name = sanitizeBabyName(patch.name)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'birthday')) {
+    next.birthday = patch.birthday
+  }
+  wx.setStorageSync(KEYS.BABY, next)
+}
+
+/** 还差哪些必填项（返回空数组 = 已配置）。
+ *  名称和出生日期都是必填。首页空状态、我的页文案都读这一处 ——
+ *  别在页面里各判各的，否则两页会对「填没填完」给出不同答案。 */
+function missingFields() {
+  const b = getBaby() || {}
+  const miss = []
+  if (!b.name) miss.push('宝宝名称')
+  if (!b.birthday) miss.push('出生日期')
+  return miss
 }
 
 function isConfigured() {
-  const b = getBaby()
-  return !!(b && b.birthday)
+  return missingFields().length === 0
 }
 
 /* ---------- 已引入食材 ---------- */
@@ -304,9 +345,12 @@ module.exports = {
   statusOptions: statusOptions,
   toggleStatus: toggleStatus,
   ensureInit: ensureInit,
+  BABY_NAME_MAX: BABY_NAME_MAX,
+  sanitizeBabyName: sanitizeBabyName,
   getBaby: getBaby,
   setBaby: setBaby,
   isConfigured: isConfigured,
+  missingFields: missingFields,
   getIntroduced: getIntroduced,
   setIntroduced: setIntroduced,
   findIntro: findIntro,

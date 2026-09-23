@@ -521,7 +521,10 @@ function generate(opts) {
  */
 function planInputs(storage) {
   const baby = storage.getBaby()
-  if (!baby || !baby.birthday) return null
+  // 名称和出生日期都是必填。首页另有一层 isConfigured 拦截，这里是引擎
+  // 自己的闸门 —— 免得哪条调用路径绕过去，生成一份「没名字」的计划。
+  // 只判**有没有**名字：名称的取值不进返回值，改名不该重排计划。
+  if (!baby || !baby.name || !baby.birthday) return null
   const months = age.monthsBetween(baby.birthday)
   if (months === null) return null
 
@@ -536,7 +539,9 @@ function planInputs(storage) {
   }
 }
 
-/** 输入指纹：任一输入变了，缓存的计划就该重算 */
+/** 输入指纹：任一输入变了，缓存的计划就该重算。
+ *  注意名称**不进**指纹：它只作为必填闸门（缺了 planInputs 返回 null），
+ *  取值变化不影响生成结果，改个名字不该白重排一次计划。 */
 function planSignature(storage) {
   const inputs = planInputs(storage)
   if (!inputs) return null

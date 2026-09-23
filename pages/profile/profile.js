@@ -6,6 +6,9 @@ const CATEGORY_ORDER = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋�
 
 Page({
   data: {
+    name: '',
+    // 名称上限跟着 storage.BABY_NAME_MAX 走，不在页面里另写一个数
+    nameMax: storage.BABY_NAME_MAX,
     birthday: '',
     today: '',
     minDate: '',
@@ -31,6 +34,7 @@ Page({
     const baby = storage.getBaby()
     const birthday = baby && baby.birthday ? baby.birthday : ''
     this.setData({
+      name: baby && baby.name ? baby.name : '',
       birthday: birthday,
       ageText: birthday ? age.describeAge(birthday) : ''
     })
@@ -92,6 +96,16 @@ Page({
       observing: observing,
       totalChecked: safe.length
     })
+  },
+
+  /** 名称实时清洗后落库。
+   *  名称是**必填**（缺了 isConfigured 和 planInputs 会双双挡住生成），
+   *  但名称的**取值**不进指纹 —— 改个名字不该重排整份计划，
+   *  所以这里绝不能 setPlan(null)，那会让每次敲字都重排一次。 */
+  onNameInput(e) {
+    const name = storage.sanitizeBabyName(e.detail.value)
+    storage.setBaby({ name: name })
+    this.setData({ name: name })
   },
 
   onDateChange(e) {

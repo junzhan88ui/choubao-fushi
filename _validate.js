@@ -599,7 +599,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  */
 {
   const mkStorage = (state) => ({
-    getBaby() { return { birthday: state.birthday } },
+    // 名称是必填（planInputs 会判），测试用例默认带上；
+    // 要测「缺名称」时显式传 name: ''
+    getBaby() { return { birthday: state.birthday, name: state.name === undefined ? '测试' : state.name } },
     getStatuses() { return state.issues.concat(state.sick ? ['sick'] : []) },
     getIssues() { return state.issues },
     getSick() { return state.sick },
@@ -726,6 +728,183 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (profileWxml.indexOf("f.status === 'bad'") < 0)
     E("profile.wxml 没渲染 bad 态 —— 「有反应」和普通未勾选长得一样，用户会误点")
   console.log('  档案页：「有反应」记录不会被勾选操作误删 ✓')
+}
+
+/* ---------- 6e. 宝宝名称：录得进、存得住、看得到 ----------
+ * 三段链路：档案页 input → storage 合并写入 → 「我的」页回显。
+ *
+ * 最容易断的是中间那段：setBaby 原本是**整体覆盖**，而页面里名称和
+ * 生日是两个独立控件各写各的字段 —— 用户先填名称、再改生日，
+ * 先前的名字就被 setBaby({ birthday }) 整个抹掉（本次就修了这个）。
+ * 所以下面用内存版 wx 真跑一遍 setBaby，不是读源码猜。
+ */
+{
+  const errsBefore = errs.length
+  const pj = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const pw = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+  const mj = fs.readFileSync('./pages/mine/mine.js', 'utf8')
+  const mw = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const ix = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const px = fs.readFileSync('./pages/profile/profile.wxss', 'utf8')
+
+  // 录入端：input 绑到处理函数，且处理函数在 profile.js 里真存在
+  if (pw.indexOf('bindinput="onNameInput"') < 0)
+    E('profile.wxml 的名称输入框没绑 onNameInput —— 名称录不进去')
+  if (!/onNameInput\s*\(/.test(pj))
+    E('profile.js 缺 onNameInput 处理函数 —— 输入框绑了个不存在的 handler')
+  if (pj.indexOf('storage.setBaby({ name:') < 0)
+    E('onNameInput 没调用 storage.setBaby({ name }) —— 名称没落库，是死输入框')
+  // 卡片并入了名称，标题还叫「宝宝生日」就名不副实
+  if (pw.indexOf('宝宝信息') < 0 || pw.indexOf('宝宝生日') >= 0)
+    E('profile.wxml 第一张卡标题应为「宝宝信息」（卡里现在含名称 + 生日）')
+  // 必填：两行都要有星号，且样式真的定义了（引用没定义 = 裸渲染）
+  if ((pw.match(/class="req"/g) || []).length < 2)
+    E('profile.wxml 的必填星号少于 2 个 —— 名称和出生日期都必须标 *')
+  if (!/\.req\s*\{/.test(px))
+    E('profile.wxml 引用了 .req，但 profile.wxss 没定义 —— 星号会裸渲染')
+  if (pw.indexOf('都是必填') < 0)
+    E('profile.wxml 缺必填说明文案 —— 用户不知道为什么填完生日还生成不了')
+
+  // 展示端：首页 + 我的都得回显（用户明确要求首页也要映射）
+  if (ij.indexOf('baby.name') < 0 || iw.indexOf('{{name}}') < 0)
+    E('首页没有回显宝宝名称 —— 名称存了首页看不到（死数据）')
+  if (/class="head-name"/.test(iw) && !/\.head-name\s*\{/.test(ix))
+    E('index.wxml 用了 .head-name，但 index.wxss 没定义 —— 名称会裸渲染成无样式黑字')
+  if (mj.indexOf('storage.isConfigured()') < 0)
+    E('mine.js 的 hasBaby 没走 storage.isConfigured() —— 两页对「填没填完」会给出不同答案')
+  if (mw.indexOf('{{name}}') < 0)
+    E('「我的」页没有回显 {{name}} —— 名称存了没有显示位置（死数据）')
+  // 缺项提示必须是算出来的：写死字段数必然过期
+  if (iw.indexOf('3 个字段') >= 0)
+    E('index.wxml 空状态还写着「3 个字段」—— 字段早就不是 3 个了，应改用 emptyHint')
+  if (iw.indexOf('{{emptyHint}}') < 0 || ij.indexOf('storage.missingFields(') < 0)
+    E('缺项提示没接 missingFields —— 老用户只缺名称时，首页只会说「先填一下宝宝的信息」')
+
+  // 行为端：真跑 setBaby（内存版 wx，跑完还原）
+  const mem = {}
+  const hadWx = typeof global.wx !== 'undefined'
+  const savedWx = global.wx
+  global.wx = {
+    getStorageSync: (k) => (Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : ''),
+    setStorageSync: (k, v) => { mem[k] = v },
+    removeStorageSync: (k) => { delete mem[k] }
+  }
+  try {
+    // 字段级合并：改生日不能抹掉名称
+    storage.setBaby({ name: '臭宝' })
+    storage.setBaby({ birthday: '2026-05-01' })
+    const b = storage.getBaby()
+    if (!b || b.name !== '臭宝')
+      E('填完名称再改生日，名称被 setBaby 整体覆盖抹掉了 —— 必须字段级合并')
+    if (!b || b.birthday !== '2026-05-01')
+      E('setBaby({ name }) 把已填的生日弄丢了 —— 合并必须是双向的')
+
+    // 清洗与截断
+    storage.setBaby({ name: ' 臭\n宝  ' })
+    if (storage.getBaby().name !== '臭 宝')
+      E('名称没清洗：换行/首尾空格应被压掉，否则摘要行会被撑破')
+    storage.setBaby({ name: '一'.repeat(30) })
+    if (storage.getBaby().name.length > storage.BABY_NAME_MAX)
+      E(`名称没有截断到 ${storage.BABY_NAME_MAX} 字，长名字会把「我的」页摘要行撑破`)
+    if (typeof storage.BABY_NAME_MAX !== 'number') E('storage 没导出 BABY_NAME_MAX')
+    if (typeof storage.sanitizeBabyName !== 'function') E('storage 没导出 sanitizeBabyName')
+    if (typeof storage.missingFields !== 'function') E('storage 没导出 missingFields')
+
+    // 必填矩阵：档案全空 / 只有名称 / 只有生日 → 三项都必须是「未配置」
+    global.wx.removeStorageSync(storage.KEYS.BABY)
+    if (storage.isConfigured()) E('档案全空却算已配置 —— 首页会直接去生成计划')
+    if (storage.missingFields().length !== 2)
+      E(`档案全空时 missingFields 应报 2 项，实际 ${storage.missingFields().join(',')}`)
+
+    storage.setBaby({ name: '臭宝' })
+    if (storage.isConfigured())
+      E('只填名称没填生日就算「已配置」—— isConfigured 必须两项都要')
+    if (storage.missingFields().join('') !== '出生日期')
+      E('只缺生日时 missingFields 没报「出生日期」')
+
+    global.wx.removeStorageSync(storage.KEYS.BABY)
+    storage.setBaby({ birthday: '2025-07-01' })
+    if (storage.isConfigured())
+      E('只填生日没填名称就算「已配置」—— 名称是必填项，这条没生效')
+
+    storage.setBaby({ name: '臭宝' })
+    if (!storage.isConfigured())
+      E('名称和生日都填了 isConfigured 仍为假 —— 首页会永远停在空状态')
+    if (storage.missingFields().length !== 0)
+      E('两项齐全了 missingFields 还在返回缺项')
+
+    // 引擎自己的闸门：缺名称不得生成（防止绕过首页那层 isConfigured）
+    const mk = (name) => ({
+      getBaby() { return { birthday: '2025-07-01', name: name } },
+      getIssues() { return [] },
+      getSick() { return false },
+      safeFoodIds() { return [] },
+      badFoodIds() { return [] },
+      recordedFoodIds() { return [] },
+      observingFoodIds() { return [] }
+    })
+    if (plan.planInputs(mk('')) !== null)
+      E('planInputs 缺名称仍返回输入 —— 名称必填没进引擎闸门，别的调用路径能绕过去')
+    if (plan.planSignature(mk('')) !== null)
+      E('planSignature 在缺名称时应返回 null')
+    if (plan.planInputs(mk('臭宝')) === null)
+      E('名称生日齐全 planInputs 却返回 null —— 计划永远生成不出来')
+    // 名称的取值不该进指纹：否则改个名字就白重排一次计划
+    if (plan.planSignature(mk('臭宝')) !== plan.planSignature(mk('豆豆')))
+      E('改名字让指纹变了 —— 名称取值不该进指纹，改名不该重排计划')
+  } finally {
+    if (hadWx) global.wx = savedWx
+    else delete global.wx
+  }
+
+  if (errs.length === errsBefore)
+    console.log('  宝宝名称：必填（存储+引擎双闸门）✓、首页与「我的」回显 ✓、清洗/截断 ✓、取值不进指纹 ✓')
+}
+
+/* ---------- 6f. 首页与「我的」：名称与月龄必须同行、同字号 ----------
+ * 用户明确要求：把「4 个月 1 天」和宝宝名称对齐、字号保持一致，
+ * 且两页一起改。锁三件事 ——
+ *   1. 同行：.head-line 容器存在（名字和月龄都塞在它里面）
+ *   2. 同字号：两个 class 的 font-size 都必须是 --fs-lg（用户选定
+ *      用名字那档；月龄原来是 --fs-display 大字，缩小后才放得下一行）
+ *   3. 引用的类必须在本页 wxss 里定义过，否则标签裸渲染成无样式黑字
+ *      （§1c 抓过同类问题：.day-today 引用了却没定义）
+ */
+{
+  const errsBefore = errs.length
+  const fontSizeOf = (css, cls) => {
+    const m = css.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*font-size:\\s*([^;}]+)'))
+    return m ? m[1].trim() : null
+  }
+  ;['index', 'mine'].forEach((which) => {
+    const wxml = fs.readFileSync(`./pages/${which}/${which}.wxml`, 'utf8')
+    const wxss = fs.readFileSync(`./pages/${which}/${which}.wxss`, 'utf8')
+
+    const li = wxml.indexOf('class="head-line"')
+    if (li < 0) E(`${which} 页：名称和月龄没并到同一行（缺 .head-line 容器）`)
+    if (!/\.head-line\s*\{/.test(wxss))
+      E(`${which}.wxss 没定义 .head-line —— 引用了没定义的类，行内布局会散`)
+
+    if (li >= 0) {
+      const rest = wxml.slice(li, li + 300)
+      const atName = rest.indexOf('head-name')
+      const atAge = rest.indexOf('head-age')
+      if (atName < 0 || atAge < 0)
+        E(`${which} 页的 .head-line 里没同时放名称和月龄 —— 同行没实现`)
+      else if (atName > atAge)
+        E(`${which} 页同行内月龄排在名称前面 —— 顺序应为 名称 → 月龄`)
+    }
+
+    const fn = fontSizeOf(wxss, 'head-name')
+    const fa = fontSizeOf(wxss, 'head-age')
+    if (fn !== 'var(--fs-lg)' || fa !== 'var(--fs-lg)')
+      E(`${which} 页 名称(${fn}) / 月龄(${fa}) 应同为 var(--fs-lg) —— 用户选定用名字那档字号（月龄原为 --fs-display）`)
+  })
+  if (errs.length === errsBefore)
+    console.log('  首页与「我的」：名称与月龄同行 ✓、字号同为 --fs-lg ✓、两页一致 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

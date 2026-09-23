@@ -1,15 +1,22 @@
 <view class="page-wrap page-wrap--safe">
 
-  <!-- 生日 -->
+  <!-- 宝宝信息：名称 + 生日（两张控件各写各的字段，由 setBaby 合并） -->
   <view class="card">
     <!-- 标题行：左标题、右补充信息，基线对齐 -->
     <view class="card-head">
-      <view class="card-title">宝宝生日</view>
+      <view class="card-title">宝宝信息</view>
       <view class="age-now" wx:if="{{ageText}}">现在 {{ageText}}</view>
+    </view>
+    <view class="card-sub">名称和出生日期都是必填，两项都填好才能生成计划。</view>
+    <view class="row">
+      <text class="row-label">宝宝名称<text class="req">*</text></text>
+      <input class="row-input" value="{{name}}" placeholder="必填，如：臭宝"
+             placeholder-class="row-input-ph" maxlength="{{nameMax}}"
+             bindinput="onNameInput" />
     </view>
     <picker mode="date" value="{{birthday}}" start="{{minDate}}" end="{{today}}" bindchange="onDateChange">
       <view class="row">
-        <text class="row-label">出生日期</text>
+        <text class="row-label">出生日期<text class="req">*</text></text>
         <text class="row-value">{{birthday || '点击选择'}}</text>
       </view>
     </picker>
