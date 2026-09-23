@@ -14,22 +14,28 @@
     "backgroundTextStyle": "dark"
   },
   "tabBar": {
-    "color": "#8a8a86",
-    "selectedColor": "#5f8b28",
+    "color": "#6f6e6a",
+    "selectedColor": "#3b6d11",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "计划"
+        "text": "计划",
+        "iconPath": "images/tab-plan.png",
+        "selectedIconPath": "images/tab-plan-on.png"
       },
       {
         "pagePath": "pages/food/food",
-        "text": "查一查"
+        "text": "查一查",
+        "iconPath": "images/tab-food.png",
+        "selectedIconPath": "images/tab-food-on.png"
       },
       {
         "pagePath": "pages/mine/mine",
-        "text": "我的"
+        "text": "我的",
+        "iconPath": "images/tab-mine.png",
+        "selectedIconPath": "images/tab-mine-on.png"
       }
     ]
   },

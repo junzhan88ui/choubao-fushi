@@ -38,6 +38,7 @@
       <view class="card-title">喂养提醒</view>
       <view class="g-line">避免腌制、卤制、烧烤：这类做法含盐高、易产生有害物质，宝宝肠胃娇嫩，1 岁内尤其不建议。</view>
       <view class="g-line" wx:if="{{saltTip}}">{{saltTip}}</view>
+      <view class="g-line">蛋、鱼、虾、豆制品这类易过敏食物要「及时引入」，不要刻意回避 —— 指南指出 1 岁内适时引入可降低过敏风险，一直避着反而没有好处。</view>
     </view>
 
     <!-- 月龄不够 -->
@@ -98,7 +99,7 @@
           </view>
         </view>
 
-        <button class="btn btn-primary" bindtap="regenerate">重新生成计划</button>
+        <button class="btn btn-ghost" bindtap="regenerate">重新生成计划</button>
       </block>
 
       <!-- 采购清单 -->

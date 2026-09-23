@@ -5,29 +5,29 @@
 }
 
 .fd-name {
-  font-size: 40rpx;
+  font-size: var(--fs-display);
   font-weight: 500;
   color: var(--c-text);
   margin-right: 16rpx;
 }
 
 .fd-sub {
-  font-size: 25rpx;
+  font-size: var(--fs-md);
   color: var(--c-text-3);
 }
 
 .fd-warn {
   margin-top: 16rpx;
-  font-size: 25rpx;
-  color: #633806;
+  font-size: var(--fs-md);
+  color: var(--c-amber-ink);
   background: var(--c-amber-bg);
-  border-radius: 10rpx;
+  border-radius: var(--r-md);
   padding: 14rpx 18rpx;
 }
 
 /* 状态 */
 .fd-status {
-  font-size: 27rpx;
+  font-size: var(--fs-base);
   color: var(--c-text-2);
   margin-bottom: 20rpx;
 }
@@ -35,7 +35,7 @@
 .fd-status-val {
   font-weight: 500;
   padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  border-radius: var(--r-sm);
   margin-left: 8rpx;
 }
 
@@ -45,9 +45,9 @@
 }
 
 .mini-btn {
-  font-size: 25rpx;
+  font-size: var(--fs-md);
   padding: 14rpx 30rpx;
-  border-radius: 999rpx;
+  border-radius: var(--r-pill);
   margin: 0 16rpx 16rpx 0;
 }
 
@@ -58,24 +58,24 @@
 
 .mini-obs {
   background: var(--c-amber-bg);
-  color: #633806;
+  color: var(--c-amber-ink);
 }
 
 .mini-clear {
-  background: #f1efe8;
+  background: var(--c-muted);
   color: var(--c-text-2);
 }
 
 /* 引入方法 */
 .fd-method {
-  font-size: 27rpx;
+  font-size: var(--fs-base);
   color: var(--c-text-2);
   line-height: 1.7;
   margin-top: 16rpx;
 }
 
 .fd-note {
-  font-size: 27rpx;
+  font-size: var(--fs-base);
   color: var(--c-text-2);
   line-height: 1.7;
 }
@@ -97,24 +97,24 @@
 }
 
 .recipe-name {
-  font-size: 29rpx;
+  font-size: var(--fs-lg);
   color: var(--c-text);
 }
 
 .recipe-meta {
-  font-size: 23rpx;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
 }
 
 .meal-steps {
   margin-top: 14rpx;
-  background: #f7f6f2;
-  border-radius: 10rpx;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
   padding: 18rpx 20rpx;
 }
 
 .step {
-  font-size: 25rpx;
+  font-size: var(--fs-md);
   color: var(--c-text-2);
   line-height: 1.7;
   margin-bottom: 8rpx;
@@ -131,7 +131,7 @@
 
 .st-observing {
   background: var(--c-amber-bg);
-  color: #633806;
+  color: var(--c-amber-ink);
 }
 
 .st-bad {
@@ -140,6 +140,6 @@
 }
 
 .st-new {
-  background: #f1efe8;
+  background: var(--c-muted);
   color: var(--c-text-3);
 }

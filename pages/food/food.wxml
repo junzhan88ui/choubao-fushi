@@ -1,7 +1,8 @@
 <view class="page-wrap">
 
-  <view class="search">
+  <view class="search search--card">
     <input class="search-input" placeholder="搜食材，如 虾 / 蛋黄 / 南瓜"
+           placeholder-style="color:#6f6e6a"
            value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
     <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">清空</view>
   </view>

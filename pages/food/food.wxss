@@ -1,34 +1,14 @@
-.search {
-  display: flex;
-  align-items: center;
-  background: #ffffff;
-  border-radius: 14rpx;
-  padding: 0 24rpx;
-  margin-bottom: 20rpx;
-}
-
-.search-input {
-  flex: 1;
-  font-size: 28rpx;
-  padding: 24rpx 0;
-  color: var(--c-text);
-}
-
-.search-clear {
-  font-size: 24rpx;
-  color: var(--c-text-3);
-  padding-left: 16rpx;
-}
+/* 搜索框沿用 app.wxss 的全局 .search，本页置于页面底色上，加 .search--card 变体 */
 
 .tip-line {
-  font-size: 24rpx;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
   line-height: 1.7;
   padding: 0 8rpx 20rpx;
 }
 
 .tip-link {
-  color: var(--c-green);
+  color: var(--c-green-dark);
   text-decoration: underline;
 }
 
@@ -50,15 +30,17 @@
 }
 
 .food-name {
-  font-size: 29rpx;
+  font-size: var(--fs-lg);
   color: var(--c-text);
 }
 
+/* 「敏」= 常见致敏食材，不等于危险（指南准则二：不盲目回避）。
+   用中性描边标记，不用红色，避免把正常食材渲染成警示。 */
 .food-flag {
-  font-size: 20rpx;
-  color: #a32d2d;
-  background: var(--c-red-bg);
-  border-radius: 6rpx;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  border: 1rpx solid var(--c-line);
+  border-radius: var(--r-sm);
   padding: 0 8rpx;
   margin-left: 12rpx;
 }
@@ -69,15 +51,15 @@
 }
 
 .food-month {
-  font-size: 23rpx;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
   margin-right: 16rpx;
 }
 
 .food-status {
-  font-size: 22rpx;
+  font-size: var(--fs-xs);
   padding: 4rpx 14rpx;
-  border-radius: 8rpx;
+  border-radius: var(--r-sm);
 }
 
 .st-safe {
@@ -87,7 +69,7 @@
 
 .st-observing {
   background: var(--c-amber-bg);
-  color: #633806;
+  color: var(--c-amber-ink);
 }
 
 .st-bad {
@@ -96,6 +78,6 @@
 }
 
 .st-new {
-  background: #f1efe8;
+  background: var(--c-muted);
   color: var(--c-text-3);
 }

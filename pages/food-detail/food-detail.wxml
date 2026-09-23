@@ -4,7 +4,7 @@
   <view class="card">
     <view class="fd-head">
       <text class="fd-name">{{food.name}}</text>
-      <text class="tag tag-red" wx:if="{{food.allergen}}">常见致敏</text>
+      <text class="tag tag-outline" wx:if="{{food.allergen}}">常见致敏</text>
     </view>
     <view class="fd-sub">{{food.category}} · 建议 {{food.minMonth}} 月龄起</view>
     <view class="fd-warn" wx:if="{{!ready}}">还没到建议月龄（{{food.minMonth}} 月龄起），先别急</view>

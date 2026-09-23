@@ -6,15 +6,20 @@
 }
 
 .head-age {
-  font-size: 40rpx;
+  font-size: var(--fs-display);
   font-weight: 500;
   color: var(--c-text);
 }
 
+/* 当前关注：只在真的选了问题项时才用琥珀色，否则中性显示，避免假警报 */
 .head-issue {
   margin-top: 14rpx;
-  font-size: 26rpx;
+  font-size: var(--fs-md);
   color: var(--c-amber);
+}
+
+.head-issue--none {
+  color: var(--c-text-3);
 }
 
 /* 提醒条 */
@@ -26,14 +31,14 @@
 }
 
 .notice-text {
-  font-size: 26rpx;
-  color: #633806;
+  font-size: var(--fs-md);
+  color: var(--c-amber-ink);
   flex: 1;
 }
 
 .notice-btn {
-  font-size: 26rpx;
-  color: #633806;
+  font-size: var(--fs-md);
+  color: var(--c-amber-ink);
   font-weight: 500;
   padding-left: 20rpx;
 }
@@ -50,7 +55,7 @@
 
 /* 喂养提醒 */
 .guidance .g-line {
-  font-size: 25rpx;
+  font-size: var(--fs-md);
   color: var(--c-text-2);
   line-height: 1.7;
   margin-bottom: 12rpx;
@@ -63,8 +68,8 @@
 /* 切换 */
 .seg {
   display: flex;
-  background: #f1efe8;
-  border-radius: 14rpx;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
   padding: 6rpx;
   margin-bottom: 24rpx;
 }
@@ -72,10 +77,10 @@
 .seg-item {
   flex: 1;
   text-align: center;
-  font-size: 28rpx;
+  font-size: var(--fs-base);
   color: var(--c-text-2);
   padding: 16rpx 0;
-  border-radius: 10rpx;
+  border-radius: var(--r-sm);
 }
 
 .seg-on {
@@ -89,48 +94,65 @@
   padding: 24rpx 28rpx 12rpx;
 }
 
+/* 今天：左侧绿边 + 「今天」标签，让用户一眼定位 */
+.day-card--today {
+  border-left: 6rpx solid var(--c-green);
+  padding-left: 22rpx;
+}
+
 .day-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 16rpx;
 }
 
 .day-week {
-  font-size: 30rpx;
+  font-size: var(--fs-lg);
   font-weight: 500;
   color: var(--c-text);
   margin-right: 14rpx;
 }
 
 .day-date {
-  font-size: 24rpx;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
+}
+
+.day-today {
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: #ffffff;
+  background: var(--c-green);
+  border-radius: var(--r-pill);
+  padding: 2rpx 16rpx;
+  margin-left: 14rpx;
 }
 
 /* 新食材 */
 .newfood {
   background: var(--c-amber-bg);
-  border-radius: 12rpx;
-  padding: 20rpx;
+  border-radius: var(--r-md);
+  padding: 18rpx 20rpx;
   margin-bottom: 16rpx;
 }
 
 .newfood-title {
-  font-size: 27rpx;
+  font-size: var(--fs-base);
   font-weight: 500;
-  color: #633806;
+  color: var(--c-amber-ink);
   margin-bottom: 8rpx;
 }
 
 .newfood-body {
-  font-size: 25rpx;
-  color: #854f0b;
+  font-size: var(--fs-md);
+  color: var(--c-amber-ink);
   line-height: 1.6;
 }
 
 .newfood-note {
-  font-size: 23rpx;
-  color: #a32d2d;
+  font-size: var(--fs-xs);
+  color: var(--c-amber-ink);
+  line-height: 1.6;
   margin-top: 10rpx;
 }
 
@@ -146,25 +168,25 @@
 }
 
 .meal-name {
-  font-size: 29rpx;
+  font-size: var(--fs-lg);
   color: var(--c-text);
   margin-bottom: 6rpx;
 }
 
 .meal-meta {
-  font-size: 24rpx;
+  font-size: var(--fs-sm);
   color: var(--c-text-3);
 }
 
 .meal-steps {
   margin-top: 14rpx;
-  background: #f7f6f2;
-  border-radius: 10rpx;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
   padding: 18rpx 20rpx;
 }
 
 .step {
-  font-size: 25rpx;
+  font-size: var(--fs-md);
   color: var(--c-text-2);
   line-height: 1.7;
   margin-bottom: 8rpx;
@@ -186,7 +208,7 @@
   gap: 12rpx;
   padding-top: 18rpx;
   border-top: 1rpx solid var(--c-line);
-  font-size: 24rpx;
+  font-size: var(--fs-sm);
 }
 
 .cat-text {
@@ -203,7 +225,7 @@
 }
 
 .empty-title {
-  font-size: 32rpx;
+  font-size: var(--fs-title);
   color: var(--c-text);
   font-weight: 500;
   margin-bottom: 14rpx;

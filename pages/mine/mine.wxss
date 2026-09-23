@@ -6,7 +6,7 @@
 }
 
 .head-age {
-  font-size: 40rpx;
+  font-size: var(--fs-display);
   font-weight: 500;
   color: var(--c-text);
 }
@@ -26,7 +26,7 @@
   justify-content: space-between;
   padding: 26rpx 4rpx;
   border-bottom: 1rpx solid var(--c-line);
-  font-size: 29rpx;
+  font-size: var(--fs-lg);
   color: var(--c-text);
 }
 
@@ -36,7 +36,7 @@
 
 .link-arrow {
   color: var(--c-text-3);
-  font-size: 34rpx;
+  font-size: var(--fs-title);
   line-height: 1;
 }
 

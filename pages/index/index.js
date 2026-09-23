@@ -14,6 +14,22 @@ function saltTipFor(months) {
   return ''
 }
 
+// 标记「今天」，供列表做视觉锚点。
+// 只在渲染前算，不写回 storage —— 它是派生状态，存下来会过期。
+function markToday(p) {
+  if (!p || !p.days) return p
+  const todayKey = plan.dateKey(new Date())
+  p.days.forEach(function (d) { d.isToday = d.date === todayKey })
+  return p
+}
+
+// 缓存的计划是否覆盖今天（日期窗口内）
+function coversToday(p) {
+  if (!p || !p.days || p.days.length === 0) return false
+  const todayKey = plan.dateKey(new Date())
+  return p.days[0].date <= todayKey && todayKey <= p.days[p.days.length - 1].date
+}
+
 Page({
   data: {
     ready: false,
@@ -23,6 +39,7 @@ Page({
     stageLabel: '',
     stageDesc: '',
     issueLabel: '',
+    issueKey: '',
     ageStatus: '',
     tooYoung: false,
     outOfRange: false,
@@ -56,13 +73,16 @@ Page({
       return { foodId: it.foodId, name: f ? f.name : it.foodId, date: it.date }
     })
 
+    const issueKey = storage.getIssue()
+
     const base = {
       ready: true,
       configured: true,
       months: months,
       ageText: age.describeAge(baby.birthday),
       ageStatus: st.status,
-      issueLabel: storage.issueLabel(storage.getIssue()),
+      issueLabel: storage.issueLabel(issueKey),
+      issueKey: issueKey,
       dueObs: dueObs,
       saltTip: saltTipFor(months),
       tooYoung: false,
@@ -91,12 +111,15 @@ Page({
 
     const stage = st.stage
 
-    // 月龄变了或没有计划 → 重新生成
+    // 月龄变了、没有计划、或缓存计划的日期窗口已经不包含今天 → 重新生成
+    // （只按 months 判断会让旧计划一直留着，既可能残留已排除的食材，
+    //   也会让「今天」标记落在空处）
     let p = storage.getPlan()
-    if (!p || p.months !== months) {
+    if (!p || p.months !== months || !coversToday(p)) {
       p = plan.generateFromStorage(storage)
       storage.setPlan(p)
     }
+    markToday(p)
 
     base.stageLabel = stage.label
     base.stageDesc = stage.desc
@@ -128,7 +151,7 @@ Page({
           return
         }
         storage.setPlan(p)
-        that.setData({ planData: p, tab: 'plan', expanded: '' })
+        that.setData({ planData: markToday(p), tab: 'plan', expanded: '' })
         wx.showToast({ title: '已重新生成', icon: 'success' })
       }
     })
