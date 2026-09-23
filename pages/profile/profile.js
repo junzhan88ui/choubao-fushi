@@ -10,9 +10,8 @@ Page({
     today: '',
     minDate: '',
     ageText: '',
-    issues: storage.ISSUES,
-    issueKey: 'none',
-    sick: false,
+    // 状态多选：由 storage.STATUSES 逐项算出是否已勾选
+    statuses: [],
     keyword: '',
     groups: [],
     observing: [],
@@ -33,11 +32,16 @@ Page({
     const birthday = baby && baby.birthday ? baby.birthday : ''
     this.setData({
       birthday: birthday,
-      ageText: birthday ? age.describeAge(birthday) : '',
-      issueKey: storage.getIssue(),
-      sick: storage.getSick()
+      ageText: birthday ? age.describeAge(birthday) : ''
     })
+    this.rebuildStatus()
     this.rebuild()
+  },
+
+  /** 重建状态卡选项（列表由 storage 提供，「状态正常」恒在第一位）
+   *  页面不自己判断勾选态 —— 互斥关系由 storage 的 statusOptions 负责。 */
+  rebuildStatus() {
+    this.setData({ statuses: storage.statusOptions() })
   },
 
   /** 重建食材勾选列表 */
@@ -102,18 +106,13 @@ Page({
     wx.showToast({ title: '已保存', icon: 'success' })
   },
 
-  onIssueChange(e) {
+  /** 状态多选：点「状态正常」清空全部，点真状态则 toggle，互不影响其它已选项 */
+  onStatusChange(e) {
     const key = e.currentTarget.dataset.key
-    storage.setIssue(key)
-    this.setData({ issueKey: key })
+    storage.setStatuses(storage.toggleStatus(key))
+    // 状态会改变加权方向，也会改变指纹里的 sick（生病时暂停新食材），计划作废
     storage.setPlan(null)
-  },
-
-  onSickChange(e) {
-    const v = e.currentTarget.dataset.sick === '1'
-    storage.setSick(v)
-    this.setData({ sick: v })
-    storage.setPlan(null)
+    this.rebuildStatus()
   },
 
   onKeyword(e) {

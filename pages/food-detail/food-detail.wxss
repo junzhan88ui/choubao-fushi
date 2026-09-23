@@ -1,16 +1,24 @@
+/* 头部：食材名 + 「类别 · 建议 N 月龄起」+ 致敏标 同排
+ * 用 baseline 而不是 center —— 40rpx 标题配 26rpx 小字，基线对齐才落在同一条底线上
+ * （与本页 .recipe-head 的 名称+meta 同款处理）。
+ * 间距统一走 gap，不再在 .fd-name 上挂 margin-right。
+ * flex-wrap 兜底：名称较长 + 致敏标时折行，避免把小字挤出屏幕。 */
 .fd-head {
   display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8rpx 16rpx;
 }
 
 .fd-name {
   font-size: var(--fs-display);
   font-weight: 500;
   color: var(--c-text);
-  margin-right: 16rpx;
 }
 
+/* 字号保持 --fs-md 不变（与原独立成行时一致）。
+   这里不再设 margin-bottom：与下方 .fd-warn 的间距由 .fd-warn 自己的
+   margin-top: 16rpx 提供；无提示条时也不多出一截空白。 */
 .fd-sub {
   font-size: var(--fs-md);
   color: var(--c-text-3);

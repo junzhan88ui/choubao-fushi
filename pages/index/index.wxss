@@ -11,7 +11,7 @@
   color: var(--c-text);
 }
 
-/* 当前关注：只在真的选了问题项时才用琥珀色，否则中性显示，避免假警报 */
+/* 当前状态：一项都没勾（= 正常）时用中性灰色，真勾了问题项才用琥珀色，避免假警报 */
 .head-issue {
   margin-top: 14rpx;
   font-size: var(--fs-md);
@@ -100,10 +100,19 @@
   padding-left: 22rpx;
 }
 
+/* 天卡片头部：左边星期+日期，右边食物覆盖数 */
 .day-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
   margin-bottom: 16rpx;
+}
+
+.day-head-l {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
 
 .day-week {
@@ -201,14 +210,16 @@
   border-top: 1rpx solid var(--c-line);
 }
 
+/* 天卡片头部右侧的食物覆盖数 —— 已并入 .day-head，不再带分隔线 */
 .cat-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12rpx;
-  padding-top: 18rpx;
-  border-top: 1rpx solid var(--c-line);
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8rpx 12rpx;
   font-size: var(--fs-sm);
+  text-align: right;
+  flex-shrink: 0;
 }
 
 .cat-text {

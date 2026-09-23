@@ -8,39 +8,141 @@
 const KEYS = {
   BABY: 'bb_baby',        // { birthday }
   INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: observing | safe | bad
-  ISSUE: 'bb_issue',      // 'none' | 'refuse' | ...
-  SICK: 'bb_sick',        // bool —— 宝宝生病中，期间暂停引入新辅食
-  PLAN: 'bb_plan'         // { generatedAt, months, stageKey, days, shopping }
+  STATUS: 'bb_status',    // [keys] 当前状态，可多选（合法 key 见 STATUSES）
+  PLAN: 'bb_plan',        // { generatedAt, months, stageKey, days, shopping }
+
+  // 旧版单选字段，只用于把老用户的设置迁移进 bb_status（见 ensureInit）
+  LEGACY_ISSUE: 'bb_issue',
+  LEGACY_SICK: 'bb_sick'
 }
 
 // 新食材观察天数
 const OBSERVE_DAYS = 3
 
-// 当前最烦的问题（单选）
-const ISSUES = [
-  { key: 'none', label: '没什么问题' },
+// 宝宝当前状态（**多选**）
+//
+// 这里只放「真状态」，不放空值选项（没什么问题 / ok / normal）。
+// 空值一旦进了这个数组，就能和「便秘」同时勾上，自相矛盾，
+// STATUS_TAG 加权表也得跟着分叉 —— _validate.js §6 守的就是这条。
+//
+// 「状态正常」因此单独走排它通道（见下方 OK_KEY）：它的 key 不进
+// STATUSES、不进 bb_status、也进不了 STATUS_TAG，只是 UI 上摆在第一位、
+// 点了清空全部的选项，表达的仍是「一项都没勾」。
+//
+// 'sick' 与其他项性质不同：它不是加权偏好，而是硬开关（暂停引入新食材），
+// 由 getSick() 单独取出来交给引擎，见 plan.planInputs。
+const STATUSES = [
   { key: 'refuse', label: '不肯吃' },
   { key: 'constipation', label: '便秘' },
   { key: 'loose', label: '大便稀' },
   { key: 'iron', label: '缺铁 / 贫血' },
-  { key: 'allergy', label: '疑似过敏' }
+  { key: 'allergy', label: '疑似过敏' },
+  { key: 'sick', label: '生病中' }
 ]
 
-function issueLabel(key) {
-  for (let i = 0; i < ISSUES.length; i++) {
-    if (ISSUES[i].key === key) return ISSUES[i].label
+const SICK_KEY = 'sick'
+
+function isStatusKey(k) {
+  for (let i = 0; i < STATUSES.length; i++) {
+    if (STATUSES[i].key === k) return true
   }
-  return '没什么问题'
+  return false
+}
+
+function statusLabel(key) {
+  for (let i = 0; i < STATUSES.length; i++) {
+    if (STATUSES[i].key === key) return STATUSES[i].label
+  }
+  return ''
+}
+
+/** 多选状态 → 展示文案；没勾任何项就是「正常」 */
+function statusLabels(keys) {
+  if (!keys || !keys.length) return '正常'
+  const out = []
+  for (let i = 0; i < keys.length; i++) {
+    const l = statusLabel(keys[i])
+    if (l && out.indexOf(l) < 0) out.push(l)
+  }
+  return out.length ? out.join('、') : '正常'
+}
+
+/* ---------- 排它选项：状态正常 ---------- */
+
+// key 故意用一个 STATUSES 里永远不会有的形式 —— 即便误传进 setStatuses，
+// isStatusKey() 也会把它滤掉，不会污染 bb_status。
+const OK_KEY = '__normal__'
+const OK_LABEL = '状态正常'
+
+/**
+ * 「宝宝状态怎么样」卡的选项列表，「状态正常」恒在第一位。
+ *
+ * @param {string[]} sel 不传则读本地存储；传了就不碰 wx（自检脚本在裸 node 下调用）
+ *
+ * 「状态正常」的 on = (sel.length === 0)，所以它和所有真状态**天然互斥**：
+ * 勾它 → 空数组 → 它亮；勾任意真状态 → 非空 → 它灭。不需要额外的互斥逻辑。
+ */
+function statusOptions(sel) {
+  const s = Array.isArray(sel) ? sel : getStatuses()
+  const out = [{ key: OK_KEY, label: OK_LABEL, on: s.length === 0 }]
+  for (let i = 0; i < STATUSES.length; i++) {
+    out.push({
+      key: STATUSES[i].key,
+      label: STATUSES[i].label,
+      on: s.indexOf(STATUSES[i].key) >= 0
+    })
+  }
+  return out
+}
+
+/**
+ * 点一下某项之后应当写入的新状态集合（纯逻辑，页面只负责调用 + 刷新）。
+ *
+ * @param {string} key
+ * @param {string[]} sel 不传则读本地存储
+ */
+function toggleStatus(key, sel) {
+  const cur = (Array.isArray(sel) ? sel : getStatuses()).slice()
+  if (key === OK_KEY) return []          // 状态正常 = 清空全部
+  const at = cur.indexOf(key)
+  if (at >= 0) cur.splice(at, 1)         // 已勾 → 取消
+  else cur.push(key)                     // 未勾 → 勾上
+  return cur
 }
 
 /** 启动时初始化，避免各页面重复判空 */
 function ensureInit() {
-  if (!wx.getStorageSync(KEYS.INTRO)) wx.setStorageSync(KEYS.INTRO, [])
-  if (!wx.getStorageSync(KEYS.ISSUE)) wx.setStorageSync(KEYS.ISSUE, 'none')
-  if (wx.getStorageSync(KEYS.SICK) === '') wx.setStorageSync(KEYS.SICK, false)
+  if (!Array.isArray(wx.getStorageSync(KEYS.INTRO))) wx.setStorageSync(KEYS.INTRO, [])
+
+  // 状态从旧版单选迁过来：老用户勾过的问题 / 生病状态不能被静默丢掉。
+  // 判据是「是不是数组」而不是「是不是空」—— 用户主动清空成 [] 也算迁移完成，
+  // 否则每次启动都会拿旧字段把它填回去。
+  if (!Array.isArray(wx.getStorageSync(KEYS.STATUS))) {
+    const migrated = []
+    const oldIssue = wx.getStorageSync(KEYS.LEGACY_ISSUE)
+    if (oldIssue && oldIssue !== 'none') migrated.push(oldIssue)
+    if (wx.getStorageSync(KEYS.LEGACY_SICK)) migrated.push(SICK_KEY)
+    wx.setStorageSync(KEYS.STATUS, migrated.filter(isStatusKey))
+  }
 }
 
-/* ---------- 生病中 ---------- */
+/* ---------- 当前状态（多选） ---------- */
+
+/** 选中的全部状态 key，永远是合法 key 组成的数组 */
+function getStatuses() {
+  const list = wx.getStorageSync(KEYS.STATUS)
+  if (!Array.isArray(list)) return []
+  return list.filter(isStatusKey)
+}
+
+function setStatuses(list) {
+  wx.setStorageSync(KEYS.STATUS, (Array.isArray(list) ? list : []).filter(isStatusKey))
+}
+
+/** 参与「加权随机」的问题状态（不含生病 —— 生病是硬开关，见下） */
+function getIssues() {
+  return getStatuses().filter(function (k) { return k !== SICK_KEY })
+}
 
 /**
  * 宝宝是否生病中。
@@ -50,13 +152,11 @@ function ensureInit() {
  *     病愈后，及时恢复正常饮食。」
  *
  * 所以生病期间：不排新食材引入，但常规菜谱照排（且应偏向易消化的）。
+ * 它在界面上只是状态多选里的一项，但语义是硬开关 —— planInputs 会把它
+ * 单独拆出来，别当成普通问题丢给加权。
  */
 function getSick() {
-  return !!wx.getStorageSync(KEYS.SICK)
-}
-
-function setSick(v) {
-  wx.setStorageSync(KEYS.SICK, !!v)
+  return getStatuses().indexOf(SICK_KEY) >= 0
 }
 
 /* ---------- 宝宝档案 ---------- */
@@ -163,16 +263,6 @@ function dueObservations(now) {
   })
 }
 
-/* ---------- 当前问题 ---------- */
-
-function getIssue() {
-  return wx.getStorageSync(KEYS.ISSUE) || 'none'
-}
-
-function setIssue(key) {
-  wx.setStorageSync(KEYS.ISSUE, key || 'none')
-}
-
 /* ---------- 当前计划 ---------- */
 
 function getPlan() {
@@ -195,15 +285,24 @@ function todayStr(d) {
 function resetAll() {
   wx.removeStorageSync(KEYS.BABY)
   wx.removeStorageSync(KEYS.INTRO)
-  wx.removeStorageSync(KEYS.ISSUE)
+  wx.removeStorageSync(KEYS.STATUS)
   wx.removeStorageSync(KEYS.PLAN)
+  // 旧版字段一起清：否则清完之后 ensureInit 会拿它们把状态原样迁回来。
+  // （此前这里漏了 bb_sick —— 「清除全部数据」后生病状态仍残留）
+  wx.removeStorageSync(KEYS.LEGACY_ISSUE)
+  wx.removeStorageSync(KEYS.LEGACY_SICK)
 }
 
 module.exports = {
   KEYS: KEYS,
   OBSERVE_DAYS: OBSERVE_DAYS,
-  ISSUES: ISSUES,
-  issueLabel: issueLabel,
+  STATUSES: STATUSES,
+  OK_KEY: OK_KEY,
+  OK_LABEL: OK_LABEL,
+  statusLabel: statusLabel,
+  statusLabels: statusLabels,
+  statusOptions: statusOptions,
+  toggleStatus: toggleStatus,
   ensureInit: ensureInit,
   getBaby: getBaby,
   setBaby: setBaby,
@@ -219,10 +318,10 @@ module.exports = {
   badFoodIds: badFoodIds,
   recordedFoodIds: recordedFoodIds,
   dueObservations: dueObservations,
-  getIssue: getIssue,
-  setIssue: setIssue,
+  getStatuses: getStatuses,
+  setStatuses: setStatuses,
+  getIssues: getIssues,
   getSick: getSick,
-  setSick: setSick,
   getPlan: getPlan,
   setPlan: setPlan,
   todayStr: todayStr,

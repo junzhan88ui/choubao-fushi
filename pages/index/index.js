@@ -39,7 +39,7 @@ Page({
     stageLabel: '',
     stageDesc: '',
     issueLabel: '',
-    issueKey: '',
+    issueNone: false,
     ageStatus: '',
     tooYoung: false,
     outOfRange: false,
@@ -73,7 +73,8 @@ Page({
       return { foodId: it.foodId, name: f ? f.name : it.foodId, date: it.date }
     })
 
-    const issueKey = storage.getIssue()
+    // 状态是多选，这里取全部；一项都没勾 → statusLabels 兜底成「正常」
+    const statuses = storage.getStatuses()
 
     const base = {
       ready: true,
@@ -81,8 +82,9 @@ Page({
       months: months,
       ageText: age.describeAge(baby.birthday),
       ageStatus: st.status,
-      issueLabel: storage.issueLabel(issueKey),
-      issueKey: issueKey,
+      issueLabel: storage.statusLabels(statuses),
+      // 全空 = 没有任何待改善项 → 用灰色，别让「正常」看起来像告警
+      issueNone: statuses.length === 0,
       dueObs: dueObs,
       saltTip: saltTipFor(months),
       tooYoung: false,

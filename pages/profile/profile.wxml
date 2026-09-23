@@ -2,34 +2,27 @@
 
   <!-- 生日 -->
   <view class="card">
-    <view class="card-title">宝宝生日</view>
+    <!-- 标题行：左标题、右补充信息，基线对齐 -->
+    <view class="card-head">
+      <view class="card-title">宝宝生日</view>
+      <view class="age-now" wx:if="{{ageText}}">现在 {{ageText}}</view>
+    </view>
     <picker mode="date" value="{{birthday}}" start="{{minDate}}" end="{{today}}" bindchange="onDateChange">
       <view class="row">
         <text class="row-label">出生日期</text>
         <text class="row-value">{{birthday || '点击选择'}}</text>
       </view>
     </picker>
-    <view class="muted age-line" wx:if="{{ageText}}">现在 {{ageText}}</view>
   </view>
 
-  <!-- 当前问题 -->
+  <!-- 宝宝状态 -->
   <view class="card">
-    <view class="card-title">最近最烦的一件事</view>
-    <view class="card-sub">选一个就好，会影响计划里菜的搭配方向</view>
+    <view class="card-title">宝宝状态怎么样</view>
+    <view class="card-sub">可多选，会影响搭配方向。</view>
     <view class="chips">
-      <view class="chip {{issueKey === item.key ? 'chip-on' : ''}}"
-            wx:for="{{issues}}" wx:key="key" wx:for-item="item"
-            data-key="{{item.key}}" bindtap="onIssueChange">{{item.label}}</view>
-    </view>
-  </view>
-
-  <!-- 生病状态 -->
-  <view class="card">
-    <view class="card-title">宝宝生病了？</view>
-    <view class="card-sub">患病期间暂停添加新辅食，鼓励吃易消化、营养丰富的辅食；病好及时恢复正常饮食（依据 WS/T 678—2020 辅食添加营养指南）。</view>
-    <view class="chips">
-      <view class="chip {{sick ? 'chip-on' : ''}}" data-sick="1" bindtap="onSickChange">生病中</view>
-      <view class="chip {{sick ? '' : 'chip-on'}}" data-sick="0" bindtap="onSickChange">状态正常</view>
+      <view class="chip {{item.on ? 'chip-on' : ''}}"
+            wx:for="{{statuses}}" wx:key="key" wx:for-item="item"
+            data-key="{{item.key}}" bindtap="onStatusChange">{{item.label}}</view>
     </view>
   </view>
 

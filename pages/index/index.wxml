@@ -18,7 +18,7 @@
         <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
       </view>
       <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>
-      <view class="head-issue">当前关注：{{issueLabel}}</view>
+      <view class="head-issue {{issueNone ? 'head-issue--none' : ''}}">当前状态：{{issueLabel}}</view>
     </view>
 
     <!-- 观察期提醒 -->
@@ -29,7 +29,7 @@
 
     <!-- 生病中提醒 -->
     <view class="card card-tight notice notice-sick" wx:if="{{planData.sick}}">
-      <view class="notice-text">宝宝生病中：本周暂停尝试新食材，菜单已偏向易消化、营养丰富的辅食。病好后在「我的」改回「状态正常」，即可恢复正常饮食。</view>
+      <view class="notice-text">宝宝生病中：本周暂停尝试新食材，菜单已偏向易消化、营养丰富的辅食。病好后到「我的」取消勾选「生病中」，即可恢复正常饮食。</view>
       <view class="notice-btn" bindtap="goProfile">去改</view>
     </view>
 
@@ -67,17 +67,24 @@
 
       <!-- 本周计划 -->
       <block wx:if="{{tab === 'plan'}}">
-        <view class="card day-card" wx:for="{{planData.days}}" wx:key="date" wx:for-item="day">
+        <view class="card day-card {{day.isToday ? 'day-card--today' : ''}}"
+              wx:for="{{planData.days}}" wx:key="date" wx:for-item="day">
           <view class="day-head">
-            <text class="day-week">{{day.weekday}}</text>
-            <text class="day-date">{{day.dateLabel}}</text>
+            <view class="day-head-l">
+              <text class="day-week">{{day.weekday}}</text>
+              <text class="day-date">{{day.dateLabel}}</text>
+              <text class="day-today" wx:if="{{day.isToday}}">今天</text>
+            </view>
+            <view class="cat-row" wx:if="{{day.meals.length}}">
+              <text class="cat-text">今天覆盖 {{day.catCount}} 类食物</text>
+              <text class="cat-warn" wx:if="{{day.catApplicable && !day.catOk}}">建议再补：{{day.catMissing}}</text>
+            </view>
           </view>
 
           <view class="newfood" wx:if="{{day.newFood}}">
             <view class="newfood-title">新食材尝试 · {{day.newFood.name}}</view>
             <view class="newfood-body">{{day.newFood.amount}}；{{day.newFood.method}}</view>
             <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
-            <view class="newfood-note">蛋、鱼、虾、豆制品这类易过敏食物要「及时引入」，不要刻意回避 —— 指南指出 1 岁内适时引入可降低过敏风险，一直避着反而没有好处。</view>
           </view>
 
           <view class="meal" wx:for="{{day.meals}}" wx:key="key" wx:for-item="meal"
@@ -92,11 +99,6 @@
           </view>
 
           <view class="meal-hint muted" wx:if="{{!day.meals.length}}">暂无合适的菜谱，去「我的」补一下已吃食材</view>
-
-          <view class="cat-row" wx:if="{{day.meals.length}}">
-            <text class="cat-text">今天覆盖 {{day.catCount}} 类食物</text>
-            <text class="cat-warn" wx:if="{{day.catApplicable && !day.catOk}}">建议再补：{{day.catMissing}}</text>
-          </view>
         </view>
 
         <button class="btn btn-ghost" bindtap="regenerate">重新生成计划</button>

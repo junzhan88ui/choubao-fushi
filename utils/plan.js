@@ -7,7 +7,7 @@
  * 规则顺序：
  *   1. 月龄 → 性状档位 + 每日餐次
  *   2. 候选池 = 月龄合适 且 主料安全（高致敏食材必须已确认安全）
- *   3. 按「当前最烦的问题」加权
+ *   3. 按「当前状态」加权（多选，每个状态各自贡献一个标签，命中任一 ×3）
  *   4. 去重（软约束）：同一道菜用过之后权重 ×0.2/次；当天已用主料权重 ×0.3
  *      —— 是权重衰减不是硬上限，实测一周最多 3 次、同日撞主料约 8~14% 的天。
  *      官方要求的多样性在「类别」层面，由下方每日 4 类覆盖的修补循环保证。
@@ -20,14 +20,16 @@ const RECIPES = require('../data/recipes')
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
-// 问题 → 加权标签
-const ISSUE_TAG = {
+// 状态 → 加权标签（多选，各自生效）
+// allergy 没有对应标签：疑似过敏是「别乱试新食材」的语义，
+// 由新食材通道和 blockedIds 承担，不靠抬某个菜谱标签的权重。
+const STATUS_TAG = {
   iron: '补铁',
   constipation: '膳食纤维',
   loose: '易消化',
   refuse: '易入口',
   allergy: '',
-  none: ''
+  sick: '易消化'   // WS/T 678—2020 3.8：患病期间鼓励易消化、营养丰富的辅食
 }
 
 const FOOD_MAP = (function () {
@@ -186,15 +188,23 @@ function covScore(cov) {
   return (REQUIRED_CATS.length - missing) * 100 + Object.keys(cov).length
 }
 
-/** 加权随机抽一道菜 */
-function pickWeighted(candidates, usedCount, dayMainUse, issueTag, dayCats) {
+/** 加权随机抽一道菜。
+ *  @param {string[]} issueTags 命中的状态标签（可多个，来自 STATUS_TAG）
+ *                             —— 命中任一 ×3 就够，不叠加：
+ *                             叠到 ×9 会压过重复惩罚（0.2/次），
+ *                             让带两个标签的菜变成必选项，反而一周反复出现。 */
+function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats) {
   if (!candidates.length) return null
 
   const scored = candidates.map(function (r) {
     let w = 1
 
-    // 问题加权
-    if (issueTag && r.tags.indexOf(issueTag) >= 0) w *= 3
+    // 状态加权（多选：命中任一标签即 ×3）
+    if (issueTags && issueTags.length) {
+      for (let i = 0; i < issueTags.length; i++) {
+        if (issueTags[i] && r.tags.indexOf(issueTags[i]) >= 0) { w *= 3; break }
+      }
+    }
 
     // 已出现次数惩罚（软约束：权重衰减，不是硬上限 —— 实测一周最多约 3 次）
     const used = usedCount[r.id] || 0
@@ -244,12 +254,13 @@ function pickWeighted(candidates, usedCount, dayMainUse, issueTag, dayCats) {
 /**
  * @param {object} opts
  *   months           月龄（必填）
- *   issue            当前最烦的问题 key
+ *   issues           当前状态 key 数组（多选，不含 sick）—— 见 storage.STATUSES
+ *   sick             宝宝生病中（true 时暂停引入新食材，并偏向易消化菜谱）
+ *                    —— 它在界面上是状态里的一项，但语义是硬开关，所以单独传
  *   safeFoodIds      已确认安全的食材 id 数组
  *   blockedFoodIds   已确认「有反应」的食材 id 数组（唯一会被系统性排除的一类）
  *   recordedFoodIds  所有记录过的食材 id 数组（含观察中/异常）
  *   observingCount   正在观察中的食材数量
- *   sick             宝宝生病中（true 时暂停引入新食材，并偏向易消化菜谱）
  *   startDate        Date，默认今天
  * @returns {object|null}
  */
@@ -258,14 +269,21 @@ function generate(opts) {
   const stage = age.getStage(months)
   if (!stage) return null
 
-  const issue = opts.issue || 'none'
+  const issues = opts.issues || []
   const safeIds = opts.safeFoodIds || []
   const blockedIds = opts.blockedFoodIds || []
   const recordedIds = opts.recordedFoodIds || []
-  // WS/T 678—2020 3.8：「患病期间……鼓励进食易消化且营养丰富的辅食」
-  // 生病期间如果用户没指定别的问题，就按「易消化」加权
+
   const sick = !!opts.sick
-  const issueTag = (sick && issue === 'none') ? '易消化' : (ISSUE_TAG[issue] || '')
+  // 多个状态各自贡献标签；去重后交给 pickWeighted（命中任一 ×3，不叠加）
+  const issueTags = []
+  for (let i = 0; i < issues.length; i++) {
+    const t = STATUS_TAG[issues[i]]
+    if (t && issueTags.indexOf(t) < 0) issueTags.push(t)
+  }
+  if (sick && STATUS_TAG.sick && issueTags.indexOf(STATUS_TAG.sick) < 0) {
+    issueTags.push(STATUS_TAG.sick)
+  }
   const start = opts.startDate ? new Date(opts.startDate) : new Date()
   start.setHours(0, 0, 0, 0)
 
@@ -351,7 +369,7 @@ function generate(opts) {
     const dayCats = {}
     const picked = []
     for (let m = 0; m < stage.meals; m++) {
-      const recipe = pickWeighted(pool, usedCount, dayMainUse, issueTag, dayCats)
+      const recipe = pickWeighted(pool, usedCount, dayMainUse, issueTags, dayCats)
       if (!recipe) break
       picked.push(recipe)
       for (let k = 0; k < recipe.mainFoods.length; k++) dayMainUse[recipe.mainFoods[k]] = true
@@ -482,7 +500,7 @@ function generate(opts) {
     stageLabel: stage.label,
     stageDesc: stage.desc,
     mealsPerDay: stage.meals,
-    issue: issue,
+    issues: issues,
     sick: sick,
     days: days,
     shopping: shopping,
@@ -495,9 +513,11 @@ function generate(opts) {
  *
  * 关键：**缓存失效判断必须和实际生成读同一组输入**。
  * 之前的写法是页面里自己判 `p.months !== months`，结果漏掉了
- * issue / sick / 已引入食材 —— 用户把某食材标成「有反应」后，
+ * 状态（多选）/ 生病 / 已引入食材 —— 用户把某食材标成「有反应」后，
  * 缓存计划里那道菜还在，下次打开照样推荐（这是安全相关的缺陷，
  * 「有反应」的语义就是永久排除）。
+ *
+ * 注意 issues 是数组：状态改成多选后，勾上或取消任意一项都必须让指纹变化。
  */
 function planInputs(storage) {
   const baby = storage.getBaby()
@@ -507,7 +527,7 @@ function planInputs(storage) {
 
   return {
     months: months,
-    issue: storage.getIssue(),
+    issues: storage.getIssues(),
     sick: storage.getSick(),
     safeFoodIds: storage.safeFoodIds(),
     blockedFoodIds: storage.badFoodIds(),
@@ -525,7 +545,9 @@ function planSignature(storage) {
   }
   return [
     'm' + inputs.months,
-    'i' + inputs.issue,
+    // 排序后再拼：多选项的勾选顺序不该影响指纹，
+    // 否则同一组状态换个顺序就会白重算一次
+    'i' + list(inputs.issues),
     's' + (inputs.sick ? 1 : 0),
     'k' + list(inputs.safeFoodIds),
     'b' + list(inputs.blockedFoodIds),

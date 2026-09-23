@@ -39,6 +39,44 @@ appJson.pages.forEach((p) => {
     E(`${p} 实现了 onPullDownRefresh，但 ${p}.json 没开 enablePullDownRefresh —— 手势不会触发，函数是死代码`)
 })
 
+/* ---------- 1c. 「今天」视觉锚点必须三段接上 ----------
+ * 链路：index.js 算 isToday → index.wxml 绑成 class → index.wxss 生效。
+ * 断在中间那段（WXML 写死 class、没做条件绑定）的话，JS 每次 onShow
+ * 照样跑 markToday() 写数据、wxss 两条规则照样打包进包，但用户看不到锚点
+ * —— 死数据，比死代码更难发现（本次审查就查出过这条）。
+ *
+ * 另外盯住「今天」胶囊：WXML 里引用了 .day-today，但 wxss 忘了定义，
+ * 标签会裸渲染成无样式的黑字。
+ */
+{
+  const errsBefore = errs.length
+  const idxWxml = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const idxWxss = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const idxJs = fs.readFileSync('./pages/index/index.js', 'utf8')
+
+  const wxssHas = (cls) => new RegExp('\\.' + cls + '\\s*\\{').test(idxWxss)
+
+  if (idxJs.indexOf('isToday') >= 0 && idxWxml.indexOf('day.isToday') < 0)
+    E('index.js 算了 day.isToday，但 index.wxml 没读它 —— markToday 是死数据，今天锚点不生效')
+
+  if (idxWxml.indexOf('day-card--today') < 0)
+    E('index.wxml 没引用 .day-card--today（左侧绿边）—— 该 class 永远不会被应用')
+  else if (!wxssHas('day-card--today'))
+    E('index.wxml 引用了 .day-card--today，但 index.wxss 没定义')
+
+  if (idxWxml.indexOf('day-today') < 0)
+    E('index.wxml 没引用 .day-today（「今天」胶囊）')
+  else if (!wxssHas('day-today'))
+    E('index.wxml 引用了 .day-today，但 index.wxss 没定义 —— 标签会裸渲染')
+
+  if (idxWxml.indexOf('day.isToday') >= 0 && idxJs.indexOf('markToday') < 0)
+    E('index.wxml 读了 day.isToday，但 index.js 没调 markToday —— 字段永远是 undefined，锚点永远不出现')
+
+  // 三段都接通才报绿，否则上面已有 ❌，再打 ✓ 会自相矛盾
+  if (errs.length === errsBefore)
+    console.log('  今天视觉锚点：isToday → class → 样式三段已接通 ✓')
+}
+
 /* ---------- 2. 食材库 ---------- */
 const CATS = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋奶', '豆类', '油脂', '其他']
 const fids = {}
@@ -110,17 +148,34 @@ recipes.forEach((r, i) => {
   if (missAllergen.length) E(`${tag} 致敏主料 ${missAllergen.join('/')} 未登记到 allergens`)
 })
 
-/* ---------- 4. 标签体系对齐：ISSUE_TAG 的值必须真的存在于菜谱标签里 ---------- */
+/* ---------- 4. 标签体系对齐：STATUS_TAG 的值必须真的存在于菜谱标签里 ----------
+ * 状态改成多选后，每个非空标签都会独立地去候选池里加权，
+ * 所以任何一个标签落空 = 用户勾了那个状态却毫无效果（静默失效）。
+ */
 const planSrc = fs.readFileSync('./utils/plan.js', 'utf8')
-const issueTagBlock = planSrc.match(/ISSUE_TAG\s*=\s*\{([\s\S]*?)\}/)
-if (!issueTagBlock) E('plan.js 里找不到 ISSUE_TAG')
+const statusTagBlock = planSrc.match(/STATUS_TAG\s*=\s*\{([\s\S]*?)\}/)
+if (!statusTagBlock) E('plan.js 里找不到 STATUS_TAG')
 else {
-  const vals = [...issueTagBlock[1].matchAll(/:\s*'([^']*)'/g)].map((m) => m[1]).filter(Boolean)
+  const vals = [...statusTagBlock[1].matchAll(/:\s*'([^']*)'/g)].map((m) => m[1]).filter(Boolean)
   const allTags = new Set()
   recipes.forEach((r) => (r.tags || []).forEach((t) => allTags.add(t)))
   vals.forEach((v) => {
-    if (!allTags.has(v)) E(`ISSUE_TAG 用了「${v}」，但没有任何菜谱带这个标签，加权会全部落空`)
+    if (!allTags.has(v)) E(`STATUS_TAG 用了「${v}」，但没有任何菜谱带这个标签，加权会全部落空`)
   })
+  // 多选的前提：状态表和加权表不能脱节
+  const statusKeys = [...statusTagBlock[1].matchAll(/^\s*(\w+):/gm)].map((m) => m[1])
+  const storageSrc = fs.readFileSync('./utils/storage.js', 'utf8')
+  const statBlock = storageSrc.match(/STATUSES\s*=\s*\[([\s\S]*?)\]/)
+  if (!statBlock) E('storage.js 里找不到 STATUSES')
+  else {
+    const sk = [...statBlock[1].matchAll(/key:\s*'(\w+)'/g)].map((m) => m[1])
+    sk.forEach((k) => {
+      if (statusKeys.indexOf(k) < 0) E(`STATUSES 有「${k}」但 STATUS_TAG 没有它，勾选后加权表取不到标签`)
+    })
+    statusKeys.forEach((k) => {
+      if (sk.indexOf(k) < 0) E(`STATUS_TAG 有「${k}」但 STATUSES 没有这个选项，是删漏的残留`)
+    })
+  }
 }
 
 /* ---------- 5. 月龄阶段与三态判断 ---------- */
@@ -142,14 +197,14 @@ expectStatus.forEach(function (pair) {
 
 // 月龄在覆盖范围外时，规则引擎必须拒绝生成，而不是给一份空计划
 ;[0, 4, 5, 25, 30, 36].forEach(function (m) {
-  const p = plan.generate({ months: m, issue: 'none', safeFoodIds: [], recordedFoodIds: [], observingCount: 0 })
+  const p = plan.generate({ months: m, issues: [], safeFoodIds: [], recordedFoodIds: [], observingCount: 0 })
   if (p) E(`plan.generate({months:${m}}) 应该返回 null（超出覆盖范围），实际生成了 ${p.days ? p.days.length : '?'} 天`)
 })
 
 // 覆盖范围内必须能生成出东西，且每天至少有 1 餐
 ;[6, 8, 10, 12, 18, 24].forEach(function (m) {
   const p = plan.generate({
-    months: m, issue: 'none',
+    months: m, issues: [],
     safeFoodIds: foods.map(function (f) { return f.id }),
     recordedFoodIds: [], observingCount: 0
   })
@@ -162,7 +217,7 @@ expectStatus.forEach(function (pair) {
 
 // 未确认安全的致敏食材不能出现在常规菜谱里（主料或辅料都不行）
 const allergenIds = foods.filter(function (f) { return f.allergen }).map(function (f) { return f.id })
-const noSafe = plan.generate({ months: 8, issue: 'none', safeFoodIds: [], blockedFoodIds: [], recordedFoodIds: [], observingCount: 0 })
+const noSafe = plan.generate({ months: 8, issues: [], safeFoodIds: [], blockedFoodIds: [], recordedFoodIds: [], observingCount: 0 })
 if (noSafe) {
   noSafe.days.forEach(function (d) {
     ;(d.meals || []).forEach(function (meal) {
@@ -187,7 +242,7 @@ const newFoodSeq = []
   for (let wk = 0; wk < 26; wk++) {
     const mm = Math.min(24, 6 + Math.floor(wk / 4.33))
     const p = plan.generate({
-      months: mm, issue: 'none', safeFoodIds: introduced, blockedFoodIds: [],
+      months: mm, issues: [], safeFoodIds: introduced, blockedFoodIds: [],
       recordedFoodIds: introduced, observingCount: 0,
       startDate: new Date(2026, 0, 5 + wk * 7)   // 周一
     })
@@ -218,7 +273,7 @@ const newFoodSeq = []
 // 已确认「有反应」的食材必须被永久排除
 const badId = allergenIds[0]
 const withBad = plan.generate({
-  months: 8, issue: 'none', safeFoodIds: [], blockedFoodIds: [badId],
+  months: 8, issues: [], safeFoodIds: [], blockedFoodIds: [badId],
   recordedFoodIds: [badId], observingCount: 0
 })
 if (withBad) {
@@ -235,7 +290,7 @@ if (withBad) {
 
 // 确认安全的致敏食材应该能正常进入常规菜谱
 const allSafe = plan.generate({
-  months: 10, issue: 'none', safeFoodIds: foods.map(function (f) { return f.id }),
+  months: 10, issues: [], safeFoodIds: foods.map(function (f) { return f.id }),
   blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
 })
 if (allSafe) {
@@ -265,7 +320,7 @@ if (allSafe) {
     let o = 0
     for (let rep = 0; rep < 30; rep++) {
       const p = plan.generate({
-        months: m, issue: 'none', safeFoodIds: foods.map(function (f) { return f.id }),
+        months: m, issues: [], safeFoodIds: foods.map(function (f) { return f.id }),
         blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
       })
       if (!p) return
@@ -288,7 +343,7 @@ if (allSafe) {
 // 6~7 月龄虽然凑不齐 4 类，但不能报成「不达标」（catApplicable 应为 false）
 ;[6, 7].forEach(function (m) {
   const p = plan.generate({
-    months: m, issue: 'none', safeFoodIds: foods.map(function (f) { return f.id }),
+    months: m, issues: [], safeFoodIds: foods.map(function (f) { return f.id }),
     blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
   })
   if (!p) return
@@ -303,7 +358,7 @@ if (allSafe) {
  */
 ;[8, 12, 18].forEach(function (m) {
   const p = plan.generate({
-    months: m, issue: 'none', sick: true,
+    months: m, issues: [], sick: true,
     safeFoodIds: foods.map(function (f) { return f.id }),
     blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
   })
@@ -352,7 +407,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const others = foods.filter(function (f) { return noIntroIds.indexOf(f.id) < 0 })
     .map(function (f) { return f.id })
   const p = plan.generate({
-    months: 12, issue: 'none',
+    months: 12, issues: [],
     safeFoodIds: others, blockedFoodIds: [],
     recordedFoodIds: others, observingCount: 0,
     startDate: new Date(2026, 0, 5)   // 周一，保证 day0 不是周末
@@ -390,7 +445,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   let hit = 0
   for (let rep = 0; rep < REPS; rep++) {
     const p = plan.generate({
-      months: M, issue: 'none',
+      months: M, issues: [],
       safeFoodIds: foods.map(function (f) { return f.id }),
       blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
     })
@@ -414,10 +469,108 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
 /* ---------- 6. storage 关键函数 ---------- */
 ;['ensureInit', 'getBaby', 'setBaby', 'isConfigured', 'getIntroduced', 'markIntroduced',
-  'safeFoodIds', 'observingFoodIds', 'badFoodIds', 'dueObservations', 'getIssue', 'setIssue',
+  'safeFoodIds', 'observingFoodIds', 'badFoodIds', 'dueObservations',
+  'getStatuses', 'setStatuses', 'getIssues', 'getSick',
+  'statusOptions', 'toggleStatus',
   'getPlan', 'setPlan', 'resetAll'].forEach((fn) => {
   if (typeof storage[fn] !== 'function') E(`storage.js 缺函数 ${fn}`)
 })
+// 常量（不是函数）：排它选项的身份标记
+;['OK_KEY', 'OK_LABEL', 'STATUSES'].forEach((k) => {
+  if (storage[k] === undefined) E(`storage.js 缺常量 ${k}`)
+})
+
+// 状态是多选：唯一数据源 STATUSES 里不许再有「空值选项」（none / 状态正常），
+// 那会让「什么都不勾」和「勾了个占位」两种表达并存，加权表也跟着分叉。
+{
+  const sk = storage.STATUSES.map((s) => s.key)
+  if (sk.indexOf('none') >= 0 || sk.indexOf('ok') >= 0 || sk.indexOf('normal') >= 0)
+    E(`STATUSES 里还有空值选项（${sk.join(',')}）：多选状态下应当用「全不勾」表达正常`)
+  if (sk.indexOf('sick') < 0)
+    E('STATUSES 缺 sick —— 合并后的「宝宝状态」卡少了生病这个选项')
+  if (new Set(sk).size !== sk.length) E('STATUSES 有重复 key')
+
+  // 「状态正常」是**排它**选项，不是第 7 个状态：锁死三件事 ——
+  // 排第一、key 不落进 STATUSES、点了确实清空。
+  ;(function () {
+    const errsBefore = errs.length
+    const opts = storage.statusOptions([])
+    if (opts[0].label !== storage.OK_LABEL)
+      E('statusOptions 第一项的标签不是 storage.OK_LABEL「状态正常」')
+    if (opts[0].key === undefined || sk.indexOf(opts[0].key) >= 0)
+      E('「状态正常」的 key 混进了 STATUSES —— 会和「便秘」同时勾上，自相矛盾')
+    if (opts[0].on !== true)
+      E('一项都没勾时「状态正常」没有亮起')
+    // 互斥：勾了真状态，状态正常必须灭；且真状态之间不能互斥
+    const opts2 = storage.statusOptions(['constipation'])
+    if (opts2[0].on !== false)
+      E('勾了「便秘」后「状态正常」还亮着 —— 排它没生效')
+    if (!opts2.some((o) => o.key === 'constipation' && o.on))
+      E('勾了「便秘」但它自己没亮')
+    if (opts2.filter((o) => o.on).length !== 1)
+      E('勾一项却点亮了 ' + opts2.filter((o) => o.on).length + ' 个 —— 排它没生效，应只亮那 1 项')
+    // 排序要求：用户指定「状态正常」放第一位
+    const fromWxml = opts.map((o) => o.label)
+    if (fromWxml[0] !== storage.OK_LABEL) E(`状态正常 应排第一，实际顺序：${fromWxml.join('/')}`)
+    // 点它 = 清空
+    if (storage.toggleStatus(storage.OK_KEY, ['constipation']).length !== 0)
+      E('点「状态正常」没有清空其它选项')
+    if (storage.toggleStatus(storage.OK_KEY, []).length !== 0)
+      E('点「状态正常」在已为空时应保持为空')
+    // 点真状态不能清掉别的
+    const t = storage.toggleStatus('iron', ['constipation'])
+    if (!(t.indexOf('iron') >= 0 && t.indexOf('constipation') >= 0))
+      E('勾「缺铁 / 贫血」把已勾的「便秘」挤掉了 —— 真状态之间应可多选')
+    if (storage.toggleStatus('iron', ['iron']).indexOf('iron') >= 0)
+      E('再点一次已勾的「缺铁 / 贫血」没有取消')
+    // 排它 key 绝不能被写进存储
+    if (storage.toggleStatus(storage.OK_KEY, []).indexOf(storage.OK_KEY) >= 0)
+      E('排它 key 被写进了状态数组，会污染 bb_status')
+    // 写进存储也不能带上它（setStatuses 会滤，这里锁住兜底行为）
+    if (errs.length === errsBefore)
+      console.log('  状态正常：排第一 ✓、与真状态互斥 ✓、点它清空 ✓、真状态仍可多选 ✓')
+  })()
+
+  // 反向：代码里不该再出现旧的单选 API
+  const bad = ['getIssue()', 'setIssue(', 'issueLabel(', 'onIssueChange', 'onSickChange']
+  const srcs = [
+    './utils/storage.js', './utils/plan.js',
+    './pages/profile/profile.js', './pages/profile/profile.wxml',
+    './pages/index/index.js', './pages/mine/mine.js'
+  ]
+  srcs.forEach((f) => {
+    const t = fs.readFileSync(f, 'utf8')
+    bad.forEach((b) => {
+      if (t.indexOf(b) >= 0) E(`${f} 还在用旧的单选 API「${b}」，应改为 getIssues/getStatuses 多选`)
+    })
+  })
+  // 「状态正常」的**标签**必须来自 storage.OK_LABEL，页面不许自己拼一个 chip 出来
+  // —— 否则同一选项会在列表里渲染两次。说明性文字（card-sub 里提一句
+  // 「点状态正常会清空」）是允许的，所以只盯 chip 标签的字面量。
+  {
+    const pj = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+    const pw = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+    // 检查「调用」而非子串 —— 否则注释里提一句 storage.statusOptions
+    // 就能让断言失效（负向注入 E 证明过这一点）
+    if (pj.indexOf('storage.statusOptions(') < 0)
+      E('profile.js 没调用 storage.statusOptions()，状态选项列表在页面里另起炉灶了')
+    if (pj.indexOf('storage.toggleStatus(') < 0)
+      E('profile.js 没调用 storage.toggleStatus()，排它/多选逻辑被写在页面里')
+    // WXML 里出现 >状态正常</view> = 有人手写了一个 chip，会和 storage 的列表重复
+    if (/>状态正常\s*<\/view>/.test(pw))
+      E('profile.wxml 手写了一个「状态正常」chip —— 会和 statusOptions 的列表重复渲染')
+    if (pw.indexOf('bindtap="onStatusChange"') < 0)
+      E('profile.wxml 没有把 chip 点击绑到 onStatusChange')
+    if (pw.indexOf('{{statuses}}') < 0)
+      E('profile.wxml 没有遍历 statusOptions 的结果 {{statuses}} —— 视图会是空的')
+    // 注释不能顶替调用：把 rebuildStatus 里的调用改成注释会让整页选中态冻结
+    const body = (pj.match(/rebuildStatus\(\)\s*\{([\s\S]*?)\n  \}/) || [])[1] || ''
+    if (body.indexOf('storage.statusOptions(') < 0)
+      E('rebuildStatus 的函数体里没有真的调用 storage.statusOptions() —— 注释顶不了调用，选中态会冻结')
+  }
+
+  console.log(`  状态多选：${sk.length} 项 + 排它的「状态正常」、无空值选项、旧单选 API 零残留 ✓`)
+}
 
 /* ---------- 6b. 喂养提醒文案（对齐膳食指南，发布前需营养师复核） ----------
  * 用户已确认：维生素 D 提示不做；此处锁定「避免腌制/卤制/烧烤」与盐摄入说明两条。
@@ -447,7 +600,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 {
   const mkStorage = (state) => ({
     getBaby() { return { birthday: state.birthday } },
-    getIssue() { return state.issue },
+    getStatuses() { return state.issues.concat(state.sick ? ['sick'] : []) },
+    getIssues() { return state.issues },
     getSick() { return state.sick },
     safeFoodIds() { return state.safe },
     badFoodIds() { return state.bad },
@@ -478,10 +632,12 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   // 每个用例都用全新 state，避免「改 A 掩盖了 B 没生效」这种假通过
+  // 基准状态故意**带一项勾选**：否则「取消勾选」和基准都是空数组，
+  // 那条用例测了个寂寞（第一次写就踩了这个坑，靠自检才抓出来）。
   const sigWith = (mutate) => {
     const s = {
       birthday: birthdayAgo(14),
-      issue: 'none',
+      issues: ['iron'],
       sick: false,
       safe: foods.map((f) => f.id),
       bad: [],
@@ -495,7 +651,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
   if (!baseSig) E('planSignature 对已配置的宝宝返回了空值')
   if (plan.planSignature(mkStorage({
-    birthday: '', issue: 'none', sick: false, safe: [], bad: [], obs: []
+    birthday: '', issues: ['iron'], sick: false, safe: [], bad: [], obs: []
   })) !== null) E('planSignature 在没填生日时应当返回 null')
 
   // 同一状态必须稳定 —— 否则每次 onShow 都会重算计划
@@ -503,7 +659,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('planSignature 不稳定：同一状态两次结果不同，会导致每次进页面都重算计划')
 
   const SENSITIVE = [
-    ['当前关注（issue）', (s) => { s.issue = 'iron' }],
+    ['当前状态（换成另一项）', (s) => { s.issues = ['constipation'] }],
+    ['当前状态（追加一项）', (s) => { s.issues = s.issues.concat('constipation') }],
+    ['当前状态（取消勾选）', (s) => { s.issues = [] }],
     ['生病状态（sick）', (s) => { s.sick = true }],
     ['已确认安全的食材集合', (s) => { s.safe = s.safe.slice(0, 5) }],
     ['观察中食材', (s) => { s.obs = ['pumpkin'] }]
@@ -513,10 +671,15 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E(`planSignature 对「${name}」不敏感 —— 用户改了它，缓存的计划不会重算`)
   })
 
+  // 反向：勾选顺序不该进指纹。指纹对 issues 做了排序，否则
+  // 「先勾便秘再勾缺铁」和反过来算两个计划，每次 onShow 都白重算一次。
+  if (sigWith((s) => { s.issues = s.issues.slice().reverse() }) !== baseSig)
+    E('planSignature 把 issues 的顺序也算进去了 —— 同一组状态换个勾选顺序就会无谓重算')
+
   // 最强的一条：把计划里真实出现的食材标成「有反应」，重生成后必须消失
   const st0 = {
     birthday: birthdayAgo(14),
-    issue: 'none',
+    issues: ['iron'],
     sick: false,
     safe: foods.map((f) => f.id),
     bad: [],
@@ -537,7 +700,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E('planSignature 对「标记有反应」不敏感 —— 已排除的食材会继续被推荐（安全缺陷）')
     if (foodIdsIn(plan.generateFromStorage(mkStorage(st0))).indexOf(targetId) >= 0)
       E(`标记「有反应」后重生成，${fmap[targetId].name} 仍出现在计划里 —— 永久排除没生效`)
-    console.log(`  缓存失效判断：输入指纹覆盖 issue / 生病 / 食材记录 ✓，「有反应」重生成后已剔除 ✓`)
+    console.log('  缓存失效判断：输入指纹覆盖状态多选 / 生病 / 食材记录 ✓，顺序无关 ✓，「有反应」重生成后已剔除 ✓')
   }
 }
 

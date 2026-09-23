@@ -1,5 +1,27 @@
-.age-line {
-  margin-top: 16rpx;
+/* 标题行：左标题、右补充信息（当前月龄）
+   用 baseline 而不是 center —— 32rpx 标题和 24rpx 小字并排时，
+   baseline 才落在同一条线上；center 会让小字相对标题往下沉。
+   同 food-detail 的 .fd-head，别改回 center。 */
+.card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+  /* 标题过长或月龄文字过长时换行兜底，不至于把小字挤出卡片 */
+  flex-wrap: wrap;
+  /* 原来是 .card-title 自带的 margin-bottom，标题进容器后要改由容器承担，
+     否则标题自身的 margin 会在 flex 里把容器撑高 */
+  margin-bottom: 16rpx;
+}
+
+/* 同行时标题不再自带下边距，间距统一收到上面的容器 */
+.card-head > .card-title {
+  margin-bottom: 0;
+}
+
+.age-now {
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
 }
 
 /* 选项 chips */

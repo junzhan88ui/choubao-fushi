@@ -7,7 +7,7 @@
         <text class="head-age">{{ageText}}</text>
         <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
       </view>
-      <view class="muted">生日 {{birthday}} · 关注：{{issueLabel}}</view>
+      <view class="muted">生日 {{birthday}} · 状态：{{issueLabel}}</view>
       <view class="muted" wx:if="{{stageHint}}">{{stageHint}}</view>
     </block>
     <block wx:else>
@@ -34,20 +34,6 @@
     </view>
   </view>
 
-  <!-- 内容库 -->
-  <view class="card">
-    <view class="card-title">内容库</view>
-    <view class="row">
-      <text class="row-label">食材</text>
-      <text class="row-value">{{foodTotal}} 种</text>
-    </view>
-    <view class="row">
-      <text class="row-label">菜谱</text>
-      <text class="row-value">{{recipeTotal}} 道</text>
-    </view>
-    <view class="muted mt-sm">菜谱和食材会持续补充。内容参考公开喂养指南整理，仅供参考。</view>
-  </view>
-
   <!-- 快捷入口 -->
   <view class="card card-tight">
     <view class="link-row" bindtap="goPlan">
@@ -56,14 +42,6 @@
     </view>
     <view class="link-row" bindtap="goFood">
       <text>食材查一查</text>
-      <text class="link-arrow">›</text>
-    </view>
-  </view>
-
-  <!-- 清除数据 -->
-  <view class="card card-tight">
-    <view class="link-row danger" bindtap="resetAll">
-      <text>清除全部数据</text>
       <text class="link-arrow">›</text>
     </view>
   </view>

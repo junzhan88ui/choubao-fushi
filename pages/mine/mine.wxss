@@ -15,11 +15,6 @@
   margin-top: 24rpx;
 }
 
-.mt-sm {
-  margin-top: 16rpx;
-  line-height: 1.7;
-}
-
 .link-row {
   display: flex;
   align-items: center;
@@ -38,8 +33,4 @@
   color: var(--c-text-3);
   font-size: var(--fs-title);
   line-height: 1;
-}
-
-.danger {
-  color: var(--c-red);
 }

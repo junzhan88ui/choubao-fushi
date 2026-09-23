@@ -1,5 +1,3 @@
-const FOODS = require('../../data/foods')
-const RECIPES = require('../../data/recipes')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 
@@ -15,8 +13,6 @@ Page({
     safeCount: 0,
     observingCount: 0,
     recordedCount: 0,
-    foodTotal: FOODS.length,
-    recipeTotal: RECIPES.length,
     issueLabel: '',
     version: ''
   },
@@ -46,7 +42,7 @@ Page({
       safeCount: storage.safeFoodIds().length,
       observingCount: storage.observingFoodIds().length,
       recordedCount: storage.recordedFoodIds().length,
-      issueLabel: storage.issueLabel(storage.getIssue()),
+      issueLabel: storage.statusLabels(storage.getStatuses()),
       version: app && app.globalData ? app.globalData.version : ''
     })
   },
@@ -61,23 +57,5 @@ Page({
 
   goPlan() {
     wx.switchTab({ url: '/pages/index/index' })
-  },
-
-  resetAll() {
-    wx.showModal({
-      title: '清除全部数据',
-      content: '会删掉宝宝档案、食材记录和当前计划。这一步不能撤销。',
-      confirmText: '清除',
-      confirmColor: '#a32d2d',
-      success(res) {
-        if (!res.confirm) return
-        storage.resetAll()
-        storage.ensureInit()
-        wx.showToast({ title: '已清除', icon: 'success' })
-        setTimeout(function () {
-          wx.switchTab({ url: '/pages/index/index' })
-        }, 600)
-      }
-    })
   }
 })
