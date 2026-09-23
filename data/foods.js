@@ -396,9 +396,13 @@ module.exports = [
   },
 
   /* ---------- 明确禁食 ---------- */
+  // introducible: false —— 这类条目只是「禁食提示」，不是待引入的辅食。
+  // 必须显式排除在「新食材尝试」通道之外：否则 12 月龄时它会以
+  // 「新食材尝试 · 蜂蜜 / 一岁以内禁食 / 观察 3 天」的荒谬组合被排进计划。
+  // 注意它仍保留 minMonth 供「查一查」页展示月龄门槛。
   {
     id: 'honey', name: '蜂蜜',
-    category: '其他', minMonth: 12, allergen: false,
+    category: '其他', minMonth: 12, allergen: false, introducible: false,
     firstIntro: { amount: '—', method: '一岁以内禁食' },
     note: '⛔ 1 岁以内禁食。蜂蜜可能含肉毒杆菌芽孢，婴儿肠道未发育成熟，存在婴儿肉毒中毒风险。',
     source: SOURCE

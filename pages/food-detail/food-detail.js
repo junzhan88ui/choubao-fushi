@@ -65,6 +65,8 @@ Page({
       status: status,
       statusText: STATUS_TEXT[status] || '',
       months: months,
+      // 禁食提示条目（蜂蜜）不参与引入流程，见 data/foods.js
+      introducible: food.introducible !== false,
       ready: months === null ? true : food.minMonth <= months
     })
   },

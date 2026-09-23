@@ -27,6 +27,20 @@
   font-weight: 500;
 }
 
+/* 「有反应」= 已标记不良反应，永久排除。
+   必须和普通未勾选区分开：两者都是未选中态，但点击语义完全不同
+   （普通 = 加入安全列表，bad = 已被保护起来，点了只弹提示不会解除）。 */
+.chip-bad {
+  background: var(--c-red-bg);
+  border-color: #e8b8b8;
+  color: var(--c-red);
+}
+
+.chip-flag-bad {
+  color: var(--c-red);
+  border-color: #e8b8b8;
+}
+
 /* 「敏」= 常见致敏食材，中性描边，不做红色警示 */
 .chip-flag {
   font-size: var(--fs-xs);

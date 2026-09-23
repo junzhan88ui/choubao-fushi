@@ -8,6 +8,7 @@
     </view>
     <view class="fd-sub">{{food.category}} · 建议 {{food.minMonth}} 月龄起</view>
     <view class="fd-warn" wx:if="{{!ready}}">还没到建议月龄（{{food.minMonth}} 月龄起），先别急</view>
+    <view class="fd-warn" wx:if="{{!introducible}}">这一条是禁食提示，不是待引入的辅食，不会被排进计划。</view>
   </view>
 
   <!-- 我的记录 -->
@@ -18,8 +19,8 @@
       <text class="fd-status-val st-{{status}}">{{statusText}}</text>
     </view>
     <view class="fd-btns">
-      <view class="mini-btn mini-ok" wx:if="{{status !== 'safe'}}" bindtap="markSafe">已经吃过，没问题</view>
-      <view class="mini-btn mini-obs" wx:if="{{status !== 'observing'}}" bindtap="markObserving">今天第一次试</view>
+      <view class="mini-btn mini-ok" wx:if="{{introducible && status !== 'safe'}}" bindtap="markSafe">已经吃过，没问题</view>
+      <view class="mini-btn mini-obs" wx:if="{{introducible && status !== 'observing'}}" bindtap="markObserving">今天第一次试</view>
       <view class="mini-btn mini-clear" wx:if="{{status !== 'new'}}" bindtap="clearRecord">清除记录</view>
     </view>
   </view>

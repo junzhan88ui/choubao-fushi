@@ -63,11 +63,12 @@
     <view class="group" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
       <view class="group-name">{{g.category}}</view>
       <view class="chips">
-        <view class="chip {{f.checked ? 'chip-on' : ''}}"
+        <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}}"
               wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
               data-id="{{f.id}}" bindtap="toggleFood">
           <text>{{f.name}}</text>
           <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
+          <text class="chip-flag chip-flag-bad" wx:if="{{f.status === 'bad'}}">有反应</text>
         </view>
       </view>
     </view>

@@ -55,11 +55,15 @@ Page({
         if (f.name.indexOf(kw) < 0 && !aliasHit) continue
       }
       if (!map[f.category]) map[f.category] = []
+      const intro = storage.findIntro(f.id)
       map[f.category].push({
         id: f.id,
         name: f.name,
         allergen: f.allergen,
-        checked: safe.indexOf(f.id) >= 0
+        checked: safe.indexOf(f.id) >= 0,
+        // bad 必须单独标出来：它的 chip 也是「未勾选」的样子，
+        // 但点击语义完全不同（见 toggleFood）
+        status: intro ? intro.status : 'new'
       })
     }
 
@@ -125,6 +129,21 @@ Page({
   toggleFood(e) {
     const id = e.currentTarget.dataset.id
     const exist = storage.findIntro(id)
+
+    // ⚠️ 「有反应」(bad) 是这个系统里唯一的硬排除机制，语义是永久排除。
+    // bad 的 chip 在界面上也是未勾选的样子，如果直接走 removeIntroduced，
+    // 等于让用户「点一下就解除过敏排除」，食材会重新回到新食材推荐通道。
+    // 所以这里必须拦下来，引导到食材详情页去处理。
+    if (exist && exist.status === 'bad') {
+      wx.showModal({
+        title: '这种食材标记过「有反应」',
+        content: '为安全起见它不会被排进菜单。要重新引入，请到它的详情页清除记录，再走一次「新食材尝试」。',
+        showCancel: false,
+        confirmText: '知道了'
+      })
+      return
+    }
+
     if (exist) {
       storage.removeIntroduced(id)
     } else {

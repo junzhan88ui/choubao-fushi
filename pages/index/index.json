@@ -1,4 +1,5 @@
 {
   "navigationBarTitleText": "臭宝吃什么",
+  "enablePullDownRefresh": true,
   "usingComponents": {}
 }

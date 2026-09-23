@@ -28,6 +28,17 @@ appJson.pages.forEach((p) => {
   if (appJson.pages.indexOf(t.pagePath) === -1) E(`tabBar 的 ${t.pagePath} 不在 pages 列表里`)
 })
 
+/* ---------- 1b. 实现了 onPullDownRefresh 的页面必须开 enablePullDownRefresh ----------
+ * 没开的话手势根本不触发，onPullDownRefresh 是死代码（本次审查就查出过这条）。
+ */
+appJson.pages.forEach((p) => {
+  const js = fs.readFileSync(`./${p}.js`, 'utf8')
+  if (js.indexOf('onPullDownRefresh') < 0) return
+  const conf = JSON.parse(fs.readFileSync(`./${p}.json`, 'utf8'))
+  if (conf.enablePullDownRefresh !== true)
+    E(`${p} 实现了 onPullDownRefresh，但 ${p}.json 没开 enablePullDownRefresh —— 手势不会触发，函数是死代码`)
+})
+
 /* ---------- 2. 食材库 ---------- */
 const CATS = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋奶', '豆类', '油脂', '其他']
 const fids = {}
@@ -312,6 +323,95 @@ console.log('  生病中状态：暂停新食材、仍正常排餐 ✓')
 if (typeof age.isRecipeSuitable !== 'function') E('age.js 缺 isRecipeSuitable')
 if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
+/* ---------- 5e. 禁食提示条目不能进「新食材尝试」通道 ----------
+ * foods 里的 honey 是「禁食提示」，不是待引入的辅食。它 minMonth=12 恰好落在
+ * 覆盖范围内，不显式排除的话会在 12 月龄被当成新食材排进计划，展示成
+ * 「新食材尝试 · 蜂蜜 / 一岁以内禁食 / 观察 3 天」。
+ */
+{
+  const honey = foods.filter(function (f) { return f.id === 'honey' })[0]
+  if (!honey) E('foods 里找不到 honey（禁食条目），5e 断言已失效')
+  else if (honey.introducible !== false)
+    E('honey 必须标 introducible:false —— 禁食条目不能进新食材通道')
+
+  const noIntroIds = foods.filter(function (f) { return f.introducible === false })
+    .map(function (f) { return f.id })
+
+  // 禁食条目也不该被任何菜谱引用，否则会绕过新食材通道直接进常规菜谱
+  recipes.forEach(function (r) {
+    const hit = (r.mainFoods || []).concat(r.sideFoods || [])
+      .filter(function (id) { return noIntroIds.indexOf(id) >= 0 })
+    if (hit.length) E(`${r.id} 引用了不可引入的食材 ${hit.join('/')}（禁食条目不应进菜谱）`)
+  })
+
+  // 精准测试：把除禁食条目外的食材全部标成「已记录」，让新食材候选池只剩它。
+  // 候选唯一时，day0 / day3 的两个名额必然会给它 —— 这才测得到那条过滤。
+  //
+  // ⚠️ 不要改回「扫一遍全月龄看 newFood」：候选池 53 种按 minMonth 升序排，
+  // 蜂蜜的 minMonth 最大、永远落在两个引入名额之外，那种扫描永远是绿的（假通过）。
+  const others = foods.filter(function (f) { return noIntroIds.indexOf(f.id) < 0 })
+    .map(function (f) { return f.id })
+  const p = plan.generate({
+    months: 12, issue: 'none',
+    safeFoodIds: others, blockedFoodIds: [],
+    recordedFoodIds: others, observingCount: 0,
+    startDate: new Date(2026, 0, 5)   // 周一，保证 day0 不是周末
+  })
+  if (!p) E('5e 构造用例生成失败（月龄 12、其余食材均已记录）')
+  else {
+    p.days.forEach(function (d) {
+      if (d.newFood && noIntroIds.indexOf(d.newFood.foodId) >= 0)
+        E(`新食材候选池没排除禁食条目「${d.newFood.name}」，被排成了新食材尝试`)
+    })
+  }
+
+  // 构造前提自证：候选池里除了禁食条目，不该还有别的可引入食材。
+  // 否则「没排到 newFood」可能只是名额被别人占了，断言是空转的。
+  const leftover = foods.filter(function (f) {
+    return f.minMonth <= 12 && others.indexOf(f.id) < 0 && noIntroIds.indexOf(f.id) < 0
+  })
+  if (leftover.length)
+    W(`5e 候选池里还有未记录的可引入食材 ${leftover.map(function (f) { return f.id }).join('/')}，断言没真正压到禁食条目`)
+
+  console.log(`  禁食条目（${noIntroIds.join('/') || '无'}）未进入新食材通道 ✓`)
+}
+
+/* ---------- 5f. 同日主料撞车：软约束，但不能劣化 ----------
+ * 这不是硬要求 —— 官方的多样性要求在「类别」层面，由 5c 保证（见 README）。
+ * 阈值定在 20% 的依据（15 月龄、1050 天实测）：
+ *   基线 11.7%  →  去掉主料惩罚后 27%
+ * 20% 正好卡在两者之间：既给抽样波动留了 3σ≈4% 的余量，又能拦住
+ * 「惩罚被移除 / 修补循环失守」这类劣化。真要收紧成硬约束，先改 README 再动这里。
+ */
+{
+  const M = 15
+  const REPS = 100
+  let total = 0
+  let hit = 0
+  for (let rep = 0; rep < REPS; rep++) {
+    const p = plan.generate({
+      months: M, issue: 'none',
+      safeFoodIds: foods.map(function (f) { return f.id }),
+      blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+    })
+    if (!p) { E(`plan.generate({months:${M}}) 返回 null`); break }
+    p.days.forEach(function (d) {
+      total++
+      const use = {}
+      d.meals.forEach(function (m) {
+        const r = rids[m.recipeId]
+        if (!r) return
+        r.mainFoods.forEach(function (fid) { use[fid] = (use[fid] || 0) + 1 })
+      })
+      if (Object.keys(use).some(function (fid) { return use[fid] > 1 })) hit++
+    })
+  }
+  const rate = total ? hit / total : 0
+  if (rate > 0.20)
+    E(`${M} 月龄同日主料撞车率 ${(rate * 100).toFixed(1)}%，超过 20% 上限（基线 11.7%，去掉主料惩罚会升到 27%）`)
+  console.log(`  同日主料撞车率（软约束，上限 20%）：${(rate * 100).toFixed(1)}% ✓`)
+}
+
 /* ---------- 6. storage 关键函数 ---------- */
 ;['ensureInit', 'getBaby', 'setBaby', 'isConfigured', 'getIntroduced', 'markIntroduced',
   'safeFoodIds', 'observingFoodIds', 'badFoodIds', 'dueObservations', 'getIssue', 'setIssue',
@@ -439,6 +539,30 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E(`标记「有反应」后重生成，${fmap[targetId].name} 仍出现在计划里 —— 永久排除没生效`)
     console.log(`  缓存失效判断：输入指纹覆盖 issue / 生病 / 食材记录 ✓，「有反应」重生成后已剔除 ✓`)
   }
+}
+
+/* ---------- 6d. 档案页不能一键解除「有反应」排除 ----------
+ * bad 是系统里唯一的硬排除机制，语义是永久排除。但它的 chip 和普通未勾选
+ * 长得一样，toggleFood 原本不区分状态 —— 点一下就 removeIntroduced，
+ * 记录被删、食材重新回到新食材推荐通道（安全缺陷）。
+ *
+ * 这里锁两件事：拦截分支必须存在，且必须写在 removeIntroduced 之前。
+ */
+{
+  const profileSrc = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const profileWxml = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+
+  const badIdx = profileSrc.search(/status\s*===\s*'bad'/)
+  // 匹配真实调用而非裸词，否则注释里提到 removeIntroduced 就会误判位置
+  const removeIdx = profileSrc.indexOf('storage.removeIntroduced')
+  if (badIdx < 0) {
+    E("profile.js 没有对 status==='bad' 单独分支 —— 点一下会删掉「有反应」记录（安全缺陷）")
+  } else if (removeIdx >= 0 && badIdx > removeIdx) {
+    E('profile.js 的 bad 拦截写在 removeIntroduced 之后，可能拦不住')
+  }
+  if (profileWxml.indexOf("f.status === 'bad'") < 0)
+    E("profile.wxml 没渲染 bad 态 —— 「有反应」和普通未勾选长得一样，用户会误点")
+  console.log('  档案页：「有反应」记录不会被勾选操作误删 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

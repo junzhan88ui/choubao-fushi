@@ -8,7 +8,9 @@
  *   1. 月龄 → 性状档位 + 每日餐次
  *   2. 候选池 = 月龄合适 且 主料安全（高致敏食材必须已确认安全）
  *   3. 按「当前最烦的问题」加权
- *   4. 去重：同一道菜 7 天内不超过 2 次；同一主料同一天不超过 1 次
+ *   4. 去重（软约束）：同一道菜用过之后权重 ×0.2/次；当天已用主料权重 ×0.3
+ *      —— 是权重衰减不是硬上限，实测一周最多 3 次、同日撞主料约 8~14% 的天。
+ *      官方要求的多样性在「类别」层面，由下方每日 4 类覆盖的修补循环保证。
  *   5. 插入新食材名额（每周最多 2 个，且只排工作日）
  */
 
@@ -194,11 +196,12 @@ function pickWeighted(candidates, usedCount, dayMainUse, issueTag, dayCats) {
     // 问题加权
     if (issueTag && r.tags.indexOf(issueTag) >= 0) w *= 3
 
-    // 已出现次数惩罚（天然把同一道菜限制在 7 天内最多 2 次）
+    // 已出现次数惩罚（软约束：权重衰减，不是硬上限 —— 实测一周最多约 3 次）
     const used = usedCount[r.id] || 0
     w *= Math.pow(0.2, used)
 
-    // 当天主料重复惩罚
+    // 当天主料重复惩罚（同样是软的：只压权重，不拦截；
+    // 而且修补循环只按覆盖度换菜、不检查这里，所以同日撞主料仍会发生）
     for (let i = 0; i < r.mainFoods.length; i++) {
       const fid = r.mainFoods[i]
       if (dayMainUse[fid]) w *= 0.3
@@ -308,6 +311,10 @@ function generate(opts) {
   // WS/T 678—2020 3.8：患病期间暂停添加新的辅食
   if (!opts.observingCount && !sick) {
     const pool2 = FOODS.filter(function (f) {
+      // introducible === false 是「禁食提示条目」（蜂蜜），不是待引入的辅食。
+      // 漏掉这一条，12 月龄时会把蜂蜜当成新食材排进计划，
+      // 展示成「新食材尝试 · 蜂蜜 / 一岁以内禁食 / 观察 3 天」。
+      if (f.introducible === false) return false
       return f.minMonth <= months && recordedIds.indexOf(f.id) < 0 && blockedIds.indexOf(f.id) < 0
     })
     pool2.sort(function (a, b) {
