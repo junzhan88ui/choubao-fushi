@@ -483,14 +483,22 @@ function generate(opts) {
   }
 }
 
-/** 从当前存储状态直接生成（页面调这个） */
-function generateFromStorage(storage) {
+/**
+ * 生成计划所需的全部输入 —— 只在这一处收集。
+ *
+ * 关键：**缓存失效判断必须和实际生成读同一组输入**。
+ * 之前的写法是页面里自己判 `p.months !== months`，结果漏掉了
+ * issue / sick / 已引入食材 —— 用户把某食材标成「有反应」后，
+ * 缓存计划里那道菜还在，下次打开照样推荐（这是安全相关的缺陷，
+ * 「有反应」的语义就是永久排除）。
+ */
+function planInputs(storage) {
   const baby = storage.getBaby()
   if (!baby || !baby.birthday) return null
   const months = age.monthsBetween(baby.birthday)
   if (months === null) return null
 
-  return generate({
+  return {
     months: months,
     issue: storage.getIssue(),
     sick: storage.getSick(),
@@ -498,12 +506,43 @@ function generateFromStorage(storage) {
     blockedFoodIds: storage.badFoodIds(),
     recordedFoodIds: storage.recordedFoodIds(),
     observingCount: storage.observingFoodIds().length
-  })
+  }
+}
+
+/** 输入指纹：任一输入变了，缓存的计划就该重算 */
+function planSignature(storage) {
+  const inputs = planInputs(storage)
+  if (!inputs) return null
+  const list = function (a) {
+    return (a || []).slice().sort().join(',')
+  }
+  return [
+    'm' + inputs.months,
+    'i' + inputs.issue,
+    's' + (inputs.sick ? 1 : 0),
+    'k' + list(inputs.safeFoodIds),
+    'b' + list(inputs.blockedFoodIds),
+    'r' + list(inputs.recordedFoodIds),
+    'o' + inputs.observingCount
+  ].join('|')
+}
+
+/** 从当前存储状态直接生成（页面调这个） */
+function generateFromStorage(storage) {
+  const inputs = planInputs(storage)
+  if (!inputs) return null
+
+  const p = generate(inputs)
+  // 把指纹写进计划，页面用它判断缓存是否过期
+  if (p) p.signature = planSignature(storage)
+  return p
 }
 
 module.exports = {
   generate: generate,
   generateFromStorage: generateFromStorage,
+  planInputs: planInputs,
+  planSignature: planSignature,
   getFood: getFood,
   foodName: foodName,
   dateKey: dateKey,

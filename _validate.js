@@ -337,6 +337,110 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   console.log('  喂养提醒文案：避免腌制/卤制/烧烤 ✓，盐摄入按年龄提示 ✓')
 }
 
+/* ---------- 6c. 计划缓存失效判断必须覆盖所有生成输入 ----------
+ * 锁的是一个不变量：planSignature 必须对「任何会改变生成结果的输入」敏感。
+ * 漏掉任何一个 → 用户改了设置、计划却不刷新。
+ *
+ * 最严重的是「有反应」：它的语义是**永久排除**。缓存不失效的话，
+ * 用户明明标了有反应，旧计划里那道菜还在，下次打开照样推荐 —— 安全缺陷。
+ */
+{
+  const mkStorage = (state) => ({
+    getBaby() { return { birthday: state.birthday } },
+    getIssue() { return state.issue },
+    getSick() { return state.sick },
+    safeFoodIds() { return state.safe },
+    badFoodIds() { return state.bad },
+    recordedFoodIds() { return state.safe.concat(state.bad, state.obs) },
+    observingFoodIds() { return state.obs }
+  })
+
+  const birthdayAgo = (months) => {
+    const d = new Date()
+    d.setMonth(d.getMonth() - months)
+    d.setDate(1)
+    const mm = d.getMonth() + 1
+    const dd = d.getDate()
+    return `${d.getFullYear()}-${mm < 10 ? '0' + mm : mm}-${dd < 10 ? '0' + dd : dd}`
+  }
+
+  const foodIdsIn = (p) => {
+    const out = []
+    p.days.forEach((d) => {
+      d.meals.forEach((m) => {
+        const r = recipes.filter((x) => x.id === m.recipeId)[0]
+        if (!r) return
+        r.mainFoods.forEach((f) => out.push(f))
+        ;(r.sideFoods || []).forEach((f) => out.push(f))
+      })
+    })
+    return out
+  }
+
+  // 每个用例都用全新 state，避免「改 A 掩盖了 B 没生效」这种假通过
+  const sigWith = (mutate) => {
+    const s = {
+      birthday: birthdayAgo(14),
+      issue: 'none',
+      sick: false,
+      safe: foods.map((f) => f.id),
+      bad: [],
+      obs: []
+    }
+    if (mutate) mutate(s)
+    return plan.planSignature(mkStorage(s))
+  }
+
+  const baseSig = sigWith(null)
+
+  if (!baseSig) E('planSignature 对已配置的宝宝返回了空值')
+  if (plan.planSignature(mkStorage({
+    birthday: '', issue: 'none', sick: false, safe: [], bad: [], obs: []
+  })) !== null) E('planSignature 在没填生日时应当返回 null')
+
+  // 同一状态必须稳定 —— 否则每次 onShow 都会重算计划
+  if (sigWith(null) !== baseSig)
+    E('planSignature 不稳定：同一状态两次结果不同，会导致每次进页面都重算计划')
+
+  const SENSITIVE = [
+    ['当前关注（issue）', (s) => { s.issue = 'iron' }],
+    ['生病状态（sick）', (s) => { s.sick = true }],
+    ['已确认安全的食材集合', (s) => { s.safe = s.safe.slice(0, 5) }],
+    ['观察中食材', (s) => { s.obs = ['pumpkin'] }]
+  ]
+  SENSITIVE.forEach(([name, mutate]) => {
+    if (sigWith(mutate) === baseSig)
+      E(`planSignature 对「${name}」不敏感 —— 用户改了它，缓存的计划不会重算`)
+  })
+
+  // 最强的一条：把计划里真实出现的食材标成「有反应」，重生成后必须消失
+  const st0 = {
+    birthday: birthdayAgo(14),
+    issue: 'none',
+    sick: false,
+    safe: foods.map((f) => f.id),
+    bad: [],
+    obs: []
+  }
+  const s0 = mkStorage(st0)
+  const before = foodIdsIn(plan.generateFromStorage(s0))
+  const fmap = {}
+  foods.forEach((f) => { fmap[f.id] = f })
+  const targetId = before.filter((id) => fmap[id] && !fmap[id].allergen)[0]
+
+  if (!targetId) {
+    W('6c 无法选出测试食材（计划为空），「有反应」排除的回归测试被跳过')
+  } else {
+    st0.bad = [targetId]
+    st0.safe = st0.safe.filter((x) => x !== targetId)
+    if (plan.planSignature(mkStorage(st0)) === baseSig)
+      E('planSignature 对「标记有反应」不敏感 —— 已排除的食材会继续被推荐（安全缺陷）')
+    if (foodIdsIn(plan.generateFromStorage(mkStorage(st0))).indexOf(targetId) >= 0)
+      E(`标记「有反应」后重生成，${fmap[targetId].name} 仍出现在计划里 —— 永久排除没生效`)
+    console.log(`  缓存失效判断：输入指纹覆盖 issue / 生病 / 食材记录 ✓，「有反应」重生成后已剔除 ✓`)
+  }
+}
+
 /* ---------- 7. 统计 ---------- */
 const byCat = {}
 foods.forEach((f) => { byCat[f.category] = (byCat[f.category] || 0) + 1 })

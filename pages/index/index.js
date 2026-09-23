@@ -111,11 +111,15 @@ Page({
 
     const stage = st.stage
 
-    // 月龄变了、没有计划、或缓存计划的日期窗口已经不包含今天 → 重新生成
-    // （只按 months 判断会让旧计划一直留着，既可能残留已排除的食材，
-    //   也会让「今天」标记落在空处）
+    // 缓存计划在三种情况下失效，任一命中就重算：
+    //   1. 月龄变了
+    //   2. 日期窗口已经不包含今天（旧计划会显得「过期」，今天标记也会落空）
+    //   3. 生成输入变了 —— issue / 生病状态 / 已引入食材（指纹比对）
+    //      ⚠️ 第 3 条不能省：用户把某食材标成「有反应」后，旧计划里那道菜
+    //      还在，下次打开照样推荐。「有反应」的语义是永久排除。
     let p = storage.getPlan()
-    if (!p || p.months !== months || !coversToday(p)) {
+    const sig = plan.planSignature(storage)
+    if (!p || p.months !== months || !coversToday(p) || p.signature !== sig) {
       p = plan.generateFromStorage(storage)
       storage.setPlan(p)
     }
