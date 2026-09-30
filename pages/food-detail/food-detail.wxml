@@ -21,9 +21,10 @@
       <text>当前状态：</text>
       <text class="fd-status-val st-{{status}}">{{statusText}}</text>
     </view>
+    <view class="fd-warn" wx:if="{{status === 'bad'}}">标过「有反应」的食材不会排进菜单。要重新引入：先点「清除记录」，再按新食材少量试一次。</view>
     <view class="fd-btns">
-      <view class="mini-btn mini-ok" wx:if="{{introducible && status !== 'safe'}}" bindtap="markSafe">已经吃过，没问题</view>
-      <view class="mini-btn mini-obs" wx:if="{{introducible && status !== 'observing'}}" bindtap="markObserving">今天第一次试</view>
+      <view class="mini-btn mini-ok" wx:if="{{introducible && status !== 'safe' && status !== 'bad'}}" bindtap="markSafe">已经吃过，没问题</view>
+      <view class="mini-btn mini-obs" wx:if="{{introducible && status !== 'observing' && status !== 'bad'}}" bindtap="markObserving">今天第一次试</view>
       <view class="mini-btn mini-clear" wx:if="{{status !== 'new'}}" bindtap="clearRecord">清除记录</view>
     </view>
   </view>

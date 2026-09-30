@@ -21,21 +21,91 @@
     <button class="btn btn-ghost mt" bindtap="goProfile">{{hasBaby ? '修改宝宝档案' : '去填写'}}</button>
   </view>
 
-  <!-- 我的记录 -->
+  <!-- 我的记录（v2.1 升级为记录中枢）：点行展开该组食材名单，
+       「有反应」单独一行 —— 数据（badFoodIds）一直在，之前只是没有行 -->
   <view class="card">
     <view class="card-title">我的记录</view>
-    <view class="row">
+    <view class="row row-tap {{openRow === 'safe' ? 'row-open' : ''}}"
+          data-row="safe" bindtap="toggleRow">
       <text class="row-label">已吃过、没问题的食材</text>
-      <text class="row-value">{{safeCount}} 种</text>
+      <view class="row-right">
+        <text class="row-value">{{safeCount}} 种</text>
+        <text class="link-arrow {{openRow === 'safe' ? 'link-arrow-open' : ''}}">›</text>
+      </view>
     </view>
-    <view class="row">
+    <view class="row-detail" wx:if="{{openRow === 'safe'}}">
+      <view class="rd-item" wx:for="{{safeList}}" wx:key="foodId"
+            data-id="{{item.foodId}}" bindtap="goFoodDetail">
+        <text class="rd-name">{{item.name}}</text>
+        <text class="muted">{{item.date}} 起可吃</text>
+      </view>
+      <view class="muted rd-empty" wx:if="{{!safeList.length}}">还没有确认过的食材 —— 新食材尝试通过后会自动记进来</view>
+    </view>
+
+    <view class="row row-tap {{openRow === 'obs' ? 'row-open' : ''}}"
+          data-row="obs" bindtap="toggleRow">
       <text class="row-label">正在观察中</text>
-      <text class="row-value">{{observingCount}} 种</text>
+      <view class="row-right">
+        <text class="row-value">{{observingCount}} 种</text>
+        <text class="link-arrow {{openRow === 'obs' ? 'link-arrow-open' : ''}}">›</text>
+      </view>
     </view>
-    <view class="row">
+    <view class="row-detail" wx:if="{{openRow === 'obs'}}">
+      <view class="rd-item" wx:for="{{observingList}}" wx:key="foodId"
+            data-id="{{item.foodId}}" bindtap="goFoodDetail">
+        <text class="rd-name">{{item.name}}</text>
+        <text class="muted">{{item.date}} 起观察 3 天</text>
+      </view>
+      <view class="muted rd-empty" wx:if="{{!observingList.length}}">当前没有观察中的食材</view>
+    </view>
+
+    <view class="row row-tap {{openRow === 'bad' ? 'row-open' : ''}}"
+          data-row="bad" bindtap="toggleRow">
+      <text class="row-label">有反应、已排除的食材</text>
+      <view class="row-right">
+        <text class="row-value row-value-bad">{{badCount}} 种</text>
+        <text class="link-arrow {{openRow === 'bad' ? 'link-arrow-open' : ''}}">›</text>
+      </view>
+    </view>
+    <view class="row-detail" wx:if="{{openRow === 'bad'}}">
+      <view class="rd-item" wx:for="{{badList}}" wx:key="foodId"
+            data-id="{{item.foodId}}" bindtap="goFoodDetail">
+        <text class="rd-name">{{item.name}}</text>
+        <text class="muted">{{item.date}} 出现反应</text>
+      </view>
+      <view class="muted rd-empty" wx:if="{{!badList.length}}">没有标记过「有反应」的食材</view>
+      <view class="muted rd-hint" wx:if="{{badList.length}}">已永久排除、不再排进菜单；点食材进详情页可清除记录重新引入。</view>
+    </view>
+
+    <view class="row row-tap {{openRow === 'all' ? 'row-open' : ''}}"
+          data-row="all" bindtap="toggleRow">
       <text class="row-label">累计记录过的食材</text>
-      <text class="row-value">{{recordedCount}} 种</text>
+      <view class="row-right">
+        <text class="row-value">{{recordedCount}} 种</text>
+        <text class="link-arrow {{openRow === 'all' ? 'link-arrow-open' : ''}}">›</text>
+      </view>
     </view>
+    <view class="row-detail" wx:if="{{openRow === 'all'}}">
+      <view class="rd-item" wx:for="{{recordedList}}" wx:key="foodId"
+            data-id="{{item.foodId}}" bindtap="goFoodDetail">
+        <text class="rd-name">{{item.name}}</text>
+        <text class="rd-tag rd-tag-{{item.status}}">{{item.statusLabel}}</text>
+        <text class="muted">{{item.date}}</text>
+      </view>
+      <view class="muted rd-empty" wx:if="{{!recordedList.length}}">还没有任何记录</view>
+    </view>
+  </view>
+
+  <!-- 最近 14 天喂养记录（v2.1 自档案页移来：记录归「我的」，档案页只管编辑） -->
+  <view class="card">
+    <view class="card-title">最近 14 天喂养记录</view>
+    <view class="card-sub">首页每餐打卡后这里自动汇总，就医时把这份记录给医生看。</view>
+    <view class="mh-row" wx:for="{{mealHistory}}" wx:key="key">
+      <text class="mh-date">{{item.date}}</text>
+      <text class="mh-name">{{item.name}}</text>
+      <text class="mh-state mh-s-{{item.status}}">{{item.label}}<text wx:if="{{item.reactionName}}" class="mh-react"> · {{item.reactionName}}</text></text>
+    </view>
+    <view class="muted" wx:if="{{!mealHistory.length}}">还没有记录 —— 在首页给每餐打卡，这里就会有内容。</view>
   </view>
 
   <!-- 快捷入口 -->

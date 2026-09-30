@@ -49,6 +49,22 @@
     </view>
   </view>
 
+  <!-- 有反应的食材：计划页/观察期标完 reaction 的落点（status=bad 永久排除）。
+       日期 = 出现反应的当天（markIntroduced 写入），就医时可与下方喂养记录对照。 -->
+  <view class="card" wx:if="{{badFoods.length > 0}}">
+    <view class="card-title">有反应的食材</view>
+    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点进详情页清除记录，再走一次「新食材尝试」。</view>
+    <view class="obs-item" wx:for="{{badFoods}}" wx:key="foodId" wx:for-item="b">
+      <view class="obs-head">
+        <text class="obs-name">{{b.name}}</text>
+        <text class="muted">{{b.date}} 出现反应</text>
+      </view>
+      <view class="obs-actions">
+        <view class="mini-btn mini-bad" data-id="{{b.foodId}}" bindtap="goFoodDetail">查看与处理</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 已吃过的食材 -->
   <view class="card">
     <view class="card-title">已经吃过、没问题的食材</view>

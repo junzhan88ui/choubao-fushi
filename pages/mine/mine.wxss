@@ -48,3 +48,131 @@
   font-size: var(--fs-title);
   line-height: 1;
 }
+
+/* ── 我的记录（v2.1 升级为记录中枢）：可点开的统计行 + 行内展开名单 ── */
+
+.row-tap {
+  padding-left: 2rpx;
+}
+
+.row-tap:active {
+  opacity: 0.6;
+}
+
+/* 展开时本行不再画底边线 —— 否则和展开区之间夹一条重复分隔 */
+.row-open {
+  border-bottom: none;
+}
+
+/* 值 + 箭头成组：.row 是 space-between，三子项直接排会把值甩到中间 */
+.row-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.link-arrow-open {
+  transform: rotate(90deg);
+}
+
+.row-value-bad {
+  color: var(--c-red);
+}
+
+.row-detail {
+  padding: 4rpx 0 20rpx;
+}
+
+.rd-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid var(--c-line);
+  font-size: var(--fs-sm);
+}
+
+.rd-item:last-of-type {
+  border-bottom: none;
+}
+
+.rd-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text);
+}
+
+.rd-tag {
+  flex-shrink: 0;
+  padding: 2rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: var(--fs-xs);
+}
+
+.rd-tag-safe {
+  color: var(--c-green-dark);
+  background: var(--c-green-bg);
+}
+
+.rd-tag-observing {
+  color: var(--c-amber-ink);
+  background: var(--c-amber-bg);
+}
+
+.rd-tag-bad {
+  color: var(--c-red);
+  background: var(--c-red-bg);
+}
+
+.rd-empty,
+.rd-hint {
+  padding: 14rpx 0 6rpx;
+  font-size: var(--fs-sm);
+}
+
+/* ── 最近 14 天喂养记录（自档案页移入，样式一并搬来） ── */
+
+.mh-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  padding: 14rpx 0;
+  border-top: 1rpx solid var(--c-line);
+  font-size: var(--fs-sm);
+}
+
+.mh-date {
+  color: var(--c-text-3);
+  flex-shrink: 0;
+}
+
+.mh-name {
+  color: var(--c-text);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mh-state {
+  flex-shrink: 0;
+  padding: 4rpx 16rpx;
+  border-radius: 999rpx;
+  color: var(--c-green-dark);
+  background: var(--c-green-bg);
+}
+
+.mh-s-refused {
+  color: var(--c-text-2);
+  background: var(--c-muted);
+}
+
+.mh-s-reaction,
+.mh-react {
+  color: var(--c-red);
+  background: transparent;
+}

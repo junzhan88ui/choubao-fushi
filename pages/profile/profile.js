@@ -19,7 +19,10 @@ Page({
     keyword: '',
     groups: [],
     observing: [],
-    totalChecked: 0
+    totalChecked: 0,
+    // 有反应的食材（status=bad）—— 计划页「有反应」/观察期标完的落点。
+    // 没有专属卡的话，用户标完在档案页只会淹没在大列表的一个红标签里。
+    badFoods: []
   },
 
   onLoad() {
@@ -95,11 +98,32 @@ Page({
         return { foodId: it.foodId, name: name, date: it.date }
       })
 
+    // 有反应的食材（bad）：date 就是反应当天（markIntroduced 落的日期）。
+    // 计划页「有反应」和观察期点「有反应」都会落到这里，专属卡是唯一落点。
+    const badFoods = storage.getIntroduced()
+      .filter(function (it) { return it.status === 'bad' })
+      .map(function (it) {
+        let name = it.foodId
+        for (let i = 0; i < FOODS.length; i++) {
+          if (FOODS[i].id === it.foodId) { name = FOODS[i].name; break }
+        }
+        return { foodId: it.foodId, name: name, date: it.date }
+      })
+      .sort(function (a, b) { return a.date < b.date ? 1 : -1 })
+
     this.setData({
       groups: groups,
       observing: observing,
+      badFoods: badFoods,
       totalChecked: safe.length
     })
+  },
+
+  // 有反应卡 → 食材详情页：清除记录、重新引入都在那里
+  // （bad 的解除只许走详情页，见 toggleFood 的防护与 §6j 反向钉）
+  goFoodDetail(e) {
+    const id = e.currentTarget.dataset.id
+    wx.navigateTo({ url: '/pages/food-detail/food-detail?id=' + id })
   },
 
   /** 名称实时清洗后落库。

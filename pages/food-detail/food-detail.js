@@ -77,6 +77,13 @@ Page({
   },
 
   markSafe() {
+    // bad 状态下按钮已藏（wxml），这里再挡一层：storage 层会拒写，
+    // 但不拦住就会弹「已加入菜单候选」的假成功 toast（H-2）
+    const intro = storage.findIntro(this.foodId)
+    if (intro && intro.status === 'bad') {
+      wx.showToast({ title: '有反应的食材要先清除记录', icon: 'none' })
+      return
+    }
     storage.markIntroduced(this.foodId)
     storage.setIntroStatus(this.foodId, 'safe')
     storage.setPlan(null)
@@ -85,6 +92,11 @@ Page({
   },
 
   markObserving() {
+    const intro = storage.findIntro(this.foodId)
+    if (intro && intro.status === 'bad') {
+      wx.showToast({ title: '有反应的食材要先清除记录', icon: 'none' })
+      return
+    }
     storage.markIntroduced(this.foodId)
     storage.setPlan(null)
     this.build()

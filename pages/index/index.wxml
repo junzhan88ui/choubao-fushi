@@ -120,6 +120,25 @@
             <view class="meal-steps" wx:if="{{expanded === meal.key}}">
               <view class="step" wx:for="{{meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
             </view>
+            <!-- 每餐打卡（v2.1）：只在日期 ≤ 今天时出现；按钮用 catchtap，
+                 否则冒泡到 meal 的 bindtap=toggleMeal 会顺手展开步骤 -->
+            <view class="meal-log" wx:if="{{day.checkable}}">
+              <block wx:if="{{meal.log}}">
+                <text class="ml-state ml-s-{{meal.log.status}}">已记录 · {{meal.log.label}}</text>
+                <text class="ml-undo" catchtap="undoMealLog"
+                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}">撤销</text>
+              </block>
+              <block wx:else>
+                <view class="ml-btn" catchtap="logMeal"
+                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="full">吃完了</view>
+                <view class="ml-btn" catchtap="logMeal"
+                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="some">吃一些</view>
+                <view class="ml-btn" catchtap="logMeal"
+                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="refused">没吃</view>
+              </block>
+              <view class="ml-btn ml-btn-react" catchtap="reactionMeal"
+                    data-date="{{day.date}}" data-rid="{{meal.recipeId}}">有反应</view>
+            </view>
           </view>
 
           <view class="meal-hint muted" wx:if="{{!day.meals.length}}">暂无合适的菜谱，去「我的」补一下已吃食材</view>

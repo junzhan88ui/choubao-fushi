@@ -620,7 +620,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     safeFoodIds() { return state.safe },
     badFoodIds() { return state.bad },
     recordedFoodIds() { return state.safe.concat(state.bad, state.obs) },
-    observingFoodIds() { return state.obs }
+    observingFoodIds() { return state.obs },
+    // v2.1 打卡回写：连续拒吃名单（没传 state.refused 时视为空名单）
+    refusedRecipeIds() { return state.refused || [] }
   })
 
   const birthdayAgo = (months) => {
@@ -678,7 +680,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     ['当前状态（取消勾选）', (s) => { s.issues = [] }],
     ['生病状态（sick）', (s) => { s.sick = true }],
     ['已确认安全的食材集合', (s) => { s.safe = s.safe.slice(0, 5) }],
-    ['观察中食材', (s) => { s.obs = ['pumpkin'] }]
+    ['观察中食材', (s) => { s.obs = ['pumpkin'] }],
+    ['连续拒吃降权名单（打卡回写）', (s) => { s.refused = ['rice'] }]
   ]
   SENSITIVE.forEach(([name, mutate]) => {
     if (sigWith(mutate) === baseSig)
@@ -856,7 +859,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       safeFoodIds() { return [] },
       badFoodIds() { return [] },
       recordedFoodIds() { return [] },
-      observingFoodIds() { return [] }
+      observingFoodIds() { return [] },
+      refusedRecipeIds() { return [] }
     })
     if (plan.planInputs(mk('')) !== null)
       E('planInputs 缺名称仍返回输入 —— 名称必填没进引擎闸门，别的调用路径能绕过去')
@@ -1068,7 +1072,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     safeFoodIds() { return [] },
     badFoodIds() { return [] },
     recordedFoodIds() { return [] },
-    observingFoodIds() { return [] }
+    observingFoodIds() { return [] },
+    refusedRecipeIds() { return [] }
   })
   const sigA = plan.planSignature(mkSig('臭宝'))
   const origIconFor = icons.iconFor
@@ -1285,6 +1290,393 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
   if (errs.length === errsBefore)
     console.log('  6 月龄说明：points(6段：5要点+并入的清淡少盐)+cook(七种做法、排最后) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
+}
+
+/* ---------- 6j. 「有反应」(bad) 不可被洗白：藏按钮 + JS 拨卫 + storage 硬拒（H-2） ----------
+ * bad 是系统里唯一的永久排除机制。旧版详情页按钮只排 safe/observing、
+ * markIntroduced 又无条件覆写 —— 一次点按就把过敏食材洗白成「安全」，
+ * 连反应日期都覆写丢失（档案页 profile.js 的拦截被整条绕过）。
+ * 三层各司其职，缺一层都算回归：藏按钮=防误触，JS 拨卫=防假成功 toast，
+ * storage 拒写=兜底不变量（bad 只能经 removeIntroduced 解除）。
+ * 断言走函数级真跑：内存 wx stub 造 bad 记录 → 各路径覆写 → 逐一验不变量。
+ */
+{
+  const errsBefore = errs.length
+  const fj = fs.readFileSync('./pages/food-detail/food-detail.js', 'utf8')
+  const fw = fs.readFileSync('./pages/food-detail/food-detail.wxml', 'utf8')
+
+  // 1) WXML：两颗按钮必须显式排除 bad（只排 safe/observing 正是旧版漏洞）
+  fw.split('\n').forEach((line) => {
+    if (line.indexOf('bindtap="markSafe"') >= 0 && line.indexOf("status !== 'bad'") < 0)
+      E('详情页「已经吃过，没问题」按钮没排除 bad —— bad 记录可被一键洗白（H-2 回归）')
+    if (line.indexOf('bindtap="markObserving"') >= 0 && line.indexOf("status !== 'bad'") < 0)
+      E('详情页「今天第一次试」按钮没排除 bad —— bad 记录可被一键洗白（H-2 回归）')
+    // 反向钉：清除记录必须对 bad 可见 —— 否则用户被永久锁死、无解除通道
+    if (line.indexOf('bindtap="clearRecord"') >= 0) {
+      if (line.indexOf("status !== 'new'") < 0)
+        E('详情页「清除记录」按钮的显示条件丢了 status !== new')
+      if (line.indexOf("status !== 'bad'") >= 0)
+        E('详情页把「清除记录」也对 bad 藏了 —— 解除 bad 的唯一通道被堵死，用户无法重新引入')
+    }
+  })
+  // bad 引导行：按钮消失必须给解释 + 正确路径
+  if (fw.indexOf('wx:if="{{status === \'bad\'}}"') < 0)
+    E('详情页缺 bad 状态的解释/引导行 —— 用户不知道按钮为什么消失了、该怎么重新引入')
+
+  // 2) JS：markSafe/markObserving 各要一处 bad 拨卫（防 WXML 条件被改坏后弹假成功 toast）
+  const guardCnt = (fj.match(/status === 'bad'/g) || []).length
+  if (guardCnt < 2)
+    E(`food-detail.js 的 bad 拨卫不足（找到 ${guardCnt} 处，markSafe/markObserving 各要 1 处）`)
+
+  // 3) storage 硬拒：函数级真跑（内存 wx stub，跑完还原）
+  const mem = {}
+  mem[storage.KEYS.INTRO] = []
+  const hadWx = typeof global.wx !== 'undefined'
+  const savedWx = global.wx
+  global.wx = {
+    getStorageSync: (k) => (Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : ''),
+    setStorageSync: (k, v) => { mem[k] = v },
+    removeStorageSync: (k) => { delete mem[k] }
+  }
+  try {
+    // 前置：造一条 bad 记录
+    storage.markIntroduced('yam')
+    storage.setIntroStatus('yam', 'bad')
+    const seed = storage.findIntro('yam')
+    if (!seed || seed.status !== 'bad') {
+      E('前置失败：没能造出 bad 记录，§6j 后续断言全部无效')
+    } else {
+      const d0 = seed.date
+
+      // 3a) markIntroduced 不得覆写 bad（状态与日期都不行），且要返回 false
+      const r1 = storage.markIntroduced('yam')
+      const a1 = storage.findIntro('yam')
+      if (!a1 || a1.status !== 'bad')
+        E(`markIntroduced 把 bad 覆写成了 ${a1 ? a1.status : 'null'} —— 过敏食材被洗白（H-2 主漏洞）`)
+      if (a1 && a1.date !== d0)
+        E('markIntroduced 覆写了 bad 记录的日期 —— 过敏反应日期是核心信息，不能丢')
+      if (r1 !== false)
+        E('markIntroduced 遇 bad 应返回 false —— 调用方拿不到失败信号会弹「成功」toast')
+
+      // 3b) setIntroStatus 不得把 bad 转成 safe（观察中确认结果的入口也不能反向用）
+      const r2 = storage.setIntroStatus('yam', 'safe')
+      const a2 = storage.findIntro('yam')
+      if (!a2 || a2.status !== 'bad')
+        E('setIntroStatus 把 bad 转成了 safe —— storage 层没守住不变量')
+      if (r2 !== false)
+        E('setIntroStatus 拒绝 bad→safe 时应返回 false')
+
+      // 3c) 正常流程不误伤：观察中 → bad（确认过敏）必须放行
+      storage.removeIntroduced('yam')
+      storage.markIntroduced('yam')
+      const r3 = storage.setIntroStatus('yam', 'bad')
+      const a3 = storage.findIntro('yam')
+      if (r3 !== true || !a3 || a3.status !== 'bad')
+        E('observing→bad 被误伤 —— 档案页「确认有反应」的正常流程断了')
+
+      // 3d) 正确解除路径必须走通：清除记录 → 重新引入回观察中
+      storage.removeIntroduced('yam')
+      const r4 = storage.markIntroduced('yam')
+      const a4 = storage.findIntro('yam')
+      if (r4 !== true || !a4 || a4.status !== 'observing')
+        E('清除记录后重新引入失败 —— bad 守卫误伤了正常路径')
+    }
+  } catch (e) {
+    E('§6j 函数级断言执行异常：' + e.message)
+  } finally {
+    if (hadWx) global.wx = savedWx
+    else delete global.wx
+  }
+
+  if (errs.length === errsBefore)
+    console.log('  6j 有反应不可洗白：藏按钮×2 ? 反向钉(清除记录必可见) ? JS 拨卫×2 ? storage 硬拒(状态/日期/返回值) ? 正常路径(→bad、清除后重引入)不误伤 ✓')
+}
+
+/* ---------- 6k. 每餐打卡（记录 → 回写引擎 → 14 天证据列表，v2.1） ----------
+ * 三态打卡（full/some/refused）+ 有反应联动标 bad；连续拒吃 → ×0.15 软降权
+ * 进指纹；档案页 14 天证据列表。各断链的后果：
+ * 按钮 bindtap 冒泡 → 点打卡顺手展开步骤；指纹缺 f 段 → 打卡不触发重排，
+ * 降权白算；参数没穿透 → 名单传不到 pickWeighted；reaction 不走 bad 正路
+ * → 过敏食材还留在菜单里（H-2 反向回归）。
+ */
+{
+  const errsBefore = errs.length
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const pj = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const pw = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+  const pl = fs.readFileSync('./utils/plan.js', 'utf8')
+  const sj = fs.readFileSync('./utils/storage.js', 'utf8')
+  const iw1 = iw.replace(/\s+/g, ' ')
+
+  // 1) storage：函数、导出、键、清空
+  ;['getMealLogs', 'logMeal', 'refusedRecipeIds'].forEach(function (fn) {
+    if (sj.indexOf('function ' + fn + '(') < 0)
+      E('storage 缺函数 ' + fn + '（每餐打卡链路断）')
+    if (sj.indexOf(fn + ': ' + fn) < 0)
+      E('storage 没导出 ' + fn)
+  })
+  if (sj.indexOf("MEALS: 'bb_meals'") < 0) E('storage 缺 KEYS.MEALS')
+  if (sj.indexOf('removeStorageSync(KEYS.MEALS)') < 0)
+    E('resetAll 没清 MEALS —— 「清除全部数据」后喂养记录残留')
+
+  // 2) 按钮链路：三态齐 + 必须 catchtap（bindtap 会冒泡到 meal 的 toggleMeal）
+  ;['full', 'some', 'refused'].forEach(function (st) {
+    if (!new RegExp('catchtap="logMeal"[^>]*data-status="' + st + '"').test(iw1))
+      E(`index.wxml 缺 catchtap=logMeal 的 "${st}" 打卡按钮`)
+  })
+  if (iw.indexOf('bindtap="logMeal"') >= 0)
+    E('打卡按钮用了 bindtap —— 冒泡到 toggleMeal，点打卡顺手展开步骤')
+  if (iw.indexOf('catchtap="reactionMeal"') < 0) E('index.wxml 缺「有反应」入口')
+  if (iw.indexOf('catchtap="undoMealLog"') < 0) E('index.wxml 缺打卡撤销入口')
+  if (ij.indexOf('logMeal(e)') < 0) E('index.js 缺 logMeal 处理器')
+  if (ij.indexOf('reactionMeal(e)') < 0) E('index.js 缺 reactionMeal 处理器')
+  if (ij.indexOf('undoMealLog(e)') < 0) E('index.js 缺 undoMealLog 处理器')
+
+  // 3) 有反应：必须走 markIntroduced → setIntroStatus('bad') 正路（§6j 同源），
+  //    且本餐记为 reaction —— 证据列表要能看到这次反应
+  const rs = ij.slice(ij.indexOf('reactionMeal(e)'))
+  if (!/markIntroduced\(fid\)/.test(rs) || !/setIntroStatus\(fid,\s*'bad'\)/.test(rs))
+    E('reactionMeal 没走 markIntroduced → setIntroStatus(bad) 正路 —— 反应食材没进永久排除')
+  if (!/logMeal\(d\.date,\s*d\.rid,\s*'reaction',\s*fid\)/.test(rs))
+    E('reactionMeal 没把本餐记为 reaction —— 证据列表缺这次反应')
+
+  // 4) 引擎：降权项 + 参数穿透 + planInputs 取名单 + 指纹 f 段
+  if (pl.indexOf('refusedIds.indexOf(r.id) >= 0) w *= 0.15') < 0)
+    E('pickWeighted 没有拒吃降权项（×0.15）—— 打卡不反哺排餐')
+  if (!/pickWeighted\(pool, usedCount, dayMainUse, issueTags, dayCats,\s*opts\.refusedRecipeIds\)/.test(pl.replace(/\n\s*/g, ' ')))
+    E('调用点没把 refusedRecipeIds 传进 pickWeighted —— 名单算了白算')
+  if (pl.indexOf('refusedRecipeIds: storage.refusedRecipeIds()') < 0)
+    E('planInputs 没取打卡名单 —— 引擎看不到回写')
+  if (pl.indexOf("'f' + list(inputs.refusedRecipeIds)") < 0)
+    E('planSignature 缺 f 段 —— 打卡后指纹不变，降权不触发重排')
+
+  // 5) 装饰与渲染：checkable 闸（未来餐不能打卡）+ meal.log 挂载
+  if (!/d\.checkable\s*=\s*d\.date\s*<=\s*todayKey/.test(ij))
+    E('markToday 没算 day.checkable —— 未来餐也会出现打卡按钮')
+  if (ij.indexOf('m.log =') < 0) E('markToday 没装饰 meal.log')
+  if (iw.indexOf('wx:if="{{day.checkable}}"') < 0) E('打卡行没锁在 day.checkable 上')
+
+  // 6) 证据列表：14 天喂养记录（v2.1 自档案页移入「我的」tab —— 记录归「我的」，
+  //    档案页只管编辑。卡留在档案页 =「我的」记录中枢缺一块，且两页重复）
+  const mj = fs.readFileSync('./pages/mine/mine.js', 'utf8')
+  const mw = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+  if (mj.indexOf('rebuildHistory') < 0)
+    E('mine.js 缺 rebuildHistory —— 14 天喂养记录没跟着挪到「我的」')
+  if (mj.indexOf('14 * 86400000') < 0)
+    E('rebuildHistory 没按 14 天窗口过滤')
+  if (mj.indexOf('this.rebuildHistory()') < 0)
+    E('mine onShow 没调 rebuildHistory —— 进页看不到记录')
+  if (mw.indexOf('最近 14 天喂养记录') < 0)
+    E('mine.wxml 缺历史记录卡')
+  if (pw.indexOf('最近 14 天喂养记录') >= 0)
+    E('喂养记录卡还留在档案页 —— 挪了没挪走，两页重复')
+  if (pj.indexOf('rebuildHistory') >= 0 || pj.indexOf('mealHistory') >= 0)
+    E('档案页还残留喂养记录代码 —— 挪走没挪干净（死代码）')
+
+  // 6b) 「有反应」入口双保险：「我的」记录卡的专属行（主入口，上轮修错页的回归点）
+  //     + 档案页有反应卡（编辑语境）。大列表红标签不算入口：标题写着「没问题」。
+  if (mj.indexOf('badCount') < 0)
+    E('mine.js 没算 badCount —— 我的记录卡缺「有反应」行的数据')
+  if (mw.indexOf('data-row="bad"') < 0)
+    E('mine.wxml 缺「有反应、已排除」行 —— 「我的」tab 又没入口了（上轮修错页的回归）')
+  if (mw.indexOf('wx:for="{{badList}}"') < 0)
+    E('有反应行没绑 badList —— 点开是空壳，看不到具体食材')
+  if (mj.indexOf("toItems('bad')") < 0)
+    E('badList 没从 status=bad 过滤 —— 观察中/安全食材会混进有反应组')
+
+  // 6c) 行内展开链：行可点 → openRow 展开 → 渲染带名字的真名单 → 点得进详情
+  if (mj.indexOf('toggleRow(e)') < 0)
+    E('mine.js 缺 toggleRow —— 记录行点不开')
+  if (mw.indexOf('bindtap="toggleRow"') < 0)
+    E('mine.wxml 记录行没绑 toggleRow —— 四行还是只读统计')
+  if (mw.indexOf('wx:if="{{openRow === ') < 0)
+    E('mine.wxml 没有按 openRow 展开的结构 —— 点开看不到名单')
+  if (mj.indexOf('toItems(') < 0 || mw.indexOf('wx:for="{{safeList}}"') < 0)
+    E('行内展开的数据链断了（toItems → safeList 渲染）—— 点开是空的')
+  if (mj.indexOf('goFoodDetail(e)') < 0 || mw.indexOf('bindtap="goFoodDetail"') < 0)
+    E('展开的食材点不进详情页（goFoodDetail 链断）')
+
+  // 6d) 档案页保留的有反应卡（编辑语境下的管理入口，与「我的」行互为双保险）
+  if (pj.indexOf('badFoods') < 0)
+    E('profile.js 没建 badFoods —— 有反应的食材在档案页没有落点')
+  if (pj.indexOf('return it.status === \'bad\'') < 0)
+    E('badFoods 没按 status===bad 过滤 —— 观察中/安全的食材会混进有反应卡')
+  if (pj.indexOf('goFoodDetail(e)') < 0)
+    E('profile.js 缺 goFoodDetail 处理器 —— 有反应卡点不进详情页（清除记录没入口）')
+  if (pj.indexOf('/pages/food-detail/food-detail?id=') < 0)
+    E('goFoodDetail 没跳 food-detail?id= —— 详情页入口断链')
+  if (pw.indexOf('有反应的食材') < 0)
+    E('profile.wxml 缺「有反应的食材」卡 —— 档案页管理入口丢了')
+  if (pw.indexOf('wx:for="{{badFoods}}"') < 0)
+    E('有反应卡没绑 badFoods —— 卡片是空壳')
+  if (pw.indexOf('出现反应') < 0)
+    E('有反应卡没显示反应日期 —— 就医证据缺时间')
+
+  // 7) 函数级真跑（内存 wx stub，跑完还原）：规则本身不许纸面化
+  const mem = {}
+  const hadWx = typeof global.wx !== 'undefined'
+  const savedWx = global.wx
+  global.wx = {
+    getStorageSync: (k) => (Object.prototype.hasOwnProperty.call(mem, k) ? mem[k] : ''),
+    setStorageSync: (k, v) => { mem[k] = v },
+    removeStorageSync: (k) => { delete mem[k] }
+  }
+  try {
+    const day = storage.todayStr()
+    const d1 = storage.todayStr(new Date(Date.now() - 86400000))
+    const d2 = storage.todayStr(new Date(Date.now() - 2 * 86400000))
+    const old = storage.todayStr(new Date(Date.now() - 9 * 86400000))
+
+    storage.logMeal(day, 'rice', 'full')
+    storage.logMeal(day, 'rice', 'refused') // 同日同菜覆写
+    const same = storage.getMealLogs().filter((e) => e.recipeId === 'rice' && e.date === day)
+    if (same.length !== 1) E(`同日同菜应只保留 1 条，实际 ${same.length} 条`)
+    if (same.length && same[0].status !== 'refused')
+      E('同日同菜第二次打卡没覆盖第一次')
+
+    // 连续 2 次没吃（隔天）→ 进名单；单次 → 不进
+    storage.logMeal(d1, 'oat', 'refused')
+    storage.logMeal(d2, 'oat', 'refused')
+    const r1 = storage.refusedRecipeIds()
+    if (r1.indexOf('oat') < 0) E('连续 2 次没吃没进降权名单 —— 拒吃不反哺')
+    if (r1.indexOf('rice') >= 0) E('单次没吃就进了名单 —— 规则是「连续 2 次」')
+
+    // 7 天窗外的没吃不算
+    storage.logMeal(old, 'millet', 'refused')
+    storage.logMeal(d1, 'millet', 'refused')
+    if (storage.refusedRecipeIds().indexOf('millet') >= 0)
+      E('7 天窗外的没吃也算了 —— 窗口没生效')
+
+    // 吃一次（some/full 都算）→ 自动解除
+    storage.logMeal(day, 'oat', 'some')
+    if (storage.refusedRecipeIds().indexOf('oat') >= 0)
+      E('吃过一次还留在降权名单 —— 解除规则没生效')
+
+    // 撤销
+    storage.logMeal(day, 'rice', null)
+    if (storage.getMealLogs().some((e) => e.recipeId === 'rice'))
+      E('撤销（status=null）没删掉记录')
+
+    // 指纹联动：连续拒吃必须让签名变化，否则缓存不失效、降权不触发重排
+    storage.setBaby({ name: '臭宝', birthday: '2026-01-01' })
+    const s0 = plan.planSignature(storage)
+    storage.logMeal(day, 'yam', 'refused')
+    storage.logMeal(d1, 'yam', 'refused')
+    const s1 = plan.planSignature(storage)
+    if (!s0 || !s1 || s0 === s1)
+      E('连续拒吃打卡后 planSignature 没变 —— 降权不触发重排')
+    const inputs = plan.planInputs(storage)
+    if (!inputs || (inputs.refusedRecipeIds || []).indexOf('yam') < 0)
+      E('planInputs 没带出 refusedRecipeIds —— 引擎断链')
+  } catch (e) {
+    E('§6k 函数级断言执行异常：' + e.message)
+  } finally {
+    if (hadWx) global.wx = savedWx
+    else delete global.wx
+  }
+
+  if (errs.length === errsBefore)
+    console.log('  6k 每餐打卡：三态按钮(catchtap)+撤销 ? 反应走 bad 正路+记本餐 ? 降权×0.15 穿透+指纹f段 ? checkable闸 ? 记录中枢(我的4行+行内展开+有反应行) ? 14天喂养记录在「我的」 ? 档案页有反应卡+挪干净 ? 规则真跑(2次进/1次不进/窗外不算/吃过即解除/撤销/指纹联动) ✓')
+}
+
+/* ---------- 6l. v2.2 视觉基线：卡片阴影（B1） ----------
+ * 设计评审结论：#fff 卡 vs #faf9f6 页面底色差约 1.5%，全站又零阴影、
+ * 只靠 1rpx 描边分层 —— 真机低亮度下白卡会糊成一片。
+ * 锁三件事 ——
+ *   1. 唯一定义：阴影只许写在 app.wxss 的 .card 里。散到各页 = 重复定义，
+ *      改一处漏一处（.mini-btn 已经这样漂移过，见评审 B3）
+ *   2. 必须有：.card 没 box-shadow 就是 B1 白做，卡浮不起来
+ *   3. 必须够浅（alpha ≤ 0.1）：这是边界提示不是立体感。加成重阴影
+ *      就背离了「暖白台面 + 全描边 + quiet」的风格方向
+ */
+{
+  const errsBefore = errs.length
+  const appWxss = fs.readFileSync('./app.wxss', 'utf8')
+  const cardRule = appWxss.match(/\.card\s*\{[^}]*\}/)
+  if (!cardRule) {
+    E('app.wxss 找不到 .card 规则 —— 全局卡片样式没了')
+  } else {
+    const m = cardRule[0].match(/box-shadow:\s*([^;]+)/)
+    if (!m) {
+      E('app.wxss 的 .card 没有 box-shadow —— 白卡 vs 暖白底只差约 1.5%，低亮度下糊成一片（B1 被拆了）')
+    } else {
+      // rgba(r, g, b, a) → 取最后一个数即 alpha
+      const rgba = m[1].match(/rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)/)
+      if (rgba && parseFloat(rgba[1]) > 0.1)
+        E('.card 阴影 alpha=' + rgba[1] + ' 过重（>0.1）—— B1 要的是极浅边界提示，不是立体重阴影')
+    }
+    // 反向：页面 wxss 不许各自再给 card 系加阴影（散落必漂移）
+    ;['index', 'mine', 'profile', 'food', 'food-detail'].forEach((p) => {
+      const css = fs.readFileSync(`./pages/${p}/${p}.wxss`, 'utf8')
+      if (/\.card[^{]*\{[^}]*box-shadow/.test(css))
+        E(`${p}.wxss 自己给 card 系类加了 box-shadow —— 阴影必须只在 app.wxss 的 .card 一处定义`)
+    })
+  }
+
+  /* —— A1：今天日期 = 计划页唯一的 display 时刻 ——
+   * 锁三件事：今天专属规则升到 --fs-display/600；基础 .day-date 保持 fs-sm
+   * （非今天的日子必须安静，否则人人都大 = 没有锚点）；混合三档字号用
+   * baseline 对齐（center 会让 22rpx 胶囊浮在 40rpx 日期中间）。 */
+  const idxWxss = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const fontSizeOf = (css, cls) => {
+    const m = css.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*font-size:\\s*([^;}]+)'))
+    return m ? m[1].trim() : null
+  }
+  const todayDate = idxWxss.match(/\.day-card--today\s+\.day-date\s*\{[^}]*\}/)
+  if (!todayDate) {
+    E('index.wxss 缺 .day-card--today .day-date 规则 —— 今天日期没提档（A1 被拆了）')
+  } else {
+    if (!/font-size:\s*var\(--fs-display\)/.test(todayDate[0]))
+      E('今天日期没用 --fs-display —— A1 要它是计划页唯一的 display 时刻')
+    if (!/font-weight:\s*600/.test(todayDate[0]))
+      E('今天日期没加 font-weight 600 —— A1 拔高不完整')
+  }
+  const baseDate = fontSizeOf(idxWxss, 'day-date')
+  if (baseDate !== 'var(--fs-sm)')
+    E('基础 .day-date 字号是 ' + baseDate + ' 而非 var(--fs-sm) —— 非今天的日子被一起放大，锚点就没了')
+  if (!/\.day-head-l\s*\{[^}]*align-items:\s*baseline/.test(idxWxss))
+    E('.day-head-l 没用 baseline 对齐 —— 星期/日期/今天胶囊三档字号 center 会错位')
+
+  /* —— B2：打卡行命中区 ≥ 44pt ——
+   * min-height 直接表达需求（88rpx = 44pt @2rpx=1pt），不靠 padding 反推。
+   * 三个配套一起锁：flex 居中（否则 min-height 顶字）、state/undo 与按钮
+   * 同高（否则打卡前后行高跳变）、文本内部 lh+2×pad 必须撑满 88（贴顶=半残）。 */
+  const ruleOf = (cls) => {
+    const m = idxWxss.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*\\}'))
+    return m ? m[0] : null
+  }
+  const hBtn = (() => {
+    const r = ruleOf('ml-btn')
+    const m = r && r.match(/min-height:\s*(\d+)rpx/)
+    return m ? parseInt(m[1], 10) : null
+  })()
+  if (hBtn === null)
+    E('.ml-btn 没有 min-height —— 打卡按钮命中区没有保证（B2 被拆了）')
+  else if (hBtn < 88)
+    E('.ml-btn min-height=' + hBtn + 'rpx < 88rpx（44pt，2rpx=1pt）—— 打卡按钮命中区不达标（B2）')
+  const btnRule = ruleOf('ml-btn')
+  if (btnRule && !(/display:\s*flex/.test(btnRule) && /align-items:\s*center/.test(btnRule)))
+    E('.ml-btn 没有 flex 垂直居中 —— min-height 会把文字顶在上边（B2 半残）')
+  ;['ml-state', 'ml-undo'].forEach((cls) => {
+    const r = ruleOf(cls)
+    if (!r) { E(`.${cls} 规则不见了`); return }
+    const lh = (r.match(/line-height:\s*(\d+)rpx/) || [])[1]
+    const pad = (r.match(/padding:\s*(\d+)rpx/) || [])[1]
+    const h = lh && pad ? parseInt(lh, 10) + 2 * parseInt(pad, 10) : 0
+    if (h < 88)
+      E(`.${cls} 实际高度算术 = ${lh || '?'}+2×${pad || '?'} = ${h}rpx < 88rpx —— 文本贴顶/命中区缩水`)
+    if (hBtn && Math.abs(h - hBtn) > 4)
+      E(`.${cls} 高度(${h}rpx)与 .ml-btn(${hBtn}rpx)差 >4rpx —— 打卡前后整行高度跳变`)
+  })
+  // 反向：有反应也是打卡行的点击目标，不许缩水
+  const reactRule = ruleOf('ml-btn-react')
+  const hm = reactRule && reactRule.match(/min-height:\s*(\d+)rpx/)
+  if (hm && parseInt(hm[1], 10) < 88)
+    E('.ml-btn-react 把 min-height 改小了 —— 有反应也是打卡行的点击目标')
+
+  if (errs.length === errsBefore)
+    console.log('  6l 视觉基线：.card 阴影唯一+alpha≤0.1 ✓、今天日期=计划页唯一 display(40/600) ✓、基础日期 fs-sm ✓、三档 baseline ✓、打卡行 min-height96≥88+flex居中 ✓、state/undo 同高+行盒撑满 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

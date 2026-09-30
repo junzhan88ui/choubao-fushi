@@ -10,6 +10,7 @@ const KEYS = {
   INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: observing | safe | bad
   STATUS: 'bb_status',    // [keys] 当前状态，可多选（合法 key 见 STATUSES）
   PLAN: 'bb_plan',        // { generatedAt, months, stageKey, days, shopping }
+  MEALS: 'bb_meals',      // [{ date, recipeId, status, reaction, at }] 每餐打卡（v2.1）
 
   // 旧版单选字段，只用于把老用户的设置迁移进 bb_status（见 ensureInit）
   LEGACY_ISSUE: 'bb_issue',
@@ -238,6 +239,11 @@ function findIntro(foodId) {
 function markIntroduced(foodId, dateStr) {
   const list = getIntroduced()
   const exist = findIntro(foodId)
+  // ⚠️ 「有反应」(bad) 是唯一的永久排除机制，任何路径都不得覆写它（H-2）。
+  // 详情页已藏掉 bad 状态下的按钮，这里是最后一道防线：bad 记录只能经
+  // removeIntroduced（用户显式「清除记录」）解除，否则一次点按就能把
+  // 过敏食材洗白回「观察中」，连反应日期都会被覆写丢失。
+  if (exist && exist.status === 'bad') return false
   const today = dateStr || todayStr()
   if (exist) {
     exist.date = today
@@ -246,15 +252,21 @@ function markIntroduced(foodId, dateStr) {
     list.push({ foodId: foodId, date: today, status: 'observing' })
   }
   setIntroduced(list)
+  return true
 }
 
 /** 观察期结束后由用户确认结果 */
 function setIntroStatus(foodId, status) {
   const list = getIntroduced()
   for (let i = 0; i < list.length; i++) {
-    if (list[i].foodId === foodId) list[i].status = status
+    if (list[i].foodId !== foodId) continue
+    // bad 只进不出：观察中→bad（确认过敏）放行；bad→safe/observing 拒绝，
+    // 解除只走 removeIntroduced（见 _validate.js §6j）
+    if (list[i].status === 'bad' && status !== 'bad') return false
+    list[i].status = status
   }
   setIntroduced(list)
+  return true
 }
 
 function removeIntroduced(foodId) {
@@ -314,6 +326,71 @@ function setPlan(plan) {
   wx.setStorageSync(KEYS.PLAN, plan || null)
 }
 
+/* ---------- 每餐打卡记录（v2.1） ---------- */
+
+/**
+ * [{ date, recipeId, status, reaction, at }]
+ *   status: 'full'(吃完了) | 'some'(吃一些) | 'refused'(没吃) | 'reaction'(有反应)
+ *   reaction: 引发反应的食材 id（仅 status==='reaction' 时有值）
+ * 同 (date, recipeId) 只保留一条；status 传 null = 撤销这条打卡。
+ * 引擎回写输入：连续拒吃的菜降权（refusedRecipeIds → plan.pickWeighted）。
+ */
+function getMealLogs() {
+  const raw = wx.getStorageSync(KEYS.MEALS)
+  return Array.isArray(raw) ? raw : []
+}
+
+function logMeal(date, recipeId, status, reactionFoodId) {
+  const list = getMealLogs().filter(function (it) {
+    return !(it.date === date && it.recipeId === recipeId)
+  })
+  if (status) {
+    list.push({
+      date: date,
+      recipeId: recipeId,
+      status: status,
+      reaction: reactionFoodId || '',
+      at: Date.now()
+    })
+  }
+  wx.setStorageSync(KEYS.MEALS, list)
+}
+
+/**
+ * 「连续拒吃」名单（软降权，不是禁排）：近 7 天同一道菜累计 2 次「没吃」，
+ * 且最后一次「没吃」之后没再吃过（full/some 都算吃过）→ 进名单；
+ * 吃一次自动解除。日期是 YYYY-MM-DD，字符串比较即时间比较。
+ */
+function refusedRecipeIds(now) {
+  const n = now || new Date()
+  const fromKey = todayStr(new Date(n.getTime() - 7 * 86400000))
+  const byId = {}
+  getMealLogs().forEach(function (e) {
+    if (e.date < fromKey) return
+    ;(byId[e.recipeId] = byId[e.recipeId] || []).push(e)
+  })
+  const out = []
+  Object.keys(byId).forEach(function (rid) {
+    const arr = byId[rid].slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1
+      return (a.at || 0) - (b.at || 0)
+    })
+    let lastRef = -1
+    for (let i = 0; i < arr.length; i++) {
+      if (arr[i].status === 'refused') lastRef = i
+    }
+    if (lastRef < 1) return
+    let refusals = 0
+    for (let i = 0; i <= lastRef; i++) if (arr[i].status === 'refused') refusals++
+    if (refusals < 2) return
+    for (let i = lastRef + 1; i < arr.length; i++) {
+      if (arr[i].status === 'full' || arr[i].status === 'some') return
+    }
+    out.push(rid)
+  })
+  return out
+}
+
 /* ---------- 其他 ---------- */
 
 function todayStr(d) {
@@ -328,6 +405,7 @@ function resetAll() {
   wx.removeStorageSync(KEYS.INTRO)
   wx.removeStorageSync(KEYS.STATUS)
   wx.removeStorageSync(KEYS.PLAN)
+  wx.removeStorageSync(KEYS.MEALS)
   // 旧版字段一起清：否则清完之后 ensureInit 会拿它们把状态原样迁回来。
   // （此前这里漏了 bb_sick —— 「清除全部数据」后生病状态仍残留）
   wx.removeStorageSync(KEYS.LEGACY_ISSUE)
@@ -368,6 +446,9 @@ module.exports = {
   getSick: getSick,
   getPlan: getPlan,
   setPlan: setPlan,
+  getMealLogs: getMealLogs,
+  logMeal: logMeal,
+  refusedRecipeIds: refusedRecipeIds,
   todayStr: todayStr,
   resetAll: resetAll
 }

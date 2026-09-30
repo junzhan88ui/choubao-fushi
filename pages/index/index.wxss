@@ -97,10 +97,12 @@
   padding: 24rpx 28rpx 12rpx;
 }
 
-/* 今天：左侧绿边 + 「今天」标签，让用户一眼定位 */
+/* 今天：左侧绿边 + 「今天」标签 + 日期升 display（A1，v2.2）
+   计划页的锚 = 今天。padding-top 加 8rpx 留白，让这一张卡先「停」一下再进内容 */
 .day-card--today {
   border-left: 6rpx solid var(--c-green);
   padding-left: 22rpx;
+  padding-top: 32rpx;
 }
 
 /* 天卡片头部：左边星期+日期，右边食物覆盖数 */
@@ -112,9 +114,11 @@
   margin-bottom: 16rpx;
 }
 
+/* baseline 而非 center：日期升到 40rpx 后，星期(30)/日期(40)/今天胶囊(22)
+   三档字号按基线对齐才顺（与 .head-line 同一处理） */
 .day-head-l {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   min-width: 0;
 }
 
@@ -128,6 +132,15 @@
 .day-date {
   font-size: var(--fs-sm);
   color: var(--c-text-3);
+}
+
+/* A1（v2.2）：今天卡的日期 = 计划页唯一的 display 时刻。
+   只有 --today 提档；非今天的日子保持上面的 fs-sm 灰色，全站其余安静。
+   （详情页 .fd-name 也用 --fs-display —— 那是另一个页面的主角，不算冲突） */
+.day-card--today .day-date {
+  font-size: var(--fs-display);
+  font-weight: 600;
+  color: var(--c-text);
 }
 
 .day-today {
@@ -214,6 +227,72 @@
 .meal-hint {
   padding: 20rpx 0;
   border-top: 1rpx solid var(--c-line);
+}
+
+/* 每餐打卡（v2.1）：三态按钮 + 有反应。颜色全走 token */
+.meal-log {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 16rpx;
+}
+
+.ml-btn {
+  /* B2（v2.2）：打卡是 v2.1 高频主操作，命中区 ≥44pt —— 高度用 min-height
+     直接表达（96rpx：iOS=48pt，Android 360dp 屏≈46dp），不靠 padding 反推
+     （那依赖 line-height 1.6 永不被改）。flex 居中是配套项，否则 min-height
+     会把文字顶在上边；border-box 保证 min-height 含 1rpx 边框 = 准确 96 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 96rpx;
+  padding: 0 26rpx;
+  border-radius: 999rpx;
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+  background: var(--c-muted);
+  border: 1rpx solid var(--c-line);
+}
+
+.ml-btn-react {
+  color: var(--c-red);
+  background: var(--c-red-bg);
+  border-color: transparent;
+  margin-left: auto;
+}
+
+.ml-state {
+  /* 与 .ml-btn 同高（96rpx）→ 打卡前后整行高度不跳。
+     <text> 是 flex 行子项（已块化），垂直 padding 生效；不加 min-height：
+     若基础是 content-box，min-height 会与 padding 叠加爆高。
+     算术：line-height 40 + padding 28×2 = 96，两种 box-sizing 下都成立 */
+  padding: 28rpx 26rpx;
+  line-height: 40rpx;
+  font-size: var(--fs-sm);
+  color: var(--c-green-dark);
+  background: var(--c-green-bg);
+  border-radius: 999rpx;
+}
+
+.ml-s-refused {
+  color: var(--c-text-2);
+  background: var(--c-muted);
+}
+
+.ml-s-reaction {
+  color: var(--c-red);
+  background: var(--c-red-bg);
+}
+
+.ml-undo {
+  /* 撤销也是真点击目标：与按钮同高，命中区 72×54 → 100×96（算术同 .ml-state） */
+  padding: 28rpx 26rpx;
+  line-height: 40rpx;
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
+  text-decoration: underline;
 }
 
 /* 天卡片头部右侧的食物覆盖数 —— 已并入 .day-head，不再带分隔线 */

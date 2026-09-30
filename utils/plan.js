@@ -195,7 +195,7 @@ function covScore(cov) {
  *                             —— 命中任一 ×3 就够，不叠加：
  *                             叠到 ×9 会压过重复惩罚（0.2/次），
  *                             让带两个标签的菜变成必选项，反而一周反复出现。 */
-function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats) {
+function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats, refusedIds) {
   if (!candidates.length) return null
 
   const scored = candidates.map(function (r) {
@@ -211,6 +211,11 @@ function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats) {
     // 已出现次数惩罚（软约束：权重衰减，不是硬上限 —— 实测一周最多约 3 次）
     const used = usedCount[r.id] || 0
     w *= Math.pow(0.2, used)
+
+    // 连续拒吃降权（每餐打卡回写）：近 7 天同一道菜 2 次「没吃」且之后没再吃
+    // → ×0.15。同样是软约束：只降概率不剔除（剔除会碰 §5 的池子门槛），
+    // 名单由 storage.refusedRecipeIds() 算，吃过一次自动解除。
+    if (refusedIds && refusedIds.indexOf(r.id) >= 0) w *= 0.15
 
     // 当天主料重复惩罚（同样是软的：只压权重，不拦截；
     // 而且修补循环只按覆盖度换菜、不检查这里，所以同日撞主料仍会发生）
@@ -371,7 +376,7 @@ function generate(opts) {
     const dayCats = {}
     const picked = []
     for (let m = 0; m < stage.meals; m++) {
-      const recipe = pickWeighted(pool, usedCount, dayMainUse, issueTags, dayCats)
+      const recipe = pickWeighted(pool, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
       if (!recipe) break
       picked.push(recipe)
       for (let k = 0; k < recipe.mainFoods.length; k++) dayMainUse[recipe.mainFoods[k]] = true
@@ -547,7 +552,10 @@ function planInputs(storage) {
     safeFoodIds: storage.safeFoodIds(),
     blockedFoodIds: storage.badFoodIds(),
     recordedFoodIds: storage.recordedFoodIds(),
-    observingCount: storage.observingFoodIds().length
+    observingCount: storage.observingFoodIds().length,
+    // 每餐打卡回写（v2.1）：连续拒吃的菜 → 软降权名单。
+    // 只影响权重，不进候选过滤 —— §5 的池子不变量不许被它碰到。
+    refusedRecipeIds: storage.refusedRecipeIds()
   }
 }
 
@@ -569,7 +577,9 @@ function planSignature(storage) {
     'k' + list(inputs.safeFoodIds),
     'b' + list(inputs.blockedFoodIds),
     'r' + list(inputs.recordedFoodIds),
-    'o' + inputs.observingCount
+    'o' + inputs.observingCount,
+    // 打卡降权名单（排序同上：名单顺序不该影响指纹）
+    'f' + list(inputs.refusedRecipeIds)
   ].join('|')
 }
 
