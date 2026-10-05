@@ -147,7 +147,12 @@ Page({
     let p = storage.getPlan()
     const sig = plan.planSignature(storage)
     if (!p || p.months !== months || !coversToday(p) || p.signature !== sig) {
-      p = plan.generateFromStorage(storage)
+      // 隐式重算（输入变了 / 窗口过期）：旧计划还盖住今天时，沿用它的起始日
+      // 并冻结「日期 ≤ 今天」的整天，只重排明天之后的餐 —— 整段从今天重排
+      // 会把窗口前移（周一生成、周三重排变成周三~下周二），已打卡的行也会
+      // 因为 recipeId 不在新计划里从页面凭空消失（P2，见 plan.replanOpts）。
+      // 明确点「重新生成」走 regenerate()，不冻结：用户已确认「原来的会被替换」。
+      p = plan.generateFromStorage(storage, plan.replanOpts(p))
       storage.setPlan(p)
     }
     markToday(p)

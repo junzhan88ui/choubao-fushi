@@ -19,13 +19,30 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "condition": false,
+    "swc": false
   },
   "packOptions": {
     "ignore": [
-      { "type": "file", "value": "_validate.js" },
-      { "type": "suffix", "value": ".bak" },
-      { "type": "suffix", "value": ".md" }
+      {
+        "value": "_validate.js",
+        "type": "file"
+      },
+      {
+        "value": ".bak",
+        "type": "suffix"
+      },
+      {
+        "value": ".md",
+        "type": "suffix"
+      }
     ],
     "include": []
   },
@@ -33,5 +50,6 @@
   "editorSetting": {
     "tabIndent": "auto",
     "tabSize": 2
-  }
+  },
+  "simulatorPluginLibVersion": {}
 }

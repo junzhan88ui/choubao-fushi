@@ -1679,6 +1679,136 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     console.log('  6l 视觉基线：.card 阴影唯一+alpha≤0.1 ✓、今天日期=计划页唯一 display(40/600) ✓、基础日期 fs-sm ✓、三档 baseline ✓、打卡行 min-height96≥88+flex居中 ✓、state/undo 同高+行盒撑满 ✓')
 }
 
+/* ---------- 6m. 重排窗口与新食材槽位（v2.6 · P2 修复） ----------
+ * 两条不变量：
+ *   1. 隐式重排（输入指纹变了）不得改动「已发生的日子」，且窗口不得前移。
+ *      打卡按 date|recipeId 落库 —— 整段从今天重排后，已打卡那天的 recipeId
+ *      不在新计划里，计划页的打卡行凭空消失（数据还在「我的」14 天记录里，
+ *      但「哪一餐吃了没」对不上了）；窗口也会从周一起始漂到周一起始+今天。
+ *   2. 新食材名额恒为每周 2 个、全在工作日、彼此间隔 ≥3 天（观察期）。
+ *      旧写法固定第 1/4 天、遇周末直接丢槽 —— 起始日是周三/周四/周六/周日时
+ *      一周只剩 1 个名额，引入节奏凭空慢一半（实测 4/7 起始日中招）。
+ * 断链的后果都是「代码全绿但产品不能用」，正是本脚本要拦的那一类。
+ */
+{
+  const errsBefore = errs.length
+  const idxJs = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const idxJs1 = idxJs.replace(/\n\s*/g, ' ')
+  const pl = fs.readFileSync('./utils/plan.js', 'utf8')
+
+  // —— 1) 链路钉：隐式重算走 replanOpts；「重新生成」必须不冻结 ——
+  if (pl.indexOf('function replanOpts(') < 0 || pl.indexOf('replanOpts: replanOpts') < 0)
+    E('plan.js 缺 replanOpts 或没导出 —— 保留窗口/冻结机制根本不存在')
+  if (!/generateFromStorage\(storage,\s*plan\.replanOpts\(p\)\)/.test(idxJs1))
+    E('index.js 的隐式重算没走 plan.replanOpts —— P2 回归：重排前移窗口、打卡行从计划页消失')
+  // 锚点必须是函数体定义「regenerate() {」—— 注释里提到的 regenerate() 不带大括号
+  const regenAt = idxJs.indexOf('regenerate() {')
+  const regenSlice = regenAt >= 0 ? idxJs.slice(regenAt) : ''
+  if (regenAt < 0) E('index.js 找不到 regenerate() 定义 —— 「重新生成」入口没了')
+  if (regenSlice.indexOf('replanOpts') >= 0)
+    E('regenerate（用户明确点「重新生成」）走了 replanOpts —— 用户已确认「原来的会被替换」，不该被冻结')
+  if (!/generateFromStorage\(storage\)/.test(regenSlice))
+    E('regenerate 没有整份重排（generateFromStorage 不带第二参）')
+
+  // —— 2) 槽位：7 个起始日各 2 个名额、全工作日、间隔 ≥3 天 ——
+  const baseInputs = {
+    months: 10, issues: [], sick: false,
+    safeFoodIds: [], blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+  }
+  const mk = (extra) => {
+    const o = {}
+    Object.keys(baseInputs).forEach((k) => { o[k] = baseInputs[k] })
+    Object.keys(extra || {}).forEach((k) => { o[k] = extra[k] })
+    return o
+  }
+
+  for (let back = 0; back < 7; back++) {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    start.setDate(start.getDate() - back)
+    const p = plan.generate(mk({ startDate: start }))
+    if (!p) { E(`6m 起始回退 ${back} 天生成失败`); continue }
+    const idxs = []
+    p.days.forEach((d, i) => { if (d.newFood) idxs.push(i) })
+    const label = `${p.days[0].date} ${p.days[0].weekday}起始`
+    if (idxs.length !== 2)
+      E(`6m ${label}：本周只排了 ${idxs.length} 个新食材（应恒为 2，遇周末顺延不丢槽）`)
+    idxs.forEach((i) => {
+      if (p.days[i].isWeekend) E(`6m ${label}：新食材排在了周末（${p.days[i].date}）`)
+    })
+    if (idxs.length === 2 && idxs[1] - idxs[0] < 3)
+      E(`6m ${label}：两个引入日只隔 ${idxs[1] - idxs[0]} 天 < 3 —— 观察期被压缩`)
+  }
+
+  // —— 3) 冻结：窗口不前移、已发生的日子逐餐照抄、采购清单仍覆盖整周 ——
+  try {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    start.setDate(start.getDate() - 2) // 让窗口里有 3 个「已发生」的日子（含今天）
+    const p1 = plan.generate(mk({ startDate: start }))
+    const todayK = plan.dateKey(new Date())
+
+    if (plan.replanOpts(null) !== null || plan.replanOpts({}) !== null)
+      E('replanOpts 对空计划没有返回 null —— 会把 undefined 当计划用')
+
+    const opts = plan.replanOpts(p1)
+    if (!opts) {
+      E('6m replanOpts 对「仍覆盖今天」的计划返回 null —— 冻结机制没生效')
+    } else {
+      if (opts.startDate !== p1.startDate)
+        E('6m replanOpts 没沿用旧计划的起始日 —— 窗口会前移（P2）')
+      const past = p1.days.filter((d) => d.date <= todayK)
+      if (opts.frozenDays.length !== past.length)
+        E(`6m replanOpts 冻结了 ${opts.frozenDays.length} 天，应为「日期 ≤ 今天」的 ${past.length} 天`)
+      if (opts.frozenDays.some((d) => d.date > todayK))
+        E('6m 把未来的日子也冻结了 —— 计划从此不再更新，降权和新输入全部失效')
+
+      const p2 = plan.generate(mk({ startDate: opts.startDate, frozenDays: opts.frozenDays }))
+      if (p2.startDate !== p1.startDate)
+        E(`6m 重排后起始日 ${p1.startDate} → ${p2.startDate} —— 窗口前移（P2）`)
+      p2.days.forEach((d, i) => {
+        if (!p1.days[i] || d.date !== p1.days[i].date)
+          E(`6m 重排后第 ${i} 天日期错位（${(p1.days[i] || {}).date} → ${d.date}）`)
+      })
+      past.forEach((d, i) => {
+        if (JSON.stringify(p2.days[i].meals) !== JSON.stringify(d.meals))
+          E(`6m ${d.date}（已发生的日子）被重排了 —— 这天的打卡行会从计划页消失（P2）`)
+        if (JSON.stringify(p2.days[i].newFood) !== JSON.stringify(d.newFood))
+          E(`6m ${d.date}（已发生的日子）的新食材尝试被改了 —— 观察记录与计划对不上`)
+      })
+      // 未来的新食材名额：记录没变时候选序列不变，应与旧计划一致
+      p1.days.filter((d) => d.date > todayK).forEach((d, i) => {
+        const nd = p2.days[past.length + i]
+        if (nd && JSON.stringify(nd.newFood) !== JSON.stringify(d.newFood))
+          E(`6m ${d.date} 的新食材候选发生漂移 —— 冻结日的名额消耗算错了`)
+      })
+      // 采购清单必须覆盖冻结日用到的食材（用量已计入，而不是「从今天起」）
+      const shopCount = {}
+      p2.shopping.forEach((g) => g.items.forEach((it) => { shopCount[it.foodId] = it.count }))
+      past.forEach((d) => d.meals.forEach((m) => {
+        const r = recipes.filter((x) => x.id === m.recipeId)[0]
+        if (!r) return
+        r.mainFoods.concat(r.sideFoods || []).forEach((fid) => {
+          if (!shopCount[fid]) E(`6m 采购清单漏了 ${fid} —— 冻结日的用量没计进 foodUse`)
+        })
+      }))
+    }
+
+    // 窗口过期（整份计划都在过去）→ 没有可冻结的日子，照旧整份重来
+    const oldStart = new Date()
+    oldStart.setHours(0, 0, 0, 0)
+    oldStart.setDate(oldStart.getDate() - 10)
+    const expired = plan.generate(mk({ startDate: oldStart }))
+    if (plan.replanOpts(expired) !== null)
+      E('6m 对「窗口不覆盖今天」的计划仍返回冻结选项 —— 旧计划会被原样拖着走')
+  } catch (e) {
+    E('§6m 函数级断言执行异常：' + e.message)
+  }
+
+  if (errs.length === errsBefore)
+    console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、7 个起始日各 2 名额且全工作日+间隔≥3 ✓、已发生的日子逐餐照抄 ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
+}
+
 /* ---------- 7. 统计 ---------- */
 const byCat = {}
 foods.forEach((f) => { byCat[f.category] = (byCat[f.category] || 0) + 1 })

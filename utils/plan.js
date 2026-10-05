@@ -11,7 +11,9 @@
  *   4. 去重（软约束）：同一道菜用过之后权重 ×0.2/次；当天已用主料权重 ×0.3
  *      —— 是权重衰减不是硬上限，实测一周最多 3 次、同日撞主料约 8~14% 的天。
  *      官方要求的多样性在「类别」层面，由下方每日 4 类覆盖的修补循环保证。
- *   5. 插入新食材名额（每周最多 2 个，且只排工作日）
+ *   5. 插入新食材名额（每周最多 2 个，只排工作日，遇周末顺延不丢槽）
+ *   6. 隐式重排（replanOpts）：旧计划仍覆盖今天时沿用它的起始日，
+ *      冻结「日期 ≤ 今天」的整天，只重排明天之后的餐
  */
 
 const age = require('./age')
@@ -44,6 +46,13 @@ function getFood(id) {
   return FOOD_MAP[id] || null
 }
 
+// 冻结日（见 replanOpts）只带 recipeId，结算用量时要反查主料/配料
+const RECIPE_MAP = (function () {
+  const m = {}
+  for (let i = 0; i < RECIPES.length; i++) m[RECIPES[i].id] = RECIPES[i]
+  return m
+})()
+
 // amount 按宝塔两阶段取值：6~12 月用「7-12」较小的参考量，13~24 月用「13-24」
 function amountForStage(recipe, months) {
   if (!recipe || !recipe.amount) return ''
@@ -69,6 +78,41 @@ function dateKey(d) {
 function isWeekend(d) {
   const w = d.getDay()
   return w === 0 || w === 6
+}
+
+/** 'YYYY-MM-DD' → 本地时区的当天零点。
+ *  new Date('YYYY-MM-DD') 按 UTC 零点解析，非东八区会落到前一天 ——
+ *  现在每次隐式重排都要拿缓存的 startDate 原路还原窗口，错一天就整周错位。 */
+function parseDateKey(s) {
+  if (s instanceof Date) return new Date(s.getTime())
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '')
+  if (!m) return new Date(s)
+  return new Date(+m[1], +m[2] - 1, +m[3])
+}
+
+/**
+ * 本周的新食材引入日槽位：第 1 个可用工作日 + 与它间隔 ≥3 天的下一个工作日。
+ *
+ * 旧写法是固定 [0, 3] 遇周末直接跳过、不补位 —— 起始日是周三/周四/周六/周日时
+ * 第 4 天落在周末，一周只剩 1 个引入名额，引入节奏凭空慢一半。
+ * 间隔 ≥3 天是观察期要求（一次一种，观察 3 天），顺延也必须保住这个间距。
+ *
+ * 实测 7 个起始日全部拿到 2 个名额（周一/周二/周五起始与旧写法一致）。
+ * @returns {number[]} 两个日期下标（0~6），理论恒为 2 个
+ */
+function newFoodSlots(start) {
+  const idxAt = function (from) {
+    for (let i = from; i < 7; i++) {
+      const d = new Date(start.getTime())
+      d.setDate(d.getDate() + i)
+      if (!isWeekend(d)) return i
+    }
+    return -1
+  }
+  const a = idxAt(0)
+  if (a < 0) return []
+  const b = idxAt(a + 3)
+  return b < 0 ? [a] : [a, b]
 }
 
 /**
@@ -291,8 +335,16 @@ function generate(opts) {
   if (sick && STATUS_TAG.sick && issueTags.indexOf(STATUS_TAG.sick) < 0) {
     issueTags.push(STATUS_TAG.sick)
   }
-  const start = opts.startDate ? new Date(opts.startDate) : new Date()
+  const start = opts.startDate ? parseDateKey(opts.startDate) : new Date()
   start.setHours(0, 0, 0, 0)
+
+  // 隐式重排传入的「已发生的日子」（见 replanOpts）：按日期建索引，逐天照抄。
+  // 只收日期 ≤ 今天的 —— 未来的日子必须允许重排，否则计划从此不再更新。
+  const todayKey = dateKey(new Date())
+  const frozenByDate = {}
+  ;(opts.frozenDays || []).forEach(function (day) {
+    if (day && day.date && day.date <= todayKey) frozenByDate[day.date] = day
+  })
 
   // 1. 候选池
   // 只排除「用户确认有反应」的食材。未引入过的致敏食材不排除，但只能走新食材通道
@@ -327,7 +379,7 @@ function generate(opts) {
   }
   if (pool.length === 0) return null
 
-  // 2. 安排新食材引入日（只在工作日，最多 2 天）
+  // 2. 安排新食材引入日（只在工作日，最多 2 天，遇周末顺延不丢槽 —— newFoodSlots）
   //
   // ⚠️ 排序规则：按月龄升序，同月龄内把「致敏」和「非致敏」交错开。
   // 不要把所有致敏食材排到最后 —— 那等于系统性地推迟易过敏食物的引入，
@@ -347,16 +399,26 @@ function generate(opts) {
       return 0
     })
     const candidates = interleaveByAllergen(pool2)
-    const slots = [0, 3] // 第 1 天、第 4 天
+    const slots = newFoodSlots(start) // 第 1 个可用工作日 + 间隔 ≥3 天的下一个（遇周末顺延）
     let assigned = 0
     for (let s = 0; s < slots.length && assigned < candidates.length; s++) {
       const idx = slots[s]
       const d = new Date(start.getTime())
       d.setDate(d.getDate() + idx)
-      if (!isWeekend(d)) {
-        newFoodDays[idx] = candidates[assigned]
-        assigned++
+      if (isWeekend(d)) continue // 槽位本身已避开周末，这里只是兜底
+      const fz = frozenByDate[dateKey(d)]
+      if (fz) {
+        // 这天已经发生过：它自带 newFood，原样保留即可。
+        // 名额是否消耗看候选对不对得上：对得上（记录没变）就消耗，
+        // 保持「第 1 个候选给第 1 个槽位」的连续性；对不上
+        // （recordedIds 变了、候选列表整体前移）就不消耗，
+        // 让后面的候选顶上，别把整个引入序列跳掉一种。
+        const next = candidates[assigned]
+        if (fz.newFood && next && next.id === fz.newFood.foodId) assigned++
+        continue
       }
+      newFoodDays[idx] = candidates[assigned]
+      assigned++
     }
   }
 
@@ -368,6 +430,28 @@ function generate(opts) {
   for (let i = 0; i < 7; i++) {
     const d = new Date(start.getTime())
     d.setDate(d.getDate() + i)
+
+    // 已发生的日子（隐式重排时由 replanOpts 传入）整天照抄，不参与选菜：
+    // 打卡是按 date|recipeId 落库的，整天被重排后 recipeId 不在新计划里，
+    // 已打卡的行会从计划页凭空消失（记录没丢，但「哪一餐吃了没」对不上了）。
+    // 但用量必须照常计入 —— 未来几餐要避开这些已用过的菜/主料，
+    // 采购清单也要覆盖整周，而不是「从今天起」。
+    const fz = frozenByDate[dateKey(d)]
+    if (fz) {
+      days.push(fz)
+      ;(fz.meals || []).forEach(function (m) {
+        usedCount[m.recipeId] = (usedCount[m.recipeId] || 0) + 1
+        const r = RECIPE_MAP[m.recipeId]
+        if (!r) return
+        for (let k = 0; k < r.mainFoods.length; k++) {
+          foodUse[r.mainFoods[k]] = (foodUse[r.mainFoods[k]] || 0) + 1
+        }
+        for (let k = 0; k < (r.sideFoods || []).length; k++) {
+          foodUse[r.sideFoods[k]] = (foodUse[r.sideFoods[k]] || 0) + 1
+        }
+      })
+      continue
+    }
 
     const nf = newFoodDays[i] || null
 
@@ -583,10 +667,48 @@ function planSignature(storage) {
   ].join('|')
 }
 
-/** 从当前存储状态直接生成（页面调这个） */
-function generateFromStorage(storage) {
+/**
+ * 隐式重排时该保留什么（P2 修复）。
+ *
+ * 只要输入指纹变了（改状态 / 标「有反应」/ 第二次拒吃……）refresh 就会重算。
+ * 直接从今天重排有两个后果：
+ *   1. 窗口前移 —— 周一生成的计划周三重排变成周三~下周二，
+ *      本周已排的未来餐被整体换掉；
+ *   2. 打卡行凭空消失 —— 打卡按 date|recipeId 落库，已过去的整天被重排后
+ *      recipeId 不在新计划里，计划页不再渲染这些行（数据仍在「我的」14 天
+ *      记录里，但用户看到的「哪一餐吃了没」断了）。
+ *
+ * 所以：旧计划仍覆盖今天时，沿用它的起始日（窗口不前移），
+ * 并把「日期 ≤ 今天」的整天原样冻结，只有明天之后的日子参与重排 ——
+ * 降权/新输入只影响未来的餐，这才是「重排」应有的语义。
+ *
+ * 明确点「重新生成」不走这里：用户已经确认「原来的会被替换」。
+ *
+ * @param {object|null} p 缓存的计划（storage.getPlan() 的结果，未做 markToday 装饰）
+ * @returns {{startDate: string, frozenDays: object[]}|null} null = 没有可保留的，照旧从今天整份重来
+ */
+function replanOpts(p) {
+  if (!p || !p.startDate || !p.days || !p.days.length) return null
+  const todayKey = dateKey(new Date())
+  // 窗口已经不覆盖今天 → 整份计划都成了过去时，没有可冻结的日子
+  if (p.days[0].date > todayKey || p.days[p.days.length - 1].date < todayKey) return null
+  const frozen = p.days.filter(function (d) { return d.date <= todayKey })
+  if (!frozen.length) return null
+  return { startDate: p.startDate, frozenDays: frozen }
+}
+
+/** 从当前存储状态直接生成（页面调这个）
+ *  @param {object} [opts] 见 replanOpts —— 只在隐式重排时传 */
+function generateFromStorage(storage, opts) {
   const inputs = planInputs(storage)
   if (!inputs) return null
+
+  if (opts) {
+    // 只是把窗口/冻结信息带进 generate，不参与指纹
+    // （planSignature 自己重新 planInputs，不受影响）
+    if (opts.startDate) inputs.startDate = opts.startDate
+    if (opts.frozenDays) inputs.frozenDays = opts.frozenDays
+  }
 
   const p = generate(inputs)
   // 把指纹写进计划，页面用它判断缓存是否过期
@@ -597,6 +719,7 @@ function generateFromStorage(storage) {
 module.exports = {
   generate: generate,
   generateFromStorage: generateFromStorage,
+  replanOpts: replanOpts,
   planInputs: planInputs,
   planSignature: planSignature,
   getFood: getFood,
