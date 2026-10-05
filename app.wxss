@@ -1,5 +1,6 @@
 /* 全局样式 —— 臭宝吃什么 */
-/* 设计 token：字号 7 级（22/24/26/28/30/32/40）· 圆角 5 级（8/12/16/20/999）· 中性色 4 档 */
+/* 设计 token：字号 7 级（22/24/26/28/30/32/40）· 圆角 5 级（8/12/16/20/999）· 中性色 4 档
+   语义色含品牌浅绿 --c-green-tint（v2.7 · ③：大面积色块专用，与标签底 --c-green-bg 分工） */
 page {
   /* —— 中性色 —— */
   --c-bg: #faf9f6;
@@ -16,6 +17,7 @@ page {
   --c-green: #5f8b28;
   --c-green-dark: #3b6d11;
   --c-green-bg: #eaf3de;
+  --c-green-tint: #f2f8ea; /* 品牌浅绿：顶部信息卡 / 今天卡的整面底色，比标签底浅一档 */
   --c-amber: #b0761a;
   --c-amber-ink: #633806; /* 琥珀底上的文字，8.7:1 */
   --c-amber-bg: #faeeda;
@@ -72,9 +74,16 @@ page {
   padding: 20rpx 24rpx;
 }
 
+/* 品牌面（v2.7 · ③）：全站唯一大面积色块 —— 顶部信息卡与今天卡共用浅绿，
+   绿从「状态色」升格为「我们的颜色」。只换背景：阴影仍由 .card 一处提供（§6l）。 */
+.card--brand {
+  background: var(--c-green-tint);
+}
+
 .card-title {
+  /* 字重三档（v2.7 · ②）：标题 600 / 强调 500 / 正文 400 —— 层级靠字，不靠灰色 */
   font-size: var(--fs-title);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--c-text);
   margin-bottom: 16rpx;
 }
@@ -264,4 +273,32 @@ page {
   height: 1rpx;
   background: var(--c-line);
   margin: 20rpx 0;
+}
+
+/* ── 展开动效（v2.7 · ⑥）──
+   wx:if 创建节点时播放一次：0.18s 淡入 + 8rpx 上移。收起是节点销毁，
+   小程序里做不了收起过渡 —— 接受「展开柔和、收起干脆」，不引入常驻节点。
+   只挂「用户点开」的节点（步骤 / 指南 / 记录展开 / 非今天的天）——
+   今天卡恒展开，刷新重建不算入场动画。 */
+.fx-in {
+  animation: fxIn 0.18s ease-out;
+}
+
+@keyframes fxIn {
+  from {
+    opacity: 0;
+    transform: translateY(8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 箭头旋转（v2.7 · ⑥）：收起 ▸ → 展开转 90° 指向下，0.18s 过渡。
+   旋转必须挂在「常驻节点」上 —— 文本在 ▸/▾ 之间换字是节点重建，没有过渡。
+   transition 放在各 base 类（.link-arrow / .guide-arrow / .day-arrow）上，
+   本修饰类全站共享（原定义在 mine.wxss，页面 wxss 不跨页生效，故上移到这里）。 */
+.link-arrow-open {
+  transform: rotate(90deg);
 }

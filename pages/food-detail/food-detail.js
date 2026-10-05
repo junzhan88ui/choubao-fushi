@@ -3,6 +3,7 @@ const RECIPES = require('../../data/recipes')
 const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
+const plan = require('../../utils/plan')
 
 const STATUS_TEXT = {
   safe: '已经吃过，没问题',
@@ -54,7 +55,8 @@ Page({
         texture: r.texture,
         monthText: r.monthRange[0] + '–' + r.monthRange[1] + ' 月龄',
         isMain: r.mainFoods.indexOf(food.id) >= 0,
-        steps: r.steps
+        // 步骤里的 {分类} 占位符按宝宝月龄档填数（与计划页同一套 fillPortions，v2.7）
+        steps: plan.fillPortions(r.steps, plan.amountForStage(r, months))
       }
     })
 

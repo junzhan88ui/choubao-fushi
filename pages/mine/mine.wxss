@@ -15,13 +15,13 @@
 
 .head-name {
   font-size: var(--fs-lg);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--c-text);
 }
 
 .head-age {
   font-size: var(--fs-lg);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--c-text);
 }
 
@@ -47,6 +47,11 @@
   color: var(--c-text-3);
   font-size: var(--fs-title);
   line-height: 1;
+  /* v2.7 · ⑥：inline-block 让 transform 生效（行内元素不接受旋转），
+     transition 让展开时的 90° 旋转有 0.18s 过渡 —— 修饰类 .link-arrow-open
+     已上移到 app.wxss 全站共享（index 的 .guide-arrow/.day-arrow 同款） */
+  display: inline-block;
+  transition: transform 0.18s ease;
 }
 
 /* ── 我的记录（v2.1 升级为记录中枢）：可点开的统计行 + 行内展开名单 ── */
@@ -71,9 +76,8 @@
   gap: 12rpx;
 }
 
-.link-arrow-open {
-  transform: rotate(90deg);
-}
+/* .link-arrow-open（旋转 90°）已上移到 app.wxss —— index 页也要用，
+   页面 wxss 不跨页生效，放这里 index 拿不到 */
 
 .row-value-bad {
   color: var(--c-red);

@@ -27,7 +27,7 @@ module.exports = [
     mainFoods: ['rice_cereal'], sideFoods: [],
     tags: ['补铁', '易消化'], allergens: [],
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['取强化铁米粉 1 小勺放入碗中', '倒入约 60℃ 温水，边倒边搅拌', '调成能挂勺又缓慢滴落的稀糊，静置 1 分钟再喂'],
+    steps: ['按{谷物}的量取强化铁米粉放入碗中', '倒入约 60℃ 温水，边倒边搅拌', '调成能挂勺又缓慢滴落的稀糊，静置 1 分钟再喂'],
     freezable: false, source: SOURCE
   },
   {
@@ -36,7 +36,7 @@ module.exports = [
     mainFoods: ['pumpkin'], sideFoods: [],
     tags: ['易消化', '易入口'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g', '13-24': '蔬菜 30–50g', default: '蔬菜 20–30g' },
-    steps: ['南瓜去皮去瓤，切小块', '上锅蒸 15 分钟至能轻松压碎', '用勺背压成细泥，太稠可加少量温水调稀'],
+    steps: ['南瓜{蔬菜}去皮去瓤，切小块', '上锅蒸 15 分钟至能轻松压碎', '用勺背压成细泥，太稠可加少量温水调稀'],
     freezable: true, source: SOURCE
   },
   {
@@ -45,7 +45,7 @@ module.exports = [
     mainFoods: ['carrot'], sideFoods: ['walnut_oil'],
     tags: ['易消化'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g，油脂 几滴', '13-24': '蔬菜 30–50g，油脂 少许', default: '蔬菜 20–30g，油脂 几滴' },
-    steps: ['胡萝卜去皮切薄片', '蒸 15 分钟至软烂', '压成细泥，滴 1–2 滴核桃油拌匀（胡萝卜素是脂溶性的）'],
+    steps: ['胡萝卜{蔬菜}去皮切薄片', '蒸 15 分钟至软烂', '压成细泥，加核桃油{油脂}拌匀（胡萝卜素是脂溶性的）'],
     freezable: true, source: SOURCE
   },
   {
@@ -54,7 +54,7 @@ module.exports = [
     mainFoods: ['apple'], sideFoods: [],
     tags: ['易消化', '易入口', '膳食纤维'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['苹果去皮去核切块', '蒸 10 分钟或加水煮软', '压成细泥，初期建议熟食更温和'],
+    steps: ['苹果{水果}去皮去核切块', '蒸 10 分钟或加水煮软', '压成细泥，初期建议熟食更温和'],
     freezable: true, source: SOURCE
   },
   {
@@ -63,7 +63,7 @@ module.exports = [
     mainFoods: ['banana'], sideFoods: [],
     tags: ['易入口'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['选熟透带斑点的香蕉', '取中段，用勺背直接压成泥', '不需要加热，即做即吃'],
+    steps: ['选熟透带斑点的香蕉，取{水果}的量', '取中段，用勺背直接压成泥', '不需要加热，即做即吃'],
     freezable: false, source: SOURCE
   },
   {
@@ -72,7 +72,7 @@ module.exports = [
     mainFoods: ['sweet_potato'], sideFoods: [],
     tags: ['膳食纤维', '易入口'], allergens: [],
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['红薯去皮切块', '蒸 20 分钟至软烂', '压成细泥，太干可加少量温水或母乳调稀'],
+    steps: ['红薯{谷物}去皮切块', '蒸 20 分钟至软烂', '压成细泥，太干可加少量温水或母乳调稀'],
     freezable: true, source: SOURCE
   },
   {
@@ -81,7 +81,7 @@ module.exports = [
     mainFoods: ['potato'], sideFoods: [],
     tags: ['易消化'], allergens: [],
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['土豆去皮切块', '蒸 20 分钟至能轻松压碎', '压成细泥，加少量温水调至合适稠度'],
+    steps: ['土豆{谷物}去皮切块', '蒸 20 分钟至能轻松压碎', '压成细泥，加少量温水调至合适稠度'],
     freezable: true, source: SOURCE
   },
   {
@@ -90,7 +90,7 @@ module.exports = [
     mainFoods: ['broccoli'], sideFoods: [],
     tags: ['膳食纤维'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g', '13-24': '蔬菜 30–50g', default: '蔬菜 20–30g' },
-    steps: ['只取西兰花花球部分', '沸水焯 3 分钟后捞出', '压成细泥，菜梗纤维粗不要用'],
+    steps: ['西兰花{蔬菜}只取花球部分', '沸水焯 3 分钟后捞出', '压成细泥，菜梗纤维粗不要用'],
     freezable: true, source: SOURCE
   },
   {
@@ -99,7 +99,7 @@ module.exports = [
     mainFoods: ['avocado'], sideFoods: [],
     tags: ['易入口'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['选按压微软的熟牛油果', '对半切开去核，挖出果肉', '用叉子压成泥，可混入米粉或香蕉泥'],
+    steps: ['选按压微软的熟牛油果', '对半切开去核，挖出{水果}的果肉', '用叉子压成泥，可混入米粉或香蕉泥'],
     freezable: false, source: SOURCE
   },
   {
@@ -108,7 +108,7 @@ module.exports = [
     mainFoods: ['yam'], sideFoods: [],
     tags: ['易消化'], allergens: [],
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['山药去皮切段（戴手套操作，生山药会让手发痒）', '蒸 20 分钟至软烂', '压成细泥，可加少量温水调稀'],
+    steps: ['山药{谷物}去皮切段（戴手套操作，生山药会让手发痒）', '蒸 20 分钟至软烂', '压成细泥，可加少量温水调稀'],
     freezable: true, source: SOURCE
   },
   {
@@ -117,7 +117,7 @@ module.exports = [
     mainFoods: ['zucchini'], sideFoods: [],
     tags: ['易消化'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g', '13-24': '蔬菜 30–50g', default: '蔬菜 20–30g' },
-    steps: ['西葫芦去皮去籽切块', '蒸 10 分钟至软', '压成细泥，水分多不用额外加水'],
+    steps: ['西葫芦{蔬菜}去皮去籽切块', '蒸 10 分钟至软', '压成细泥，水分多不用额外加水'],
     freezable: true, source: SOURCE
   },
   {
@@ -126,7 +126,7 @@ module.exports = [
     mainFoods: ['pear'], sideFoods: [],
     tags: ['膳食纤维', '易入口'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['梨去皮去核切块', '蒸 10 分钟至软', '压成细泥，水分较多，适合大便偏干的宝宝'],
+    steps: ['梨{水果}去皮去核切块', '蒸 10 分钟至软', '压成细泥，水分较多，适合大便偏干的宝宝'],
     freezable: true, source: SOURCE
   },
   {
@@ -135,7 +135,7 @@ module.exports = [
     mainFoods: ['millet'], sideFoods: [],
     tags: ['易消化'], allergens: [],
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['小米洗净，加 8 倍水', '小火熬 30 分钟至米粒开花', '取上层米汤，或整锅打成糊'],
+    steps: ['小米{谷物}洗净，加 8 倍水', '小火熬 30 分钟至米粒开花', '取上层米汤，或整锅打成糊'],
     freezable: false, source: SOURCE
   },
   {
@@ -144,7 +144,7 @@ module.exports = [
     mainFoods: ['egg_yolk'], sideFoods: [],
     tags: ['补铁'], allergens: ['egg_yolk'],
     amount: { '7-12': '蛋奶 15–25g', '13-24': '蛋奶 25–40g', default: '蛋奶 15–25g' },
-    steps: ['鸡蛋冷水下锅，水开后煮 10 分钟至全熟', '取出蛋黄，压碎', '用温水、母乳或配方奶调成糊'],
+    steps: ['取{蛋奶}量的鸡蛋冷水下锅，水开后煮 10 分钟至全熟', '取出蛋黄，压碎', '用温水、母乳或配方奶调成糊'],
     freezable: false, source: SOURCE
   },
   {
@@ -153,7 +153,7 @@ module.exports = [
     mainFoods: ['spinach'], sideFoods: [],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g', '13-24': '蔬菜 30–50g', default: '蔬菜 20–30g' },
-    steps: ['取菠菜嫩叶洗净', '沸水焯 1 分钟（去草酸），捞出挤干水分', '剁碎或压成泥，混入米粉或粥中'],
+    steps: ['取菠菜{蔬菜}嫩叶洗净', '沸水焯 1 分钟（去草酸），捞出挤干水分', '剁碎或压成泥，混入米粉或粥中'],
     freezable: false, source: SOURCE
   },
   {
@@ -162,7 +162,7 @@ module.exports = [
     mainFoods: ['pea'], sideFoods: [],
     tags: ['膳食纤维'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g', '13-24': '蔬菜 30–50g', default: '蔬菜 20–30g' },
-    steps: ['新鲜或冷冻豌豆煮熟至软烂', '剥去外皮', '压成泥并过筛，确保没有整粒残留'],
+    steps: ['新鲜或冷冻豌豆{蔬菜}煮熟至软烂', '剥去外皮', '压成泥并过筛，确保没有整粒残留'],
     freezable: true, source: SOURCE
   },
 
@@ -173,7 +173,7 @@ module.exports = [
     mainFoods: ['chicken', 'potato'], sideFoods: [],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['鸡胸肉煮熟，撕成丝后剁成极细的末', '土豆蒸熟压成泥', '两者混合，加少量温水调成稠糊，保留一点颗粒'],
+    steps: ['鸡胸肉{肉禽}煮熟，撕成丝后剁成极细的末', '土豆{谷物}蒸熟压成泥', '两者混合，加少量温水调成稠糊，保留一点颗粒'],
     freezable: true, source: SOURCE
   },
   {
@@ -182,7 +182,7 @@ module.exports = [
     mainFoods: ['liver_pork', 'rice'], sideFoods: ['spinach'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪肝切片，清水浸泡 30 分钟去血水', '煮熟后压成泥（每周不超过 1–2 次）', '大米熬成稠粥，拌入肝泥和焯过水剁碎的菠菜'],
+    steps: ['猪肝{肉禽}切片，清水浸泡 30 分钟去血水', '煮熟后压成泥（每周不超过 1–2 次）', '大米{谷物}熬成稠粥，拌入肝泥和焯过水剁碎的菠菜{蔬菜}'],
     freezable: false, source: SOURCE
   },
   {
@@ -191,7 +191,7 @@ module.exports = [
     mainFoods: ['salmon', 'rice'], sideFoods: ['broccoli'],
     tags: ['高蛋白'], allergens: ['salmon'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，水产 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，水产 30–50g', default: '谷物 20–30g，蔬菜 20–30g，水产 20–30g' },
-    steps: ['三文鱼蒸熟，用手指仔细挑净鱼刺后压碎', '西兰花焯水取花球压碎', '拌入熬好的稠粥中'],
+    steps: ['三文鱼{水产}蒸熟，用手指仔细挑净鱼刺后压碎', '西兰花{蔬菜}焯水取花球压碎', '拌入{谷物}量的稠粥中'],
     freezable: false, source: SOURCE
   },
   {
@@ -200,7 +200,7 @@ module.exports = [
     mainFoods: ['beef', 'rice'], sideFoods: ['tomato'],
     tags: ['补铁', '高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['牛里脊煮熟后剁成极细的末', '番茄去皮去籽，煮熟压碎', '与稠粥混合，小火煮 2 分钟'],
+    steps: ['牛里脊{肉禽}煮熟后剁成极细的末', '番茄{蔬菜}去皮去籽，煮熟压碎', '与{谷物}量的稠粥混合，小火煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -209,7 +209,7 @@ module.exports = [
     mainFoods: ['egg_yolk', 'rice'], sideFoods: ['pumpkin'],
     tags: ['补铁', '易入口'], allergens: ['egg_yolk'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['南瓜蒸熟压泥', '鸡蛋煮全熟取蛋黄压碎', '两者拌入稠粥，搅匀即可'],
+    steps: ['南瓜{蔬菜}蒸熟压泥', '取{蛋奶}量的鸡蛋煮全熟取蛋黄压碎', '两者拌入{谷物}量的稠粥，搅匀即可'],
     freezable: false, source: SOURCE
   },
   {
@@ -218,7 +218,7 @@ module.exports = [
     mainFoods: ['tofu'], sideFoods: ['zucchini'],
     tags: ['补钙'], allergens: ['tofu'],
     amount: { '7-12': '蔬菜 20–30g，豆类 15–25g', '13-24': '蔬菜 30–50g，豆类 25–40g', default: '蔬菜 20–30g，豆类 15–25g' },
-    steps: ['嫩豆腐焯水 1 分钟去豆腥', '西葫芦蒸熟压泥', '两者混合压成稠糊，保留少量颗粒'],
+    steps: ['嫩豆腐{豆类}焯水 1 分钟去豆腥', '西葫芦{蔬菜}蒸熟压泥', '两者混合压成稠糊，保留少量颗粒'],
     freezable: false, source: SOURCE
   },
   {
@@ -227,7 +227,7 @@ module.exports = [
     mainFoods: ['cod'], sideFoods: ['carrot'],
     tags: ['高蛋白'], allergens: ['cod'],
     amount: { '7-12': '蔬菜 20–30g，水产 20–30g', '13-24': '蔬菜 30–50g，水产 30–50g', default: '蔬菜 20–30g，水产 20–30g' },
-    steps: ['鳕鱼蒸熟，仔细挑净鱼刺', '胡萝卜蒸熟压泥', '两者混合拌匀'],
+    steps: ['鳕鱼{水产}蒸熟，仔细挑净鱼刺', '胡萝卜{蔬菜}蒸熟压泥', '两者混合拌匀'],
     freezable: false, source: SOURCE
   },
   {
@@ -236,7 +236,7 @@ module.exports = [
     mainFoods: ['oat'], sideFoods: ['banana'],
     tags: ['膳食纤维', '易入口'], allergens: [],
     amount: { '7-12': '谷物 20–30g，水果 20–30g', '13-24': '谷物 30–50g，水果 30–50g', default: '谷物 20–30g，水果 20–30g' },
-    steps: ['纯燕麦片加水煮 5 分钟至软烂', '熟香蕉压成泥', '两者混合，保留一点燕麦颗粒'],
+    steps: ['燕麦片{谷物}加水煮 5 分钟至软烂', '熟香蕉{水果}压成泥', '两者混合，保留一点燕麦颗粒'],
     freezable: false, source: SOURCE
   },
   {
@@ -245,7 +245,7 @@ module.exports = [
     mainFoods: ['pork', 'rice'], sideFoods: ['white_radish'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪里脊煮熟剁成细末', '白萝卜煮至软烂后剁碎', '拌入稠粥，小火煮 2 分钟'],
+    steps: ['猪里脊{肉禽}煮熟剁成细末', '白萝卜{蔬菜}煮至软烂后剁碎', '拌入{谷物}量的稠粥，小火煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -254,7 +254,7 @@ module.exports = [
     mainFoods: ['corn', 'chicken'], sideFoods: [],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['玉米煮熟取粒，打成泥后过筛去皮', '鸡胸肉煮熟剁成细末', '两者混合，加少量温水调成稠糊'],
+    steps: ['玉米{谷物}煮熟取粒，打成泥后过筛去皮', '鸡胸肉{肉禽}煮熟剁成细末', '两者混合，加少量温水调成稠糊'],
     freezable: true, source: SOURCE
   },
   {
@@ -263,7 +263,7 @@ module.exports = [
     mainFoods: ['blueberry', 'oat'], sideFoods: [],
     tags: ['膳食纤维'], allergens: [],
     amount: { '7-12': '谷物 20–30g，水果 20–30g', '13-24': '谷物 30–50g，水果 30–50g', default: '谷物 20–30g，水果 20–30g' },
-    steps: ['蓝莓洗净煮软，压碎（整颗有窒息风险，务必压碎）', '燕麦片加水煮软', '两者混合拌匀'],
+    steps: ['蓝莓{水果}洗净煮软，压碎（整颗有窒息风险，务必压碎）', '燕麦片{谷物}加水煮软', '两者混合拌匀'],
     freezable: false, source: SOURCE
   },
   {
@@ -272,7 +272,7 @@ module.exports = [
     mainFoods: ['liver_pork', 'millet'], sideFoods: [],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['猪肝浸泡去血水后煮熟压泥', '小米熬成稠粥', '拌入肝泥，每周不超过 1–2 次'],
+    steps: ['猪肝{肉禽}浸泡去血水后煮熟压泥', '小米{谷物}熬成稠粥', '拌入肝泥，每周不超过 1–2 次'],
     freezable: false, source: SOURCE
   },
   {
@@ -281,7 +281,7 @@ module.exports = [
     mainFoods: ['broccoli'], sideFoods: ['sesame_paste'],
     tags: ['补钙', '膳食纤维'], allergens: ['sesame_paste'],
     amount: { '7-12': '蔬菜 20–30g，油脂 几滴', '13-24': '蔬菜 30–50g，油脂 少许', default: '蔬菜 20–30g，油脂 几滴' },
-    steps: ['西兰花焯水后取花球压碎', '芝麻酱用温水调稀（1/4 小勺即可）', '拌匀，不要给整粒芝麻'],
+    steps: ['西兰花{蔬菜}焯水后取花球压碎', '取芝麻酱{油脂}，用温水调稀', '拌匀，不要给整粒芝麻'],
     freezable: false, source: SOURCE
   },
   {
@@ -290,7 +290,7 @@ module.exports = [
     mainFoods: ['apple'], sideFoods: ['orange'],
     tags: ['易入口'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['苹果蒸熟压泥', '橙子去皮去籽取果肉压碎', '两者混合，酸味明显时可少放橙子'],
+    steps: ['苹果{水果}蒸熟压泥', '橙子去皮去籽取果肉压碎', '两者混合，酸味明显时可少放橙子'],
     freezable: false, source: SOURCE
   },
   {
@@ -299,7 +299,7 @@ module.exports = [
     mainFoods: ['peach'], sideFoods: ['milk_yogurt'],
     tags: ['易消化', '易入口'], allergens: ['milk_yogurt'],
     amount: { '7-12': '水果 20–30g，蛋奶 15–25g', '13-24': '水果 30–50g，蛋奶 25–40g', default: '水果 20–30g，蛋奶 15–25g' },
-    steps: ['桃去皮蒸熟压泥', '取无糖原味酸奶，常温放片刻', '两者拌匀，不要加热酸奶'],
+    steps: ['桃{水果}去皮蒸熟压泥', '取无糖原味酸奶{蛋奶}，常温放片刻', '两者拌匀，不要加热酸奶'],
     freezable: false, source: SOURCE
   },
   {
@@ -308,7 +308,7 @@ module.exports = [
     mainFoods: ['chicken', 'rice'], sideFoods: ['mushroom'],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['香菇泡发后煮烂，剁成细末', '鸡胸肉煮熟剁细', '与稠粥同煮 2 分钟'],
+    steps: ['香菇{蔬菜}泡发后煮烂，剁成细末', '鸡胸肉{肉禽}煮熟剁细', '与{谷物}量的稠粥同煮 2 分钟'],
     freezable: true, source: SOURCE
   },
 
@@ -319,7 +319,7 @@ module.exports = [
     mainFoods: ['carrot', 'potato'], sideFoods: ['broccoli'],
     tags: ['膳食纤维', '手抓食物'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
-    steps: ['胡萝卜、土豆切成 1cm 见方的小丁', '蒸 15 分钟至用勺子能压碎', '西兰花取小朵同蒸，放凉到不烫手让宝宝自己抓'],
+    steps: ['胡萝卜{蔬菜}、土豆{谷物}切成 1cm 见方的小丁', '蒸 15 分钟至用勺子能压碎', '西兰花取小朵同蒸，放凉到不烫手让宝宝自己抓'],
     freezable: true, source: SOURCE
   },
   {
@@ -328,7 +328,7 @@ module.exports = [
     mainFoods: ['wheat_flour'], sideFoods: ['tomato', 'egg_whole'],
     tags: ['高蛋白'], allergens: ['wheat_flour', 'egg_whole'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['宝宝面条掰成 2cm 短段，煮至软烂', '番茄去皮切碎炒出汁（不加油盐）', '淋入打散的蛋液煮成蛋花，与面条拌匀'],
+    steps: ['宝宝面条{谷物}掰成 2cm 短段，煮至软烂', '番茄{蔬菜}去皮切碎炒出汁（不加油盐）', '淋入{蛋奶}量的蛋液煮成蛋花，与面条拌匀'],
     freezable: false, source: SOURCE
   },
   {
@@ -337,7 +337,7 @@ module.exports = [
     mainFoods: ['pork'], sideFoods: ['tofu'],
     tags: ['补铁', '补钙'], allergens: ['tofu'],
     amount: { '7-12': '肉禽 20–30g，豆类 15–25g', '13-24': '肉禽 30–50g，豆类 25–40g', default: '肉禽 20–30g，豆类 15–25g' },
-    steps: ['猪里脊剁成细末，煮至变色', '嫩豆腐切小丁焯水', '两者加水煮 3 分钟，勾薄芡至微稠'],
+    steps: ['猪里脊{肉禽}剁成细末，煮至变色', '嫩豆腐{豆类}切小丁焯水', '两者加水煮 3 分钟，勾薄芡至微稠'],
     freezable: false, source: SOURCE
   },
   {
@@ -346,7 +346,7 @@ module.exports = [
     mainFoods: ['shrimp'], sideFoods: ['zucchini'],
     tags: ['高蛋白'], allergens: ['shrimp'],
     amount: { '7-12': '蔬菜 20–30g，水产 20–30g', '13-24': '蔬菜 30–50g，水产 30–50g', default: '蔬菜 20–30g，水产 20–30g' },
-    steps: ['虾去壳去虾线，煮熟后剁成细末（虾肉弹牙，务必剁细）', '西葫芦去皮切小丁蒸软', '两者拌匀'],
+    steps: ['虾{水产}去壳去虾线，煮熟后剁成细末（虾肉弹牙，务必剁细）', '西葫芦{蔬菜}去皮切小丁蒸软', '两者拌匀'],
     freezable: false, source: SOURCE
   },
   {
@@ -355,7 +355,7 @@ module.exports = [
     mainFoods: ['beef', 'potato'], sideFoods: [],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['牛里脊逆纹切小丁，煮至软烂', '土豆切小丁蒸熟', '混合后加少量温水煮 2 分钟'],
+    steps: ['牛里脊{肉禽}逆纹切小丁，煮至软烂', '土豆{谷物}切小丁蒸熟', '混合后加少量温水煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -364,7 +364,7 @@ module.exports = [
     mainFoods: ['salmon', 'rice'], sideFoods: [],
     tags: ['高蛋白'], allergens: ['salmon'],
     amount: { '7-12': '谷物 20–30g，水产 20–30g', '13-24': '谷物 30–50g，水产 30–50g', default: '谷物 20–30g，水产 20–30g' },
-    steps: ['三文鱼蒸熟，仔细挑净鱼刺后压碎', '米饭煮软（比成人饭多加水）', '拌匀，可加一点煮软的蔬菜碎'],
+    steps: ['三文鱼{水产}蒸熟，仔细挑净鱼刺后压碎', '米饭{谷物}煮软（比成人饭多加水）', '拌匀，可加一点煮软的蔬菜碎'],
     freezable: false, source: SOURCE
   },
   {
@@ -373,7 +373,7 @@ module.exports = [
     mainFoods: ['pork'], sideFoods: ['lotus_root'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g，肉禽 20–30g', '13-24': '蔬菜 30–50g，肉禽 30–50g', default: '蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['莲藕煮至软烂（要能用勺压碎），切成小丁', '猪肉末煮熟', '两者混合，加少量水煮 2 分钟'],
+    steps: ['莲藕{蔬菜}煮至软烂（要能用勺压碎），切成小丁', '猪肉末{肉禽}煮熟', '两者混合，加少量水煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -382,7 +382,7 @@ module.exports = [
     mainFoods: ['chicken'], sideFoods: ['eggplant'],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g，肉禽 20–30g', '13-24': '蔬菜 30–50g，肉禽 30–50g', default: '蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['茄子去皮蒸熟，剁成碎末', '鸡胸肉煮熟剁细', '两者混合，不用油炒'],
+    steps: ['茄子{蔬菜}去皮蒸熟，剁成碎末', '鸡胸肉{肉禽}煮熟剁细', '两者混合，不用油炒'],
     freezable: true, source: SOURCE
   },
   {
@@ -391,7 +391,7 @@ module.exports = [
     mainFoods: ['egg_whole', 'wheat_flour'], sideFoods: ['carrot'],
     tags: ['高蛋白', '手抓食物'], allergens: ['egg_whole', 'wheat_flour'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['鸡蛋打散，加少量面粉和胡萝卜碎调成稠糊（不加盐）', '不粘锅小火，用勺舀入摊成小圆饼', '两面煎熟后切成手指粗细的条，方便抓握'],
+    steps: ['鸡蛋{蛋奶}打散，加{谷物}面粉与胡萝卜碎{蔬菜}调成稠糊（不加盐）', '不粘锅小火，用勺舀入摊成小圆饼', '两面煎熟后切成手指粗细的条，方便抓握'],
     freezable: true, source: SOURCE
   },
   {
@@ -400,7 +400,7 @@ module.exports = [
     mainFoods: ['red_bean', 'millet'], sideFoods: [],
     tags: ['补铁', '膳食纤维'], allergens: [],
     amount: { '7-12': '谷物 20–30g，豆类 15–25g', '13-24': '谷物 30–50g，豆类 25–40g', default: '谷物 20–30g，豆类 15–25g' },
-    steps: ['红豆提前浸泡 4 小时以上', '与小米同煮 40 分钟至红豆开花', '用勺背把红豆压碎（豆皮不易消化）'],
+    steps: ['红豆{豆类}提前浸泡 4 小时以上', '与小米{谷物}同煮 40 分钟至红豆开花', '用勺背把红豆压碎（豆皮不易消化）'],
     freezable: true, source: SOURCE
   },
   {
@@ -409,7 +409,7 @@ module.exports = [
     mainFoods: ['tofu'], sideFoods: ['mushroom'],
     tags: ['补钙'], allergens: ['tofu'],
     amount: { '7-12': '蔬菜 20–30g，豆类 15–25g', '13-24': '蔬菜 30–50g，豆类 25–40g', default: '蔬菜 20–30g，豆类 15–25g' },
-    steps: ['香菇泡发煮烂后剁成细末', '嫩豆腐切 1cm 小丁焯水', '同煮 2 分钟，勾薄芡'],
+    steps: ['香菇{蔬菜}泡发煮烂后剁成细末', '嫩豆腐{豆类}切 1cm 小丁焯水', '同煮 2 分钟，勾薄芡'],
     freezable: false, source: SOURCE
   },
   {
@@ -418,7 +418,7 @@ module.exports = [
     mainFoods: ['chicken', 'rice'], sideFoods: ['egg_yolk'],
     tags: ['补铁', '高蛋白'], allergens: ['egg_yolk'],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，肉禽 30–50g，蛋奶 25–40g', default: '谷物 20–30g，肉禽 20–30g，蛋奶 15–25g' },
-    steps: ['鸡胸肉煮熟剁成细末', '鸡蛋煮全熟取蛋黄压碎', '与软饭拌匀，可加少量煮软的蔬菜碎'],
+    steps: ['鸡胸肉{肉禽}煮熟剁成细末', '鸡蛋{蛋奶}煮全熟取蛋黄压碎', '与{谷物}量的软饭拌匀，可加少量煮软的蔬菜碎'],
     freezable: false, source: SOURCE
   },
   {
@@ -427,7 +427,7 @@ module.exports = [
     mainFoods: ['avocado', 'banana'], sideFoods: [],
     tags: ['易入口'], allergens: [],
     amount: { '7-12': '水果 20–30g', '13-24': '水果 30–50g', default: '水果 20–30g' },
-    steps: ['熟牛油果挖出果肉压泥', '熟香蕉压泥', '两者拌匀，即做即吃（牛油果易氧化发黑）'],
+    steps: ['熟牛油果{水果}挖出果肉压泥', '熟香蕉压泥', '两者拌匀，即做即吃（牛油果易氧化发黑）'],
     freezable: false, source: SOURCE
   },
   {
@@ -436,7 +436,7 @@ module.exports = [
     mainFoods: ['cheese', 'rice'], sideFoods: ['broccoli'],
     tags: ['补钙'], allergens: ['cheese'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['选低钠原制奶酪，刨成碎末', '米饭加煮软的西兰花碎拌匀，装入小碗', '撒上奶酪碎，烤箱或微波加热至融化'],
+    steps: ['选低钠原制奶酪{蛋奶}，刨成碎末', '米饭{谷物}加煮软的西兰花碎{蔬菜}拌匀，装入小碗', '撒上奶酪碎，烤箱或微波加热至融化'],
     freezable: false, source: SOURCE
   },
   {
@@ -445,7 +445,7 @@ module.exports = [
     mainFoods: ['lamb'], sideFoods: ['white_radish'],
     tags: ['补铁', '高蛋白'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g，肉禽 20–30g', '13-24': '蔬菜 30–50g，肉禽 30–50g', default: '蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['羊肉选嫩部位，煮至软烂后切小丁', '白萝卜煮软切小丁', '两者加少量水同煮 3 分钟'],
+    steps: ['羊肉{肉禽}选嫩部位，煮至软烂后切小丁', '白萝卜{蔬菜}煮软切小丁', '两者加少量水同煮 3 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -454,7 +454,7 @@ module.exports = [
     mainFoods: ['kiwi'], sideFoods: ['milk_yogurt'],
     tags: ['易入口'], allergens: ['kiwi', 'milk_yogurt'],
     amount: { '7-12': '水果 20–30g，蛋奶 15–25g', '13-24': '水果 30–50g，蛋奶 25–40g', default: '水果 20–30g，蛋奶 15–25g' },
-    steps: ['猕猴桃选熟软的，去皮切小丁', '取无糖原味酸奶', '两者拌匀，不要加热'],
+    steps: ['选熟软的猕猴桃{水果}，去皮切小丁', '取无糖原味酸奶{蛋奶}', '两者拌匀，不要加热'],
     freezable: false, source: SOURCE
   },
   {
@@ -463,7 +463,7 @@ module.exports = [
     mainFoods: ['mango'], sideFoods: ['milk_yogurt'],
     tags: ['易入口'], allergens: ['mango', 'milk_yogurt'],
     amount: { '7-12': '水果 20–30g，蛋奶 15–25g', '13-24': '水果 30–50g，蛋奶 25–40g', default: '水果 20–30g，蛋奶 15–25g' },
-    steps: ['芒果去皮取果肉切小丁（务必去皮，果皮汁液可能刺激皮肤）', '取无糖原味酸奶', '两者拌匀'],
+    steps: ['选熟软的芒果{水果}，去皮取果肉切小丁（务必去皮，果皮汁液可能刺激皮肤）', '取无糖原味酸奶{蛋奶}', '两者拌匀'],
     freezable: false, source: SOURCE
   },
   {
@@ -472,7 +472,7 @@ module.exports = [
     mainFoods: ['corn', 'rice'], sideFoods: ['pea'],
     tags: ['膳食纤维'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
-    steps: ['玉米粒煮熟去皮（或打成泥过筛）', '豌豆煮烂去皮', '与软饭拌匀，可加一点煮软的肉末'],
+    steps: ['玉米粒{谷物}煮熟去皮（或打成泥过筛）', '豌豆{蔬菜}煮烂去皮', '与软饭拌匀，可加一点煮软的肉末'],
     freezable: true, source: SOURCE
   },
 
@@ -486,7 +486,7 @@ module.exports = [
     mainFoods: ['wheat_flour', 'beef'], sideFoods: ['tomato'],
     tags: ['补铁', '高蛋白'], allergens: ['wheat_flour'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['牛里脊逆纹切小丁，加水炖至软烂', '番茄去皮去籽切碎，与牛肉同煮出汁', '宝宝面条煮软后剪成 2cm 短段，与肉末番茄拌匀（不加盐或极少量）'],
+    steps: ['牛里脊{肉禽}逆纹切小丁，加水炖至软烂', '番茄{蔬菜}去皮去籽切碎，与牛肉同煮出汁', '宝宝面条{谷物}煮软后剪成 2cm 短段，与肉末番茄拌匀（不加盐或极少量）'],
     freezable: true, source: SOURCE
   },
   {
@@ -495,7 +495,7 @@ module.exports = [
     mainFoods: ['cod', 'tofu'], sideFoods: [],
     tags: ['高蛋白', '补钙'], allergens: ['cod', 'tofu'],
     amount: { '7-12': '水产 20–30g，豆类 15–25g', '13-24': '水产 30–50g，豆类 25–40g', default: '水产 20–30g，豆类 15–25g' },
-    steps: ['鳕鱼蒸熟，仔细挑净鱼刺后压碎', '嫩豆腐切小丁焯水去豆腥', '两者加水煮 3 分钟，勾薄芡成羹'],
+    steps: ['鳕鱼{水产}蒸熟，仔细挑净鱼刺后压碎', '嫩豆腐{豆类}切小丁焯水去豆腥', '两者加水煮 3 分钟，勾薄芡成羹'],
     freezable: false, source: SOURCE
   },
   {
@@ -504,7 +504,7 @@ module.exports = [
     mainFoods: ['chicken', 'rice'], sideFoods: ['broccoli'],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['鸡胸肉煮熟切小丁', '西兰花焯水取花球切碎', '与煮软的米饭拌匀，加少量水焖 2 分钟'],
+    steps: ['鸡胸肉{肉禽}煮熟切小丁', '西兰花{蔬菜}焯水取花球切碎', '与煮软的米饭{谷物}拌匀，加少量水焖 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -513,7 +513,7 @@ module.exports = [
     mainFoods: ['shrimp', 'rice'], sideFoods: ['pea'],
     tags: ['高蛋白'], allergens: ['shrimp'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，水产 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，水产 30–50g', default: '谷物 20–30g，蔬菜 20–30g，水产 20–30g' },
-    steps: ['虾去壳去虾线，煮熟后切成极小的丁', '豌豆煮烂去皮压碎', '与软饭拌匀，小火煮 2 分钟'],
+    steps: ['虾{水产}去壳去虾线，煮熟后切成极小的丁', '豌豆{蔬菜}煮烂去皮压碎', '与软饭{谷物}拌匀，小火煮 2 分钟'],
     freezable: false, source: SOURCE
   },
   {
@@ -522,7 +522,7 @@ module.exports = [
     mainFoods: ['wheat_flour', 'pork'], sideFoods: ['cabbage'],
     tags: ['高蛋白', '手抓食物'], allergens: ['wheat_flour'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪肉末加焯过水剁碎的小白菜拌匀（不加盐）', '用饺子皮包成小饺，皮要薄、馅要少', '煮至浮起再煮 2 分钟，放凉后剪成两半方便咀嚼'],
+    steps: ['猪肉末{肉禽}加焯过水剁碎的小白菜{蔬菜}拌匀（不加盐）', '用{谷物}量的饺子皮包成小饺，皮要薄、馅要少', '煮至浮起再煮 2 分钟，放凉后剪成两半方便咀嚼'],
     freezable: true, source: SOURCE
   },
   {
@@ -531,7 +531,7 @@ module.exports = [
     mainFoods: ['beef', 'potato'], sideFoods: ['carrot'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['牛里脊切小丁，加水炖 40 分钟至软烂', '土豆、胡萝卜切小丁同炖至能压碎', '收汁至微稠，不加盐或极少量'],
+    steps: ['牛里脊{肉禽}切小丁，加水炖 40 分钟至软烂', '土豆{谷物}、胡萝卜{蔬菜}切小丁同炖至能压碎', '收汁至微稠，不加盐或极少量'],
     freezable: true, source: SOURCE
   },
   {
@@ -540,7 +540,7 @@ module.exports = [
     mainFoods: ['liver_pork', 'rice'], sideFoods: ['tomato'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪肝浸泡 30 分钟去血水，煮熟后剁成细末（每周不超过 1–2 次）', '番茄去皮去籽切碎煮出汁', '与软饭拌匀，小火煮 2 分钟'],
+    steps: ['猪肝{肉禽}浸泡 30 分钟去血水，煮熟后剁成细末（每周不超过 1–2 次）', '番茄{蔬菜}去皮去籽切碎煮出汁', '与软饭{谷物}拌匀，小火煮 2 分钟'],
     freezable: false, source: SOURCE
   },
   {
@@ -549,7 +549,7 @@ module.exports = [
     mainFoods: ['egg_whole'], sideFoods: ['broccoli'],
     tags: ['高蛋白'], allergens: ['egg_whole'],
     amount: { '7-12': '蔬菜 20–30g，蛋奶 15–25g', '13-24': '蔬菜 30–50g，蛋奶 25–40g', default: '蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['鸡蛋打散，加 1.5 倍温水搅匀后过筛', '西兰花焯水取花球切碎，拌入蛋液', '盖保鲜膜中火蒸 10 分钟，至凝固无蜂窝'],
+    steps: ['鸡蛋{蛋奶}打散，加 1.5 倍温水搅匀后过筛', '西兰花{蔬菜}焯水取花球切碎，拌入蛋液', '盖保鲜膜中火蒸 10 分钟，至凝固无蜂窝'],
     freezable: false, source: SOURCE
   },
   {
@@ -558,7 +558,7 @@ module.exports = [
     mainFoods: ['tofu'], sideFoods: ['cabbage'],
     tags: ['补钙', '膳食纤维'], allergens: ['tofu'],
     amount: { '7-12': '蔬菜 20–30g，豆类 15–25g', '13-24': '蔬菜 30–50g，豆类 25–40g', default: '蔬菜 20–30g，豆类 15–25g' },
-    steps: ['嫩豆腐切 1cm 小丁焯水', '小白菜取嫩叶焯水后切碎', '两者加水煮 2 分钟，勾薄芡'],
+    steps: ['嫩豆腐{豆类}切 1cm 小丁焯水', '小白菜{蔬菜}取嫩叶焯水后切碎', '两者加水煮 2 分钟，勾薄芡'],
     freezable: false, source: SOURCE
   },
   {
@@ -567,7 +567,7 @@ module.exports = [
     mainFoods: ['pork', 'rice'], sideFoods: ['pumpkin'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪里脊切小丁煮熟', '南瓜蒸熟压碎', '与软饭拌匀，小火煮 2 分钟'],
+    steps: ['猪里脊{肉禽}切小丁煮熟', '南瓜{蔬菜}蒸熟压碎', '与软饭{谷物}拌匀，小火煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -576,7 +576,7 @@ module.exports = [
     mainFoods: ['salmon', 'potato'], sideFoods: [],
     tags: ['高蛋白', '手抓食物'], allergens: ['salmon'],
     amount: { '7-12': '谷物 20–30g，水产 20–30g', '13-24': '谷物 30–50g，水产 30–50g', default: '谷物 20–30g，水产 20–30g' },
-    steps: ['三文鱼蒸熟，仔细挑净鱼刺后压碎', '土豆蒸熟压成泥，与鱼肉拌匀', '不粘锅少油小火，压成小饼两面煎熟，切成条方便抓握'],
+    steps: ['三文鱼{水产}蒸熟，仔细挑净鱼刺后压碎', '土豆{谷物}蒸熟压成泥，与鱼肉拌匀', '不粘锅少油小火，压成小饼两面煎熟，切成条方便抓握'],
     freezable: true, source: SOURCE
   },
   {
@@ -585,7 +585,7 @@ module.exports = [
     mainFoods: ['chicken'], sideFoods: ['yam'],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['山药去皮切小丁（戴手套操作），蒸 15 分钟至软', '鸡胸肉煮熟切小丁', '两者加少量水煮 2 分钟'],
+    steps: ['山药{谷物}去皮切小丁（戴手套操作），蒸 15 分钟至软', '鸡胸肉{肉禽}煮熟切小丁', '两者加少量水煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -594,7 +594,7 @@ module.exports = [
     mainFoods: ['oat'], sideFoods: ['apple'],
     tags: ['膳食纤维', '易入口'], allergens: [],
     amount: { '7-12': '谷物 20–30g，水果 20–30g', '13-24': '谷物 30–50g，水果 30–50g', default: '谷物 20–30g，水果 20–30g' },
-    steps: ['纯燕麦片加水煮 5 分钟至软烂', '苹果去皮切小丁，煮 3 分钟至软', '两者混合，放温后食用'],
+    steps: ['燕麦片{谷物}加水煮 5 分钟至软烂', '苹果{水果}去皮切小丁，煮 3 分钟至软', '两者混合，放温后食用'],
     freezable: false, source: SOURCE
   },
   {
@@ -603,7 +603,7 @@ module.exports = [
     mainFoods: ['strawberry'], sideFoods: ['milk_yogurt'],
     tags: ['易入口'], allergens: ['strawberry', 'milk_yogurt'],
     amount: { '7-12': '水果 20–30g，蛋奶 15–25g', '13-24': '水果 30–50g，蛋奶 25–40g', default: '水果 20–30g，蛋奶 15–25g' },
-    steps: ['草莓洗净去蒂，切成小丁（对半或四分之一）', '取无糖原味酸奶，常温放片刻', '两者拌匀，不要加热'],
+    steps: ['草莓{水果}洗净去蒂，切成小丁（对半或四分之一）', '取无糖原味酸奶{蛋奶}，常温放片刻', '两者拌匀，不要加热'],
     freezable: false, source: SOURCE
   },
   {
@@ -612,7 +612,7 @@ module.exports = [
     mainFoods: ['pork'], sideFoods: ['winter_melon'],
     tags: ['高蛋白', '手抓食物'], allergens: [],
     amount: { '7-12': '蔬菜 20–30g，肉禽 20–30g', '13-24': '蔬菜 30–50g，肉禽 30–50g', default: '蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪肉末加少量淀粉搅打上劲（不加盐）', '搓成小丸子，与冬瓜丁同煮 10 分钟', '冬瓜煮至透明，丸子放凉后剪成小块'],
+    steps: ['猪肉末{肉禽}加少量淀粉搅打上劲（不加盐）', '搓成小丸子，与冬瓜丁{蔬菜}同煮 10 分钟', '冬瓜煮至透明，丸子放凉后剪成小块'],
     freezable: true, source: SOURCE
   },
   {
@@ -621,7 +621,7 @@ module.exports = [
     mainFoods: ['millet'], sideFoods: ['pumpkin'],
     tags: ['易消化', '膳食纤维'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
-    steps: ['小米洗净加 8 倍水，小火熬 30 分钟', '南瓜蒸熟压碎拌入', '熬至米粒开花、粥体浓稠'],
+    steps: ['小米{谷物}洗净加 8 倍水，小火熬 30 分钟', '南瓜{蔬菜}蒸熟压碎拌入', '熬至米粒开花、粥体浓稠'],
     freezable: true, source: SOURCE
   },
   {
@@ -630,7 +630,7 @@ module.exports = [
     mainFoods: ['egg_whole', 'rice'], sideFoods: ['tomato'],
     tags: ['高蛋白'], allergens: ['egg_whole'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['鸡蛋打散，小火炒成嫩蛋碎（不加盐）', '番茄去皮去籽切碎炒出汁', '与软饭拌匀，小火煮 1 分钟'],
+    steps: ['鸡蛋{蛋奶}打散，小火炒成嫩蛋碎（不加盐）', '番茄{蔬菜}去皮去籽切碎炒出汁', '与软饭{谷物}拌匀，小火煮 1 分钟'],
     freezable: false, source: SOURCE
   }
 ]

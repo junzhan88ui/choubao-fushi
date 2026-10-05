@@ -33,7 +33,7 @@
         <text class="link-arrow {{openRow === 'safe' ? 'link-arrow-open' : ''}}">›</text>
       </view>
     </view>
-    <view class="row-detail" wx:if="{{openRow === 'safe'}}">
+    <view class="row-detail fx-in" wx:if="{{openRow === 'safe'}}">
       <view class="rd-item" wx:for="{{safeList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
         <text class="rd-name">{{item.name}}</text>
@@ -50,7 +50,7 @@
         <text class="link-arrow {{openRow === 'obs' ? 'link-arrow-open' : ''}}">›</text>
       </view>
     </view>
-    <view class="row-detail" wx:if="{{openRow === 'obs'}}">
+    <view class="row-detail fx-in" wx:if="{{openRow === 'obs'}}">
       <view class="rd-item" wx:for="{{observingList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
         <text class="rd-name">{{item.name}}</text>
@@ -67,7 +67,7 @@
         <text class="link-arrow {{openRow === 'bad' ? 'link-arrow-open' : ''}}">›</text>
       </view>
     </view>
-    <view class="row-detail" wx:if="{{openRow === 'bad'}}">
+    <view class="row-detail fx-in" wx:if="{{openRow === 'bad'}}">
       <view class="rd-item" wx:for="{{badList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
         <text class="rd-name">{{item.name}}</text>
@@ -85,7 +85,7 @@
         <text class="link-arrow {{openRow === 'all' ? 'link-arrow-open' : ''}}">›</text>
       </view>
     </view>
-    <view class="row-detail" wx:if="{{openRow === 'all'}}">
+    <view class="row-detail fx-in" wx:if="{{openRow === 'all'}}">
       <view class="rd-item" wx:for="{{recordedList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
         <text class="rd-name">{{item.name}}</text>

@@ -19,6 +19,10 @@
 const age = require('./age')
 const FOODS = require('../data/foods')
 const RECIPES = require('../data/recipes')
+
+// 计划结构版本：meal 结构变化必须 bump（v2.7 加了 meal.cats 与步骤占位符填数），
+// 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
+const STRUCT_V = 2
 // v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
 const icons = require('../data/food-icons')
 
@@ -58,6 +62,37 @@ function amountForStage(recipe, months) {
   if (!recipe || !recipe.amount) return ''
   const key = (months >= 13 && months <= 24) ? '13-24' : '7-12'
   return recipe.amount[key] || recipe.amount.default || ''
+}
+
+/* ---------- v2.7：步骤用量填数 ----------
+ * recipes.js 的步骤里写 {分类} 占位符（如「燕麦片{谷物}加水煮 5 分钟至软烂」），
+ * 渲染前按当期月龄档填成「燕麦片20–30g加水煮 5 分钟至软烂」。
+ * 克数分两档（7-12 与 13-24 不同），写死进文案会和另一档的分量打架 ——
+ * 占位符 + 运行时填数让同一道菜在两个月龄段各自正确。
+ */
+function portionMap(amountStr) {
+  const map = {}
+  String(amountStr || '').split('，').forEach(function (seg) {
+    const parts = seg.trim().split(' ')
+    if (parts.length >= 2) map[parts[0]] = parts.slice(1).join(' ')
+  })
+  return map
+}
+
+function fillPortions(steps, amountStr) {
+  const map = portionMap(amountStr)
+  return (steps || []).map(function (s) {
+    return String(s).replace(/\{([^{}]+)\}/g, function (_, key) {
+      return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : ''
+    })
+  })
+}
+
+// 餐次行小标签用：amount 串拆成分类名数组（『谷物 20–30g，水果 20–30g』→ ['谷物','水果']）
+function catsFromAmount(amountStr) {
+  return String(amountStr || '').split('，').map(function (seg) {
+    return seg.trim().split(' ')[0]
+  }).filter(Boolean)
 }
 
 function foodName(id) {
@@ -518,14 +553,17 @@ function generate(opts) {
       const rc = catsOf(recipe)
       Object.keys(rc).forEach(function (c) { dayCatsFinal[c] = true })
 
+      const amountStr = amountForStage(recipe, months)
       meals.push({
         key: 'm' + i + '_' + m,
         recipeId: recipe.id,
         name: recipe.name,
         texture: recipe.texture,
-        amount: amountForStage(recipe, months),
+        amount: amountStr,
+        cats: catsFromAmount(amountStr), // 餐次行小标签（质地之外的类别名，v2.7）
         tags: recipe.tags || [],
-        steps: recipe.steps || []
+        // 步骤里的 {分类} 占位符按当期档位填成真克数（v2.7，见 fillPortions）
+        steps: fillPortions(recipe.steps, amountStr)
       })
     }
 
@@ -595,6 +633,9 @@ function generate(opts) {
 
   return {
     generatedAt: Date.now(),
+    // 结构版本（structure version）：meal 字段变化必须 bump ——
+    // 缓存里的旧计划靠它触发失效重算（v2.7 加了 cats + 步骤填数）
+    sv: STRUCT_V,
     startDate: dateKey(start),
     months: months,
     stageKey: stage.key,
@@ -725,5 +766,8 @@ module.exports = {
   getFood: getFood,
   foodName: foodName,
   dateKey: dateKey,
+  amountForStage: amountForStage, // 食材详情页按月龄档取分量（步骤填数用）
+  fillPortions: fillPortions,     // 步骤 {分类} 占位符填数（计划页与食材详情页共用）
+  STRUCT_V: STRUCT_V,
   WEEKDAYS: WEEKDAYS
 }

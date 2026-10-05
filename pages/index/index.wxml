@@ -11,8 +11,8 @@
 
   <block wx:if="{{ready && configured}}">
 
-    <!-- 顶部信息 -->
-    <view class="card">
+    <!-- 顶部信息（v2.7 · ③ 品牌面：与今天卡共用 --c-green-tint，全站唯一大色块） -->
+    <view class="card card--brand">
       <view class="head-row">
         <view class="head-line">
           <text class="head-name">{{name}}</text>
@@ -42,9 +42,10 @@
         <view class="guide-head guide-head--tap" bindtap="toggleGuide6" data-k="{{g.key}}">
           <view class="food-ic" style="background:{{g.iconBg}}">{{g.icon}}</view>
           <view class="card-title guide-title">{{g.title}}</view>
-          <text class="guide-arrow">{{sixOpen[g.key] ? '▾' : '▸'}}</text>
+          <!-- 文本恒为 ▸：展开态靠 .link-arrow-open 旋转 90°（换字是节点重建，做不出过渡） -->
+          <text class="guide-arrow {{sixOpen[g.key] ? 'link-arrow-open' : ''}}">▸</text>
         </view>
-        <view class="guide-body" wx:if="{{sixOpen[g.key]}}">
+        <view class="guide-body fx-in" wx:if="{{sixOpen[g.key]}}">
           <view class="guide-point" wx:for="{{g.points}}" wx:for-item="pt" wx:key="title">
             <view class="guide-pt-title">{{pt.title}}</view>
             <view class="guide-pt-text">{{pt.text}}</view>
@@ -88,24 +89,44 @@
 
       <!-- 本周计划 -->
       <block wx:if="{{tab === 'plan'}}">
+        <!-- 今天恒展开为主角；其余 6 天折成一行摘要，点头部展开（v2.7 · ① openDay） -->
         <view class="card day-card {{day.isToday ? 'day-card--today' : ''}}"
               wx:for="{{planData.days}}" wx:key="date" wx:for-item="day">
-          <view class="day-head">
+          <view class="day-head {{day.isToday ? '' : 'day-head--tap'}}"
+                data-date="{{day.date}}" bindtap="toggleDay">
             <view class="day-head-l">
               <text class="day-week">{{day.weekday}}</text>
               <text class="day-date">{{day.dateLabel}}</text>
               <text class="day-today" wx:if="{{day.isToday}}">今天</text>
             </view>
-            <view class="cat-row" wx:if="{{day.meals.length}}">
-              <text class="cat-text">今天覆盖 {{day.catCount}} 类食物</text>
+            <!-- 折叠态 → 一行摘要（餐数 · 类数不丢，有待打卡的提示补打）；
+                 展开态 → 类别覆盖（非今天时「今天」改说「当日」）。两分支必须贴在一起，
+                 中间插注释会打断 wx:if/elif 链 -->
+            <view class="day-peek" wx:if="{{!(day.isToday || openDay === day.date)}}">
+              <text class="day-peek-sum">{{day.meals.length}} 餐 · {{day.catCount}} 类</text>
+              <text class="day-peek-todo" wx:if="{{day.checkable && day.total > day.done}}">待打卡 {{day.total - day.done}}</text>
+            </view>
+            <view class="cat-row" wx:elif="{{day.meals.length}}">
+              <text class="cat-text">{{day.isToday ? '今天' : '当日'}}覆盖 {{day.catCount}} 类食物</text>
               <text class="cat-warn" wx:if="{{day.catApplicable && !day.catOk}}">建议再补：{{day.catMissing}}</text>
             </view>
+            <!-- 箭头常驻（今天除外）→ 展开/收起在同一节点上旋转才有 .18s 过渡 -->
+            <text class="day-arrow {{day.isToday || openDay === day.date ? 'link-arrow-open' : ''}}"
+                  wx:if="{{!day.isToday}}">▸</text>
           </view>
 
+          <!-- 展开层：今天恒创建；非今天只在 openDay 命中时创建（fx-in 只挂用户点开的，不算入场动画） -->
+          <view class="day-body {{!day.isToday && openDay === day.date ? 'fx-in' : ''}}"
+                wx:if="{{day.isToday || openDay === day.date}}">
           <view class="newfood" wx:if="{{day.newFood}}">
             <view class="newfood-title">
               <view class="food-ic" style="background:{{day.newFood.iconBg}}">{{day.newFood.icon}}</view>
               <text>新食材尝试 · {{day.newFood.name}}</text>
+            </view>
+            <!-- 观察进度（v2.7 · ④）：●○○ 是真信息 —— 引入日 + 3 天，markToday 现算 -->
+            <view class="newfood-prog">
+              <text class="newfood-dots">{{day.newFood.dots}}</text>
+              <text class="newfood-prog-text">{{day.newFood.progText}}</text>
             </view>
             <view class="newfood-body">{{day.newFood.amount}}；{{day.newFood.method}}</view>
             <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
@@ -115,9 +136,12 @@
                 data-key="{{meal.key}}" bindtap="toggleMeal">
             <view class="meal-main">
               <text class="meal-name">{{meal.name}}</text>
-              <text class="meal-meta">{{meal.texture}} · {{meal.amount}}</text>
+              <!-- v2.7：质地与类别改小标签、随菜名同行基线对齐；
+                   原来那行「质地 · 克数」灰字拆掉，克数下沉到展开的步骤里 -->
+              <text class="tag tag-grey meal-tag">{{meal.texture}}</text>
+              <text class="tag tag-grey meal-tag" wx:for="{{meal.cats}}" wx:key="*this">{{item}}</text>
             </view>
-            <view class="meal-steps" wx:if="{{expanded === meal.key}}">
+            <view class="meal-steps fx-in" wx:if="{{expanded === meal.key}}">
               <view class="step" wx:for="{{meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
             </view>
             <!-- 每餐打卡（v2.1）：只在日期 ≤ 今天时出现；按钮用 catchtap，
@@ -142,6 +166,7 @@
           </view>
 
           <view class="meal-hint muted" wx:if="{{!day.meals.length}}">暂无合适的菜谱，去「我的」补一下已吃食材</view>
+          </view><!-- /day-body：非今天的天到这里收拢 -->
         </view>
 
         <button class="btn btn-ghost" bindtap="regenerate">重新生成计划</button>

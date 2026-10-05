@@ -1809,6 +1809,288 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、7 个起始日各 2 名额且全工作日+间隔≥3 ✓、已发生的日子逐餐照抄 ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
 }
 
+/* ---------- 6n. 视觉层级与品牌面（v2.7 · 视觉改版 ①②③④⑥） ----------
+ * 每条都锁「改了数据没接线 / 改了样式没数据」的半截工程：
+ *   1. 品牌浅绿 token 在，且正文/次级/辅助/琥珀墨/绿深在它上面全部现算过 WCAG AA。
+ *   2. 顶部信息卡与今天卡双向接上这个面（wxml ↔ wxss），阴影仍只由 .card 提供。
+ *   3. 折叠链路闭环：openDay 状态 → toggleDay 事件 → 展开条件（今天短路）
+ *      → refresh 与 regenerate 双处复位 → 今天有 guard 不脏状态。
+ *   4. 观察进度点：markToday 按「引入日 = day.date」现算，wxml 两处都绑。
+ *   5. 字重三档：标题系 600（首页与「我的」的 head 同档，§6f 的字号钉不动）。
+ *   6. 展开动效 .fx-in/关键帧在，且只挂用户点开的节点；箭头有 transition。
+ */
+{
+  const errsBefore = errs.length
+  const app = fs.readFileSync('./app.wxss', 'utf8')
+  const ix = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const ij1 = ij.replace(/\n\s*/g, ' ')
+  const mW = fs.readFileSync('./pages/mine/mine.wxss', 'utf8')
+  const mIW = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+  const fdW = fs.readFileSync('./pages/food-detail/food-detail.wxss', 'utf8')
+
+  // WCAG 现算（与 §6g 同算法；各自作用域各起一份，不跨段引用）
+  const lum = (hex) => {
+    const v = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)))
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+  }
+  const ratio = (a, b) => {
+    // 与顺序无关：WCAG 取「亮者在分子」—— 暗字在亮底上是 (bg+0.05)/(fg+0.05)
+    const la = lum(a)
+    const lb = lum(b)
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+  }
+
+  // —— 1) 品牌浅绿 token + 对比度现算 ——
+  const tintM = app.match(/--c-green-tint:\s*(#[0-9a-f]{6})/i)
+  if (!tintM) {
+    E('app.wxss 缺 --c-green-tint token —— 品牌面没根（v2.7 ③ 白做）')
+  } else {
+    const tint = tintM[1]
+    ;[
+      ['正文 #2c2c2a', '#2c2c2a'],
+      ['次级 #5f5e5a', '#5f5e5a'],
+      ['辅助 #6f6e6a', '#6f6e6a'],
+      ['琥珀墨 #633806', '#633806'],
+      ['绿深 #3b6d11（阶段 tag）', '#3b6d11']
+    ].forEach(([name, fg]) => {
+      const r = ratio(fg, tint)
+      if (r < 4.5)
+        E(`品牌浅绿 ${tint} 上的 ${name} 对比度 ${r.toFixed(1)}:1 < 4.5:1（AA 不达标）`)
+    })
+    const bgM = app.match(/--c-bg:\s*(#[0-9a-f]{6})/i)
+    if (bgM && bgM[1].toLowerCase() === tint.toLowerCase())
+      E('--c-green-tint 与 --c-bg 同色 —— 品牌面在页面底色上看不出来')
+  }
+
+  // —— 2) 接线：顶部品牌卡 / 今天卡主面，阴影仍唯一 ——
+  if (!/\.card--brand\s*\{[^}]*background:\s*var\(--c-green-tint\)/.test(app))
+    E('app.wxss 的 .card--brand 没铺 var(--c-green-tint) —— 顶部品牌面没接上')
+  if (iw.indexOf('card card--brand') < 0)
+    E('index.wxml 顶部信息卡没挂 card--brand —— ③ 是死样式（wxml↔wxss 断链）')
+  if (!/\.day-card--today\s*\{[^}]*background:\s*var\(--c-green-tint\)/.test(ix))
+    E('index.wxss 的 .day-card--today 没铺品牌浅绿 —— 今天卡没有主角面（①/③ 断链）')
+  const brandRule = app.match(/\.card--brand\s*\{[^}]*\}/)
+  if (brandRule && /box-shadow/.test(brandRule[0]))
+    E('.card--brand 自带 box-shadow —— 阴影必须仍由 .card 一处提供（§6l）')
+  // 琥珀文字 AA 修复（③ 配套）：--c-amber 当正文白底只有 3.85:1
+  ;['head-issue', 'cat-warn'].forEach((cls) => {
+    const m = ix.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*color:\\s*([^;}]+)'))
+    if (!m || m[1].trim() !== 'var(--c-amber-ink)')
+      E(`index.wxss 的 .${cls} 文字色不是 var(--c-amber-ink) —— --c-amber 当正文 AA 不达标（3.85:1）`)
+  })
+
+  // —— 3) 折叠链路闭环 ——
+  if (iw.indexOf('openDay === day.date') < 0)
+    E('index.wxml 没读 openDay —— 折叠/展开链路断了（① 白做）')
+  if (iw.indexOf('bindtap="toggleDay"') < 0)
+    E('index.wxml 天卡头部没绑 toggleDay —— 折叠摘要点不开')
+  if (!/toggleDay\(e\) \{/.test(ij))
+    E('index.js 缺 toggleDay 处理 —— wxml 绑了事件但 JS 没有')
+  const tdAt = ij.indexOf('toggleDay(e) {')
+  const tdSlice = tdAt >= 0 ? ij.slice(tdAt, tdAt + 400) : ''
+  if (tdSlice.indexOf('plan.dateKey(new Date())') < 0)
+    E('toggleDay 没挡今天 —— 点今天卡头部会把 openDay 写成今天的日期（脏状态）')
+  if (ij1.indexOf("base.openDay = ''") < 0)
+    E('refresh 没复位 openDay —— 重排后残留的展开态会指向不存在的日期')
+  const regenAt2 = ij.indexOf('regenerate() {')
+  const regenSlice2 = regenAt2 >= 0 ? ij.slice(regenAt2) : ''
+  if (regenSlice2.indexOf("openDay: ''") < 0)
+    E('regenerate 没复位 openDay —— 重新生成后旧展开态残留')
+  if (iw.indexOf('wx:if="{{day.isToday || openDay === day.date}}"') < 0)
+    E('展开条件没用 day.isToday 短路 —— 「今天恒展开」的语义没了')
+  if (iw.indexOf('day.meals.length}} 餐 · {{day.catCount}} 类') < 0)
+    E('折叠摘要缺 餐数·类数 —— 折叠把覆盖信息弄丢了')
+  if (iw.indexOf('day.total > day.done') < 0 || ij.indexOf('d.done = done') < 0)
+    E('「待打卡 N」链路断了（wxml 没读 day.total/day.done，或 js 没算）')
+
+  // —— 4) 观察进度点：js 按引入日现算，wxml 两处都绑 ——
+  if (ij.indexOf('newFood.dots') < 0 || ij.indexOf('newFood.progText') < 0)
+    E('index.js markToday 没算观察进度（dots/progText）—— ④ 白做')
+  if (iw.indexOf('day.newFood.dots') < 0 || iw.indexOf('day.newFood.progText') < 0)
+    E('index.wxml 没绑定观察进度（dots/progText）—— 数据算了不显示')
+  if (ij.indexOf('dayDiff(d.date, todayKey)') < 0)
+    E('观察进度没按「引入日 = day.date」实算 —— 进度点会和真实引入时间脱钩')
+
+  // —— 5) 字重三档：标题系 600 ——
+  const wOf = (css, cls) => {
+    const m = css.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*font-weight:\\s*([^;}]+)'))
+    return m ? m[1].trim() : null
+  }
+  ;[
+    [app, 'card-title', 'app.wxss'],
+    [ix, 'head-name', 'index.wxss'],
+    [ix, 'head-age', 'index.wxss'],
+    [ix, 'day-week', 'index.wxss'],
+    [ix, 'meal-name', 'index.wxss'],
+    [ix, 'empty-title', 'index.wxss'],
+    [ix, 'newfood-title', 'index.wxss'],
+    [mW, 'head-name', 'mine.wxss'],
+    [mW, 'head-age', 'mine.wxss'],
+    [fdW, 'fd-name', 'food-detail.wxss']
+  ].forEach(([css, cls, from]) => {
+    const w = wOf(css, cls)
+    if (w !== '600')
+      E(`${from} 的 .${cls} 字重是 ${w} 而非 600 —— 字重三档（②）没落地`)
+  })
+
+  // —— 6) 展开动效与箭头过渡 ——
+  if (!/\.fx-in\s*\{[^}]*animation:\s*fxIn/.test(app) || !/@keyframes\s+fxIn\s*\{/.test(app))
+    E('app.wxss 缺 .fx-in 或 @keyframes fxIn —— 展开动效（⑥）没根')
+  if (iw.indexOf('meal-steps fx-in') < 0)
+    E('index.wxml 餐步骤展开没挂 fx-in')
+  if (iw.indexOf('guide-body fx-in') < 0)
+    E('index.wxml 6 月龄指南展开没挂 fx-in')
+  if (iw.indexOf("openDay === day.date ? 'fx-in'") < 0)
+    E('index.wxml 折叠天展开没挂 fx-in —— 或没限制在用户点开的节点上（今天会变入场动画）')
+  if (mIW.indexOf('row-detail fx-in') < 0)
+    E('mine.wxml 记录展开没挂 fx-in')
+  ;[['.guide-arrow', ix], ['.day-arrow', ix], ['.link-arrow', mW]].forEach(([sel, css]) => {
+    const m = css.match(new RegExp(sel.replace('.', '\\.') + '\\s*\\{[^}]*'))
+    if (!m || !/transition:\s*transform/.test(m[0]))
+      E(`${sel} 没有 transition: transform —— 箭头旋转（⑥）没有过渡，等于瞬间跳变`)
+  })
+  if (app.indexOf('.link-arrow-open {') < 0 || ix.indexOf('link-arrow-open') < 0 || mIW.indexOf('link-arrow-open') < 0)
+    E('link-arrow-open 共享修饰类断链（app.wxss 必须定义，index/mine 必须使用）')
+
+  if (errs.length === errsBefore)
+    console.log('  6n 视觉层级与品牌面：品牌浅绿对比度现算 AA ✓、顶卡/今天卡双向接线 ✓、openDay 折叠闭环（今天 guard + 双复位）✓、观察进度按引入日现算 ✓、字重三档 600 ✓、展开动效与箭头过渡 ✓')
+}
+
+/* ---------- 6o. 餐次标签与步骤用量（v2.7 · ① 配套） ----------
+ * 克数从餐次行的灰字下沉到步骤详情、质地与类别变小标签随菜名 ——
+ * 每条都锁「半截工程」：
+ *   1. recipes.js：步骤里写 {分类} 占位符 —— 占位符必须属于该菜 amount 的分类，
+ *      且 amount 的每个分类都必须有占位符（否则原来灰字行的克数就丢了）。
+ *   2. plan.js：fillPortions 按当期档位真填数 —— 对 67 道菜 × 两个月龄档实跑，
+ *      填完的步骤不许残留花括号，每段分量值都必须出现在文本里。
+ *   3. 页面接线：meal.cats 算出来 + wxml 绑上 + 灰字行 .meal-meta 拆干净；
+ *      计划结构版本 sv 有 bump 与失效入口（旧缓存不重算就一直渲染旧结构）。
+ */
+{
+  const errsBefore = errs.length
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ix = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const pj = fs.readFileSync('./utils/plan.js', 'utf8')
+  const fdj = fs.readFileSync('./pages/food-detail/food-detail.js', 'utf8')
+
+  const catsOf = (s) => String(s || '').split('，').map((seg) => seg.trim().split(' ')[0]).filter(Boolean)
+
+  // —— 1) recipes.js 占位符完整性（静态，逐菜） ——
+  let tokTotal = 0
+  recipes.forEach((r) => {
+    const tag = `recipes ${r.id}`
+    const c7 = catsOf(r.amount['7-12'])
+    const c13 = catsOf(r.amount['13-24'])
+    if (c7.join() !== c13.join())
+      E(`${tag} 两档 amount 分类不一致（${c7} vs ${c13}）—— 同一份步骤没法两档通用`)
+    const text = (r.steps || []).join('\n')
+    const tokens = (text.match(/\{([^{}]+)\}/g) || []).map((t) => t.slice(1, -1))
+    tokTotal += tokens.length
+    tokens.forEach((t) => {
+      if (c7.indexOf(t) < 0)
+        E(`${tag} 步骤占位符 {${t}} 不在 amount 分类 [${c7}] 里 —— 填不出数，会渲染成空`)
+    })
+    c7.forEach((c) => {
+      if (tokens.indexOf(c) < 0)
+        E(`${tag} 的分类「${c}」没有任何占位符 —— 原灰字行的克数在详情里丢了`)
+    })
+    const braces = (text.match(/[{}]/g) || []).length
+    if (braces !== tokens.length * 2)
+      E(`${tag} 步骤里有不成对的花括号 —— 半截改写，填数会留残渣`)
+  })
+  if (tokTotal < recipes.length)
+    E(`全部菜谱只有 ${tokTotal} 个占位符 —— 用量下沉没做实（每道菜至少 1 个）`)
+
+  // —— 2) fillPortions 实跑：两档 × 全部菜谱 ——
+  if (typeof plan.fillPortions !== 'function' || typeof plan.amountForStage !== 'function')
+    E('plan 没导出 fillPortions/amountForStage —— 食材详情页拿不到填数能力')
+  else {
+    ;[9, 18].forEach((months) => {
+      recipes.forEach((r) => {
+        const amountStr = plan.amountForStage(r, months)
+        const filled = plan.fillPortions(r.steps, amountStr)
+        const text = filled.join('\n')
+        if (/[{}]/.test(text))
+          E(`${r.id}（${months} 月龄档）填数后仍残留花括号: ${text.match(/\{[^}]*\}?/g)}`)
+        if (filled.length !== (r.steps || []).length)
+          E(`${r.id} fillPortions 步骤条数变了 —— 不是 1:1 映射`)
+        // 信息等价：amount 每段的分量值都必须出现在文本里（克数下沉，不能丢）
+        String(amountStr || '').split('，').forEach((seg) => {
+          const value = seg.trim().split(' ').slice(1).join(' ')
+          if (value && text.indexOf(value) < 0)
+            E(`${r.id}（${months} 月龄档）分量「${value}」没出现在填好的步骤里 —— 克数丢了`)
+        })
+      })
+    })
+    // 档位敏感性：同一道菜两档必须填出不同的数（写死文案的假实现过不了这条）
+    const oat = recipes.find((r) => r.id === 'r_oat_banana')
+    if (oat) {
+      const t9 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 9)).join('\n')
+      const t18 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 18)).join('\n')
+      if (t9.indexOf('20–30g') < 0 || t18.indexOf('30–50g') < 0)
+        E(`燕麦香蕉糊两档没填出各自的克数（9 月应含 20–30g、18 月应含 30–50g）: "${t9}" / "${t18}"`)
+      if (t9 === t18)
+        E('燕麦香蕉糊两档填数结果相同 —— 档位没生效，等于把克数写死了')
+    }
+  }
+
+  // —— 3) 真生成计划：meal.cats + 填好的步骤 + 结构版本 ——
+  ;[9, 18].forEach((months) => {
+    const pg = plan.generate({ months: months, issues: [], safeFoodIds: [], recordedFoodIds: [], observingCount: 0 })
+    if (!pg) { E(`plan.generate({months:${months}}) 返回 null —— §6o 没法实跑`); return }
+    if (pg.sv !== plan.STRUCT_V)
+      E(`计划没带上 sv: STRUCT_V（实际 ${pg.sv}，期望 ${plan.STRUCT_V}）—— 缓存失效判断无从比对`)
+    ;(pg.days || []).forEach((day) => {
+      (day.meals || []).forEach((meal) => {
+        if (!Array.isArray(meal.cats) || !meal.cats.length)
+          E(`${meal.name} 的 cats 缺失/为空 —— 餐次行小标签没数据（wxml↔js 断链）`)
+        else if (catsOf(meal.amount).join() !== meal.cats.join())
+          E(`${meal.name} 的 cats ${meal.cats} 与 amount「${meal.amount}」解析不一致 —— 两处解析器要同口径`)
+        const text = (meal.steps || []).join('\n')
+        if (/[{}]/.test(text))
+          E(`${meal.name} 生成到计划里还带花括号 —— 步骤没经过 fillPortions: ${text.match(/\{[^}]*\}?/g)}`)
+        String(meal.amount || '').split('，').forEach((seg) => {
+          const value = seg.trim().split(' ').slice(1).join(' ')
+          if (value && text.indexOf(value) < 0)
+            E(`${meal.name} 的分量「${value}」不在计划步骤里 —— 克数下沉到详情链路断了`)
+        })
+      })
+    })
+  })
+
+  // —— 4) 页面接线（静态） ——
+  if (iw.indexOf('wx:for="{{meal.cats}}"') < 0)
+    E('index.wxml 没渲染 meal.cats —— 类别标签没接上（数据算了不显示）')
+  if (iw.indexOf('meal-meta') >= 0)
+    E('index.wxml 还有 meal-meta —— 旧的「质地 · 克数」灰字行没拆干净')
+  if (ix.indexOf('.meal-meta') >= 0)
+    E('index.wxss 还有 .meal-meta 规则 —— 死样式')
+  const mmRule = ix.match(/\.meal-main\s*\{[^}]*\}/)
+  if (!mmRule || !/align-items:\s*baseline/.test(mmRule[0]))
+    E('.meal-main 没有 align-items: baseline —— 标签与菜名不对齐（① 没做实）')
+  const mtRule = ix.match(/\.meal-tag\s*\{[^}]*\}/)
+  if (!mtRule || !/margin:\s*0/.test(mtRule[0]))
+    E('.meal-tag 没把全局 .tag 的 margin 清零 —— flex + gap 下间距会翻倍')
+  if ((iw.match(/tag tag-grey meal-tag/g) || []).length < 2)
+    E('index.wxml 质地标签或类别标签循环没挂 tag-grey meal-tag —— 小标签样式没接上')
+  if (pj.indexOf('catsFromAmount(amountStr)') < 0 || pj.indexOf('fillPortions(recipe.steps, amountStr)') < 0)
+    E('plan.js 的 meal 构建没接 catsFromAmount/fillPortions —— 餐次标签与步骤填数是死代码')
+  if (!/sv:\s*STRUCT_V/.test(pj))
+    E('plan.generate 返回里没有 sv: STRUCT_V —— 结构版本没写进计划')
+  if (ij.indexOf('p.sv !== plan.STRUCT_V') < 0)
+    E('index.js refresh 的失效条件没比对 sv —— 升级后旧缓存一直渲染旧结构（标签/克数全缺）')
+  if (fdj.indexOf('plan.fillPortions(r.steps, plan.amountForStage(r, months))') < 0)
+    E('food-detail.js 没按宝宝月龄档填步骤占位符 —— 食材详情页会露出 {谷物} 原文')
+
+  if (errs.length === errsBefore)
+    console.log(`  6o 餐次标签与步骤用量：${recipes.length} 道菜占位符全闭合且分类全覆盖 ✓、两档 × 全菜实跑无残留且克数不丢 ✓、档位敏感（20–30g vs 30–50g）✓、生成计划带 cats+填好步骤+sv ✓、灰字行拆净与四端接线 ✓`)
+}
+
 /* ---------- 7. 统计 ---------- */
 const byCat = {}
 foods.forEach((f) => { byCat[f.category] = (byCat[f.category] || 0) + 1 })
