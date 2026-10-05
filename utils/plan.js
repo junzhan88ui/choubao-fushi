@@ -20,9 +20,10 @@ const age = require('./age')
 const FOODS = require('../data/foods')
 const RECIPES = require('../data/recipes')
 
-// 计划结构版本：meal 结构变化必须 bump（v2.7 加了 meal.cats 与步骤占位符填数），
+// 计划结构版本：结构或步骤文案变化必须 bump（v2.7 加 meal.cats 与占位符填数；
+// v2.8 步骤写入倍粥参考与蛋黄渐进、菜池 +2 道手抓菜），
 // 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
-const STRUCT_V = 2
+const STRUCT_V = 3
 // v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
 const icons = require('../data/food-icons')
 

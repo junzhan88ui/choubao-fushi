@@ -1191,7 +1191,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 }
 
 /* ---------- 6i. 6 月龄说明（添加要点 + 怎么做辅食）：数据 → 首页 → 收起交互 ----------
- * sixMonth 两张卡：points（5 条小标题段落，结构 points[]）+ cook（做法行，放最后一张）。
+ * sixMonth 两张卡：points（小标题段落，结构 points[]，≥4 条）+ cook（做法行，放最后一张）。
  * 用户要求：只在满 6 不满 7 显示、默认收起点头部展开。
  * 断链/错闸门的后果各不同：闸门写错 → 7 月龄还挂着「第一口辅食」；
  * 展开态没接 → 点了没反应（死交互）；cook 挪位/删行 → 做法缺东西。
@@ -1289,7 +1289,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.wxss 的 .guide-arrow 没有 margin-left:auto —— 箭头不会靠右，看不出可点开')
 
   if (errs.length === errsBefore)
-    console.log('  6 月龄说明：points(6段：5要点+并入的清淡少盐)+cook(七种做法、排最后) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
+    console.log('  6 月龄说明：points(7段：6要点+加量节奏并入)+cook(八种做法、排最后) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
 }
 
 /* ---------- 6j. 「有反应」(bad) 不可被洗白：藏按钮 + JS 拨卫 + storage 硬拒（H-2） ----------
@@ -2089,6 +2089,164 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
   if (errs.length === errsBefore)
     console.log(`  6o 餐次标签与步骤用量：${recipes.length} 道菜占位符全闭合且分类全覆盖 ✓、两档 × 全菜实跑无残留且克数不丢 ✓、档位敏感（20–30g vs 30–50g）✓、生成计划带 cats+填好步骤+sv ✓、灰字行拆净与四端接线 ✓`)
+}
+
+/* ---------- 6p. v2.8 公开月龄资料融入：分月龄知识卡 + 6 月卡补充 + 菜谱层知识 ----------
+ * 六组新卡（7/8/9/10/11/12 月龄，每月龄一组）：data/guides.js 导出 → index.js 按月龄
+ * 挑一组挂 guideLater → WXML 与 6 月龄卡互斥渲染；展开态复用 sixOpen/toggleGuide6 ——
+ * 卡 key 跨组撞了会串组。内容钉的是两份公开资料的独有知识点（喂养量、2:1:1、粥倍数、
+ * 蛋黄渐进、1→3 勺加量、错峰排敏、每天蛋黄、盐 1.5g、油与水果克数……）：
+ * 数据文件删一条页面照常渲染，属于「静默丢失」，必须显式钉。
+ * 菜谱层：蛋黄泥写分次渐进；凡步骤里熬稠粥的菜必须带倍粥参考（月龄→米水比随月龄变，
+ * 写死一种会指错月龄）；新菜式 = 海报点名的蒸糕与馒头（手抓食物，不加新食材）；
+ * 蒸蛋羹的菜池月龄必须 ≤9 —— 9 月龄卡承诺了「蒸蛋羹可以开始安排」。
+ */
+{
+  const errsBefore = errs.length
+  const gm = require('./data/guides')
+  const iw = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ij = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const rcs = fs.readFileSync('./data/recipes.js', 'utf8')
+
+  // 1) 三组导出且结构合法；卡 key 跨全部分组唯一（sixOpen 按 key 存展开态）
+  const keyOwner = {}
+  ;['tooYoung', 'sixMonth'].forEach((gname) => {
+    ;(gm[gname] || []).forEach((c) => { if (c && c.key) keyOwner[c.key] = gname })
+  })
+  const GROUPS = [['sevenMonth', '7 月龄'], ['eightMonth', '8 月龄'], ['nineMonth', '9 月龄'],
+    ['tenMonth', '10 月龄'], ['elevenMonth', '11 月龄'], ['twelveMonth', '12 月龄']]
+  GROUPS.forEach(([g, label]) => {
+    const arr = gm[g]
+    if (!Array.isArray(arr) || arr.length < 2) {
+      E(`guides.js 没导出 ${g}（${label}知识卡，至少「喂养要点 + 注意事项」两张）`)
+      return
+    }
+    arr.forEach((c) => {
+      if (!c.key) return E(`${g} 有卡缺 key —— 按 key 存展开态会互相覆盖`)
+      if (keyOwner[c.key]) E(`${g}.${c.key} 的 key 撞了 ${keyOwner[c.key]} —— sixOpen 按 key 存展开态，撞了会展开串组`)
+      keyOwner[c.key] = g
+      const ic = c.icon
+      if (typeof ic !== 'string' || !ic || /\s/.test(ic) || [...ic].length > 4)
+        E(`${g}.${c.key} 的 icon 非法：${JSON.stringify(ic)}`)
+      if (!/^#[0-9a-f]{6}$/i.test(c.iconBg || ''))
+        E(`${g}.${c.key} 的 iconBg 不是 6 位 hex：${c.iconBg}`)
+      if (!c.title) E(`${g}.${c.key} 没有 title`)
+      if (!c.points && !c.lines) E(`${g}.${c.key} 既没有 points 也没有 lines —— 卡是空的`)
+      if (c.points && (!Array.isArray(c.points) || c.points.some((p) => !p.title || !p.text)))
+        E(`${g}.${c.key} 的 points 段里有空 title/text —— 会渲染出空段落`)
+      if (c.lines && (!Array.isArray(c.lines) || c.lines.some((l) => typeof l !== 'string' || !l.trim())))
+        E(`${g}.${c.key} 的 lines 里有空行 —— 会渲染出空的 .guide-line`)
+    })
+  })
+
+  // 2) 首页接线：按月龄选组（六档闸门）→ 挂进 data → WXML 渲染并复用展开交互
+  ;['months >= 7 && months < 8', 'months >= 8 && months < 9', 'months >= 9 && months < 10',
+    'months >= 10 && months < 11', 'months >= 11 && months < 12', 'months === 12'].forEach((gt) => {
+    if (ij.indexOf(gt) < 0) E(`index.js 缺「${gt}」的选组闸门 —— 这个年龄段挂不到知识卡`)
+  })
+  if (!/guideLater\s*=\s*months\s*>=\s*7/.test(ij))
+    E('index.js 没按月龄挑组赋给 guideLater —— 卡数据没有来源（死数据）')
+  if (!/guideLater:\s*guideLater/.test(ij))
+    E('index.js 选好的组没挂进 data.guideLater —— WXML 的 wx:for 拿不到卡')
+  if (iw.indexOf('wx:for="{{guideLater}}"') < 0)
+    E('index.wxml 没渲染 guideLater —— 数据配了页面不显示')
+  else {
+    const glb = iw.indexOf('wx:for="{{guideLater}}"')
+    const seg = iw.slice(Math.max(0, glb - 700), glb + 900)
+    ;['guideLater.length', 'toggleGuide6', 'sixOpen[g.key]', 'guide-arrow'].forEach((b) => {
+      if (seg.indexOf(b) < 0) E(`guideLater 卡没绑 ${b} —— 互斥渲染/展开/箭头有断链`)
+    })
+  }
+  // 6 月龄卡的闸门不能被这次改动带坏（§6i 也钉，这里双保险）
+  if (iw.indexOf('months >= 6 && months < 7') < 0)
+    E('6 月龄闸门丢了 —— 7 月龄会看到「第一口辅食」')
+
+  // 3) 海报知识点内容钉（分组钉：防「渲染正常但内容被删」）
+  const CT = [
+    ['sevenMonth', [
+      [/700[–-]800/, '奶量 700–800ml'], [/2\s*[:：]\s*1\s*[:：]\s*1/, '主食:菜:肉 = 2:1:1'],
+      [/10 倍粥/, '10 倍粥基准'], [/榨汁/, '不榨汁、果汁不能代替水果'], [/转奶/, '转奶期不加新辅食'],
+      [/小颗粒/, '7 月龄小颗粒性状'], [/错峰/, '新食物错峰添加'], [/没有固定的顺序/, '辅食没有固定顺序']
+    ]],
+    ['eightMonth', [
+      [/8 倍粥/, '8 倍粥'], [/1\s*[/／]\s*8/, '蛋黄 1/8 起步渐进'], [/红肉/, '每天红肉'],
+      [/动物肝脏/, '每周 1–2 次肝脏'], [/不强迫/, '不强迫进食'],
+      [/碎碎面/, '以粥和碎碎面为主'], [/一捏就烂/, '蔬菜条手指食物（一捏就烂）'], [/50[–-]80g/, '水果 50–80g']
+    ]],
+    ['nineMonth', [
+      [/700[–-]800/, '奶量 700–800ml'], [/7 倍粥/, '9 月龄 7 倍粥'], [/蒸蛋羹/, '蒸蛋羹可以安排'],
+      [/果汁/, '果汁不能代替水果'], [/清洁牙齿/, '乳牙萌出清洁牙齿'], [/条状/, '条状 → 块状进阶']
+    ]],
+    ['tenMonth', [
+      [/600[–-]700/, '奶量 600–700ml'], [/6 倍粥/, '10 月龄 6 倍粥'], [/每天一个蛋黄/, '每天一个蛋黄'],
+      [/小馄饨/, '主食花样（小馄饨/面疙瘩）'], [/勺子/, '练习用勺子舀着吃']
+    ]],
+    ['elevenMonth', [
+      [/600[–-]700/, '奶量 600–700ml'], [/4 倍粥/, '11 月龄 4 倍粥'], [/软米饭/, '软米饭可以开始'],
+      [/大颗粒/, '向大颗粒、块状过渡'], [/分开安排/, '辅食和奶分开安排']
+    ]],
+    ['twelveMonth', [
+      [/1\.5/, '每天盐不超过 1.5g'], [/包子/, '丰富种类（包子饺子）'], [/同步/, '三餐与大人同步'],
+      [/独立进食/, '引导独立进食'], [/600ml/, '奶量 600ml 左右']
+    ]]
+  ]
+  CT.forEach(([g, list]) => {
+    const all = JSON.stringify(gm[g] || [])
+    list.forEach(([re, what]) => {
+      if (!re.test(all)) E(`${g} 组丢了知识点「${what}」—— 海报内容被删但页面照常渲染（静默丢失）`)
+    })
+  })
+
+  // 4) 6 月龄卡的海报补充：冲泡比例 / 过敏症状清单 / 午后水果 / 早期红肉 / 叶菜剁碎
+  //    + 喂养重点表的加量节奏（1→2→3 勺、菜泥不超米糊一半）
+  const six = JSON.stringify(gm.sixMonth || [])
+  ;[[/50\s*ml/, '冲泡 50ml 温水'], [/30 秒/, '静置 30 秒'], [/嘴边/, '过敏症状（嘴边发红）'],
+    [/肛周/, '过敏症状（肛周发红）'], [/午后/, '水果午后吃'], [/红肉/, '尽早加红肉'],
+    [/剁碎/, '叶菜剁碎不用打泥'], [/1 勺/, '新食物第 1 天 1 勺'], [/米糊的一半/, '菜泥不超米糊一半']]
+    .forEach(([re, what]) => {
+    if (!re.test(six)) E(`sixMonth 补充丢了「${what}」—— 公开资料的要点没写进去`)
+  })
+
+  // 5) 菜谱层：蛋黄渐进 / 倍粥参考 / 新菜式
+  const eggY = rids['r_egg_yolk_paste']
+  if (!eggY) E('蛋黄泥 r_egg_yolk_paste 不见了')
+  else {
+    const s = JSON.stringify(eggY.steps)
+    if (!/1\s*[/／]\s*4/.test(s) || !/1\s*[/／]\s*2/.test(s))
+      E('蛋黄泥步骤丢了渐进量（1/4 → 1/2）—— 蛋黄分次引入的知识点没落进步骤')
+    if (!/整个蛋黄/.test(s)) E('蛋黄泥步骤没写「逐步到整个蛋黄」—— 渐进终点丢了')
+  }
+  // 凡步骤里出现「稠粥」的菜，必须带倍粥参考（稠度随月龄变，不写会指错月龄）
+  recipes.forEach((r) => {
+    (r.steps || []).forEach((s) => {
+      if (/稠粥/.test(s) && !/倍粥/.test(s))
+        E(`${r.id} 步骤里有「稠粥」但没有倍粥参考 —— 粥的米水比随月龄变，写死一种会指错月龄`)
+    })
+  })
+  if ((rcs.match(/倍粥/g) || []).length < 7)
+    E('菜谱里的倍粥参考不足 7 处 —— 粥底类菜谱的海报稠度阶梯没落全')
+  ;[['r_steam_cake', '蔬菜蒸糕', ['wheat_flour', 'egg_whole']],
+    ['r_steam_bun', '南瓜小馒头', ['wheat_flour']]].forEach(([id, name, allergs]) => {
+    const r = rids[id]
+    if (!r) return E(`海报菜式 ${name}（${id}）没进菜谱库`)
+    if (r.monthRange[0] > 9)
+      E(`${id} 起始月龄 ${r.monthRange[0]} —— 海报 9 月龄起给手指食物，起晚了就错过抓握练习窗口`)
+    if (r.tags.indexOf('手抓食物') < 0)
+      E(`${id} 缺「手抓食物」标签 —— 这两道就是海报点名的抓握/咀嚼练习菜`)
+    if (!/抓/.test(JSON.stringify(r.steps)))
+      E(`${id} 步骤里没有「自己抓着吃」的写法 —— 手指食物的关键做法丢了`)
+    allergs.forEach((fid) => {
+      if ((r.allergens || []).indexOf(fid) < 0) E(`${id} 致敏主料 ${fid} 没登记进 allergens`)
+    })
+  })
+  // 9 月龄卡承诺「蒸蛋羹可以开始安排」→ 菜池里的蒸蛋羹必须真能排进 9 月龄
+  const cust = rids['r_broccoli_egg_custard']
+  if (!cust) E('西兰花蒸蛋羹不见了 —— 9 月龄卡承诺了蒸蛋羹')
+  else if (cust.monthRange[0] > 9)
+    E(`r_broccoli_egg_custard 起始月龄 ${cust.monthRange[0]} —— 9 月龄卡说蒸蛋羹可以安排，菜池却排不进去（建议落不了地）`)
+
+  if (errs.length === errsBefore)
+    console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/加量节奏…) ✓、蛋黄渐进与倍粥参考落步骤 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

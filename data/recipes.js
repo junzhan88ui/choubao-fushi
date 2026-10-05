@@ -144,7 +144,7 @@ module.exports = [
     mainFoods: ['egg_yolk'], sideFoods: [],
     tags: ['补铁'], allergens: ['egg_yolk'],
     amount: { '7-12': '蛋奶 15–25g', '13-24': '蛋奶 25–40g', default: '蛋奶 15–25g' },
-    steps: ['取{蛋奶}量的鸡蛋冷水下锅，水开后煮 10 分钟至全熟', '取出蛋黄，压碎', '用温水、母乳或配方奶调成糊'],
+    steps: ['取{蛋奶}量的鸡蛋冷水下锅，水开后煮 10 分钟至全熟', '取出蛋黄压碎：初次 1/4 个起步，适应 2–3 天无异常再加到 1/2，逐步到整个蛋黄', '用温水、母乳或配方奶调成糊'],
     freezable: false, source: SOURCE
   },
   {
@@ -182,7 +182,7 @@ module.exports = [
     mainFoods: ['liver_pork', 'rice'], sideFoods: ['spinach'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪肝{肉禽}切片，清水浸泡 30 分钟去血水', '煮熟后压成泥（每周不超过 1–2 次）', '大米{谷物}熬成稠粥，拌入肝泥和焯过水剁碎的菠菜{蔬菜}'],
+    steps: ['猪肝{肉禽}切片，清水浸泡 30 分钟去血水', '煮熟后压成泥（每周不超过 1–2 次）', '大米{谷物}熬成稠粥（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥），拌入肝泥和焯过水剁碎的菠菜{蔬菜}'],
     freezable: false, source: SOURCE
   },
   {
@@ -191,7 +191,7 @@ module.exports = [
     mainFoods: ['salmon', 'rice'], sideFoods: ['broccoli'],
     tags: ['高蛋白'], allergens: ['salmon'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，水产 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，水产 30–50g', default: '谷物 20–30g，蔬菜 20–30g，水产 20–30g' },
-    steps: ['三文鱼{水产}蒸熟，用手指仔细挑净鱼刺后压碎', '西兰花{蔬菜}焯水取花球压碎', '拌入{谷物}量的稠粥中'],
+    steps: ['三文鱼{水产}蒸熟，用手指仔细挑净鱼刺后压碎', '西兰花{蔬菜}焯水取花球压碎', '拌入{谷物}量的稠粥中（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥，11 月龄起 4 倍粥）'],
     freezable: false, source: SOURCE
   },
   {
@@ -200,7 +200,7 @@ module.exports = [
     mainFoods: ['beef', 'rice'], sideFoods: ['tomato'],
     tags: ['补铁', '高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['牛里脊{肉禽}煮熟后剁成极细的末', '番茄{蔬菜}去皮去籽，煮熟压碎', '与{谷物}量的稠粥混合，小火煮 2 分钟'],
+    steps: ['牛里脊{肉禽}煮熟后剁成极细的末', '番茄{蔬菜}去皮去籽，煮熟压碎', '与{谷物}量的稠粥（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥，11 月龄起 4 倍粥）混合，小火煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -209,7 +209,7 @@ module.exports = [
     mainFoods: ['egg_yolk', 'rice'], sideFoods: ['pumpkin'],
     tags: ['补铁', '易入口'], allergens: ['egg_yolk'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
-    steps: ['南瓜{蔬菜}蒸熟压泥', '取{蛋奶}量的鸡蛋煮全熟取蛋黄压碎', '两者拌入{谷物}量的稠粥，搅匀即可'],
+    steps: ['南瓜{蔬菜}蒸熟压泥', '取{蛋奶}量的鸡蛋煮全熟取蛋黄压碎', '两者拌入{谷物}量的稠粥（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥，11 月龄起 4 倍粥），搅匀即可'],
     freezable: false, source: SOURCE
   },
   {
@@ -245,7 +245,7 @@ module.exports = [
     mainFoods: ['pork', 'rice'], sideFoods: ['white_radish'],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['猪里脊{肉禽}煮熟剁成细末', '白萝卜{蔬菜}煮至软烂后剁碎', '拌入{谷物}量的稠粥，小火煮 2 分钟'],
+    steps: ['猪里脊{肉禽}煮熟剁成细末', '白萝卜{蔬菜}煮至软烂后剁碎', '拌入{谷物}量的稠粥（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥，11 月龄起 4 倍粥），小火煮 2 分钟'],
     freezable: true, source: SOURCE
   },
   {
@@ -272,7 +272,7 @@ module.exports = [
     mainFoods: ['liver_pork', 'millet'], sideFoods: [],
     tags: ['补铁'], allergens: [],
     amount: { '7-12': '谷物 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，肉禽 30–50g', default: '谷物 20–30g，肉禽 20–30g' },
-    steps: ['猪肝{肉禽}浸泡去血水后煮熟压泥', '小米{谷物}熬成稠粥', '拌入肝泥，每周不超过 1–2 次'],
+    steps: ['猪肝{肉禽}浸泡去血水后煮熟压泥', '小米{谷物}熬成稠粥（8 倍粥起，9 月龄 7 倍粥、10 月龄 6 倍粥）', '拌入肝泥，每周不超过 1–2 次'],
     freezable: false, source: SOURCE
   },
   {
@@ -308,7 +308,7 @@ module.exports = [
     mainFoods: ['chicken', 'rice'], sideFoods: ['mushroom'],
     tags: ['高蛋白'], allergens: [],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g，肉禽 30–50g', default: '谷物 20–30g，蔬菜 20–30g，肉禽 20–30g' },
-    steps: ['香菇{蔬菜}泡发后煮烂，剁成细末', '鸡胸肉{肉禽}煮熟剁细', '与{谷物}量的稠粥同煮 2 分钟'],
+    steps: ['香菇{蔬菜}泡发后煮烂，剁成细末', '鸡胸肉{肉禽}煮熟剁细', '与{谷物}量的稠粥（7 倍粥起，10 月龄 6 倍粥，11 月龄起 4 倍粥）同煮 2 分钟'],
     freezable: true, source: SOURCE
   },
 
@@ -392,6 +392,27 @@ module.exports = [
     tags: ['高蛋白', '手抓食物'], allergens: ['egg_whole', 'wheat_flour'],
     amount: { '7-12': '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g', '13-24': '谷物 30–50g，蔬菜 30–50g，蛋奶 25–40g', default: '谷物 20–30g，蔬菜 20–30g，蛋奶 15–25g' },
     steps: ['鸡蛋{蛋奶}打散，加{谷物}面粉与胡萝卜碎{蔬菜}调成稠糊（不加盐）', '不粘锅小火，用勺舀入摊成小圆饼', '两面煎熟后切成手指粗细的条，方便抓握'],
+    freezable: true, source: SOURCE
+  },
+  {
+    // v2.8 · 儿保海报菜式：蒸糕（9 月龄起手指食物，锻炼咀嚼与抓握）。
+    // 小麦粉+全蛋都是 8 月龄起的致敏主料，必须登记 allergens（§3 致敏过滤）。
+    id: 'r_steam_cake', name: '蔬菜蒸糕',
+    monthRange: [9, 24], texture: '小丁',
+    mainFoods: ['wheat_flour', 'egg_whole'], sideFoods: ['carrot'],
+    tags: ['高蛋白', '手抓食物'], allergens: ['egg_whole', 'wheat_flour'],
+    amount: { '7-12': '谷物 20–30g，蛋奶 15–25g，蔬菜 20–30g', '13-24': '谷物 30–50g，蛋奶 25–40g，蔬菜 30–50g', default: '谷物 20–30g，蛋奶 15–25g，蔬菜 20–30g' },
+    steps: ['胡萝卜{蔬菜}焯软切碎，鸡蛋{蛋奶}打散', '倒入{谷物}面粉搅成顺滑面糊（不加盐）', '模具刷薄油倒入面糊，水开后中小火蒸 15 分钟', '晾温后切成长条，让宝宝自己抓着吃（锻炼咀嚼与抓握）'],
+    freezable: false, source: SOURCE
+  },
+  {
+    // v2.8 · 儿保海报菜式：馒头（9 月龄起，锻炼咀嚼的手指食物）
+    id: 'r_steam_bun', name: '南瓜小馒头',
+    monthRange: [9, 24], texture: '小丁',
+    mainFoods: ['wheat_flour', 'pumpkin'], sideFoods: [],
+    tags: ['手抓食物', '易消化'], allergens: ['wheat_flour'],
+    amount: { '7-12': '谷物 20–30g，蔬菜 20–30g', '13-24': '谷物 30–50g，蔬菜 30–50g', default: '谷物 20–30g，蔬菜 20–30g' },
+    steps: ['南瓜{蔬菜}蒸熟压泥，放温后与{谷物}面粉、少量酵母揉成光滑面团', '盖上湿布醒发至两倍大，排气后分成小剂子', '冷水上锅蒸 15 分钟，关火焖 3 分钟再开盖', '晾温后切成小块，让宝宝自己抓着吃'],
     freezable: true, source: SOURCE
   },
   {
@@ -545,7 +566,7 @@ module.exports = [
   },
   {
     id: 'r_broccoli_egg_custard', name: '西兰花蒸蛋羹',
-    monthRange: [13, 24], texture: '碎末',
+    monthRange: [9, 24], texture: '碎末',
     mainFoods: ['egg_whole'], sideFoods: ['broccoli'],
     tags: ['高蛋白'], allergens: ['egg_whole'],
     amount: { '7-12': '蔬菜 20–30g，蛋奶 15–25g', '13-24': '蔬菜 30–50g，蛋奶 25–40g', default: '蔬菜 20–30g，蛋奶 15–25g' },

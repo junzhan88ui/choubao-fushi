@@ -55,6 +55,26 @@
       </view>
     </block>
 
+    <!-- 7–12 月龄（v2.8 · 儿保海报融入）：分月知识卡。refresh 按月龄挑一组挂 guideLater，
+         与 6 月龄卡互斥；展开态复用 toggleGuide6/sixOpen（key 跨组唯一），默认收起点头部展开 -->
+    <block wx:if="{{guideLater.length}}">
+      <view class="card card-guide card-guide6" wx:for="{{guideLater}}" wx:key="key" wx:for-item="g">
+        <view class="guide-head guide-head--tap" bindtap="toggleGuide6" data-k="{{g.key}}">
+          <view class="food-ic" style="background:{{g.iconBg}}">{{g.icon}}</view>
+          <view class="card-title guide-title">{{g.title}}</view>
+          <!-- 文本恒为 ▸：展开态靠 .link-arrow-open 旋转 90°（换字是节点重建，做不出过渡） -->
+          <text class="guide-arrow {{sixOpen[g.key] ? 'link-arrow-open' : ''}}">▸</text>
+        </view>
+        <view class="guide-body fx-in" wx:if="{{sixOpen[g.key]}}">
+          <view class="guide-point" wx:for="{{g.points}}" wx:for-item="pt" wx:key="title">
+            <view class="guide-pt-title">{{pt.title}}</view>
+            <view class="guide-pt-text">{{pt.text}}</view>
+          </view>
+          <view class="guide-line" wx:for="{{g.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view>
+        </view>
+      </view>
+    </block>
+
     <!-- 月龄不够（<6 月龄）：铺一份「开始之前」的说明 —— 时机与风险 / 信号 / 原则 -->
     <block wx:if="{{tooYoung}}">
       <view class="empty empty-guide">

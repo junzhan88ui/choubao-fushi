@@ -68,8 +68,11 @@ Page({
     configured: false,
     // <6 月龄说明（data/guides.js）：tooYoung 分支铺开渲染
     guide: guides.tooYoung,
-    // 6 月龄说明：两张卡默认收起，sixOpen 记录各卡展开态（key → bool）
+    // 6 月龄说明：两张卡默认收起。sixOpen 记录各卡展开态（key → bool），
+    // 7–12 月龄知识卡（v2.8）复用它：卡 key 跨组唯一，默认全收起
     guide6: guides.sixMonth,
+    // 7–12 月龄分月知识卡：refresh 里按月龄挑一组（互斥，其他月龄为空数组）
+    guideLater: [],
     sixOpen: {},
     name: '',
     emptyHint: '',
@@ -125,6 +128,15 @@ Page({
     // 状态是多选，这里取全部；一项都没勾 → statusLabels 兜底成「正常」
     const statuses = storage.getStatuses()
 
+    // 7–12 月龄的分月知识卡（v2.8 · 公开月龄资料融入）：每月龄挑一组，
+    // 与 6 月龄卡互斥（不同月龄只挂一组）；展开态共用 sixOpen/toggleGuide6
+    const guideLater = months >= 7 && months < 8 ? guides.sevenMonth
+      : (months >= 8 && months < 9 ? guides.eightMonth
+        : (months >= 9 && months < 10 ? guides.nineMonth
+          : (months >= 10 && months < 11 ? guides.tenMonth
+            : (months >= 11 && months < 12 ? guides.elevenMonth
+              : (months === 12 ? guides.twelveMonth : [])))))
+
     const base = {
       ready: true,
       configured: true,
@@ -136,6 +148,7 @@ Page({
       // 全空 = 没有任何待改善项 → 用灰色，别让「正常」看起来像告警
       issueNone: statuses.length === 0,
       dueObs: dueObs,
+      guideLater: guideLater,
       tooYoung: false,
       outOfRange: false
     }
@@ -168,8 +181,8 @@ Page({
     //   3. 生成输入变了 —— issue / 生病状态 / 已引入食材（指纹比对）
     //      ⚠️ 第 3 条不能省：用户把某食材标成「有反应」后，旧计划里那道菜
     //      还在，下次打开照样推荐。「有反应」的语义是永久排除。
-    //   4. 计划结构版本变了（v2.7：meal.cats 标签 + 步骤占位符填数）
-    //      —— 旧缓存里的 meal 没有这些字段，不 bump 就一直渲染旧结构。
+    //   4. 计划结构/内容版本变了（sv：v2.7 加 meal.cats 标签与步骤占位符填数，
+    //      v2.8 刷新步骤文案与菜池）—— 旧缓存里没有新字段/新菜，不 bump 就一直渲染旧的。
     //      重算走 replanOpts 冻结已发生的日子，不会重排已打卡的行。
     let p = storage.getPlan()
     const sig = plan.planSignature(storage)
@@ -256,7 +269,8 @@ Page({
     })
   },
 
-  // 6 月龄说明卡：点卡头切换该卡的展开态（默认全收起，sixOpen 里没有 key = 收起）
+  // 指南卡（6 月龄 + 7–12 月龄 v2.8）：点卡头切换该卡的展开态
+  // 默认全收起，sixOpen 里没有 key = 收起；卡 key 跨组唯一，展开态互不影响
   toggleGuide6(e) {
     const k = e.currentTarget.dataset.k
     this.setData({ ['sixOpen.' + k]: !this.data.sixOpen[k] })
