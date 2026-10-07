@@ -1685,10 +1685,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
 /* ---------- 6m. 重排窗口与新食材槽位（v2.6 · P2 修复） ----------
  * 两条不变量：
- *   1. 隐式重排（输入指纹变了）不得改动「已发生的日子」，且窗口不得前移。
- *      打卡按 date|recipeId 落库 —— 整段从今天重排后，已打卡那天的 recipeId
- *      不在新计划里，计划页的打卡行凭空消失（数据还在「我的」14 天记录里，
- *      但「哪一餐吃了没」对不上了）；窗口也会从周一起始漂到周一起始+今天。
+ *   1. 隐式重排（输入指纹变了）：窗口不得前移；「≤今天**且有打卡**」的日子
+ *      整段照抄 —— 打卡按 date|recipeId 落库，重排后 recipeId 不在新计划里，
+ *      计划页的打卡行凭空消失（数据还在「我的」14 天记录里，但「哪一餐吃了没」
+ *      对不上了）；**没打卡的已过日子必须按当前规则重排**（v2.10 自愈：
+ *      旧引擎时代的错误行要能变回 6 月固定菜单内容，不用用户手动重新生成）。
  *   2. 新食材名额恒为每周 2 个、全在工作日、彼此间隔 ≥3 天（观察期）。
  *      旧写法固定第 1/4 天、遇周末直接丢槽 —— 起始日是周三/周四/周六/周日时
  *      一周只剩 1 个名额，引入节奏凭空慢一半（实测 4/7 起始日中招）。
@@ -1703,8 +1704,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   // —— 1) 链路钉：隐式重算走 replanOpts；「重新生成」必须不冻结 ——
   if (pl.indexOf('function replanOpts(') < 0 || pl.indexOf('replanOpts: replanOpts') < 0)
     E('plan.js 缺 replanOpts 或没导出 —— 保留窗口/冻结机制根本不存在')
-  if (!/generateFromStorage\(storage,\s*plan\.replanOpts\(p\)\)/.test(idxJs1))
-    E('index.js 的隐式重算没走 plan.replanOpts —— P2 回归：重排前移窗口、打卡行从计划页消失')
+  if (!/generateFromStorage\(storage,\s*plan\.replanOpts\(p,\s*storage\.getMealLogs\(\)\)\)/.test(idxJs1))
+    E('index.js 的隐式重算没走 plan.replanOpts + storage.getMealLogs —— P2 回归（打卡行消失）或冻结名单缺失（旧计划的错误行无法自愈）')
   // 锚点必须是函数体定义「regenerate() {」—— 注释里提到的 regenerate() 不带大括号
   const regenAt = idxJs.indexOf('regenerate() {')
   const regenSlice = regenAt >= 0 ? idxJs.slice(regenAt) : ''
@@ -1744,7 +1745,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E(`6m ${label}：两个引入日只隔 ${idxs[1] - idxs[0]} 天 < 3 —— 观察期被压缩`)
   }
 
-  // —— 3) 冻结：窗口不前移、已发生的日子逐餐照抄、采购清单仍覆盖整周 ——
+  // —— 3) 冻结：窗口不前移；有打卡的日子整段照抄、没打卡的按当前规则重排 ——
   try {
     const start = new Date()
     start.setHours(0, 0, 0, 0)
@@ -1752,18 +1753,22 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const p1 = plan.generate(mk({ startDate: start }))
     const todayK = plan.dateKey(new Date())
 
-    if (plan.replanOpts(null) !== null || plan.replanOpts({}) !== null)
+    if (plan.replanOpts(null, []) !== null || plan.replanOpts({}, []) !== null)
       E('replanOpts 对空计划没有返回 null —— 会把 undefined 当计划用')
 
-    const opts = plan.replanOpts(p1)
+    const past = p1.days.filter((d) => d.date <= todayK)
+    const loggedDates = past.length ? [{ date: past[0].date }] : [{ date: todayK }] // 只给最早的过去日打卡
+    const opts = plan.replanOpts(p1, loggedDates)
     if (!opts) {
-      E('6m replanOpts 对「仍覆盖今天」的计划返回 null —— 冻结机制没生效')
+      E('6m replanOpts 对「仍覆盖今天」的计划返回 null —— 冻结机制没生效（窗口会重置回今天）')
     } else {
       if (opts.startDate !== p1.startDate)
         E('6m replanOpts 没沿用旧计划的起始日 —— 窗口会前移（P2）')
-      const past = p1.days.filter((d) => d.date <= todayK)
-      if (opts.frozenDays.length !== past.length)
-        E(`6m replanOpts 冻结了 ${opts.frozenDays.length} 天，应为「日期 ≤ 今天」的 ${past.length} 天`)
+      const frozenQ = opts.frozenDays.map((d) => d.date)
+      if (frozenQ.length !== 1 || frozenQ[0] !== loggedDates[0].date)
+        E(`6m replanOpts 冻结了 [${frozenQ}]，应只冻结「≤今天且有打卡」的 [${loggedDates[0].date}]`)
+      if (past.some((d) => d.date !== loggedDates[0].date && frozenQ.indexOf(d.date) >= 0))
+        E('6m 把没打卡的已过日子也冻结了 —— 旧计划的错误行永远修不回来（自愈通道被堵死）')
       if (opts.frozenDays.some((d) => d.date > todayK))
         E('6m 把未来的日子也冻结了 —— 计划从此不再更新，降权和新输入全部失效')
 
@@ -1774,11 +1779,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
         if (!p1.days[i] || d.date !== p1.days[i].date)
           E(`6m 重排后第 ${i} 天日期错位（${(p1.days[i] || {}).date} → ${d.date}）`)
       })
-      past.forEach((d, i) => {
-        if (JSON.stringify(p2.days[i].meals) !== JSON.stringify(d.meals))
-          E(`6m ${d.date}（已发生的日子）被重排了 —— 这天的打卡行会从计划页消失（P2）`)
-        if (JSON.stringify(p2.days[i].newFood) !== JSON.stringify(d.newFood))
-          E(`6m ${d.date}（已发生的日子）的新食材尝试被改了 —— 观察记录与计划对不上`)
+      // 有打卡的冻结日：整段照抄（打卡行 + 新食材观察都不能动）
+      opts.frozenDays.forEach((d) => {
+        const nd = p2.days.filter((x) => x.date === d.date)[0]
+        if (!nd) return
+        if (JSON.stringify(nd.meals) !== JSON.stringify(d.meals))
+          E(`6m ${d.date}（已打卡的日子）被重排了 —— 这天的打卡行会从计划页消失（P2）`)
+        if (JSON.stringify(nd.newFood) !== JSON.stringify(d.newFood))
+          E(`6m ${d.date}（已打卡的日子）的新食材尝试被改了 —— 观察记录与计划对不上`)
       })
       // 未来的新食材名额：记录没变时候选序列不变，应与旧计划一致
       p1.days.filter((d) => d.date > todayK).forEach((d, i) => {
@@ -1789,7 +1797,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       // 采购清单必须覆盖冻结日用到的食材（用量已计入，而不是「从今天起」）
       const shopCount = {}
       p2.shopping.forEach((g) => g.items.forEach((it) => { shopCount[it.foodId] = it.count }))
-      past.forEach((d) => d.meals.forEach((m) => {
+      opts.frozenDays.forEach((d) => d.meals.forEach((m) => {
         const r = recipes.filter((x) => x.id === m.recipeId)[0]
         if (!r) return
         r.mainFoods.concat(r.sideFoods || []).forEach((fid) => {
@@ -1798,19 +1806,76 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       }))
     }
 
+    // —— 3b) 自愈钉（v2.10）：没打卡的旧引擎行，升级后第一次隐式重算
+    //      必须变成 6 月固定菜单；打了卡的照旧冻结（打卡链路 > 菜单）——
+    //      这正是「第 1、2 天应为强化铁米粉糊 2.5g+水40ml」的端到端保证 ——
+    const nowD = new Date()
+    // 生日锚到 28 号以内：+6 个月永远同月同日（避开月末 JS 月份归一化），
+    // 于是今天恒落在菜单日 1..30 内，任何一天跑本脚本都成立
+    const birthStr = plan.dateKey(new Date(nowD.getFullYear(), nowD.getMonth() - 6, Math.min(nowD.getDate(), 28)))
+    const md = plan.menuDayOf(birthStr, todayK)
+    const base6m = {
+      months: 6, issues: [], sick: false,
+      safeFoodIds: foods.map((f) => f.id), blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+    }
+    if (md < 1 || md > 30) {
+      E(`6m 自愈钉：menuDayOf(${birthStr}, ${todayK}) = ${md}，应落在 1..30 —— 测试生日算错了`)
+    } else {
+      const entry = plan.MENU_6[md]
+      // 旧计划：同月龄但没有 birth（旧引擎随机行，含水果加餐）
+      const legacyP = plan.generate(Object.assign({}, base6m, { startDate: start }))
+      if (!legacyP) E('6m 自愈钉：旧引擎（无 birth）6 月龄生成失败')
+      const healOpts = plan.replanOpts(legacyP, []) // 一次打卡都没有 → 全部允许重排
+      if (!healOpts) {
+        E('6m 自愈钉：replanOpts 对未打卡、仍覆盖今天的计划返回 null')
+      } else {
+        const healed = plan.generate(Object.assign({}, base6m, {
+          birth: birthStr, startDate: healOpts.startDate, frozenDays: healOpts.frozenDays
+        }))
+        const td = (healed && healed.days || []).filter((d) => d.date === todayK)[0]
+        if (!td) E(`6m 自愈钉：重排后的计划不含今天 ${todayK}`)
+        else {
+          const meal = (td.meals || [])[0]
+          const want = entry.base.replace(/^\S+\s/, '') // 「谷物 2.5g+水40ml」→「2.5g+水40ml」
+          if (!meal || meal.name !== '强化铁米粉糊')
+            E(`6m 自愈钉：${todayK}（菜单日 ${md}）正餐是「${meal ? meal.name : '空'}」，没自愈成固定菜单的强化铁米粉糊`)
+          else if (!(meal.steps || []).some((s) => s.indexOf(want) >= 0))
+            E(`6m 自愈钉：${todayK} 步骤缺菜单用量「${want}」—— 旧计划没按固定菜单重排`)
+          if (md < plan.MENU_6_SNACK_START && td.snack)
+            E(`6m 自愈钉：菜单日 ${md} < 19 还排了加餐「${td.snack.name}」—— 水果泥应 6+19 起才出现`)
+          if (md >= plan.MENU_6_SNACK_START && !td.snack)
+            E(`6m 自愈钉：菜单日 ${md} ≥ 19 却没有水果加餐 —— 15:00 加餐没接上`)
+        }
+      }
+      // 反向：这天打了卡 → 旧引擎行必须原样保留（打卡链路优先于菜单锁定）
+      const legacy2 = plan.generate(Object.assign({}, base6m, { startDate: start }))
+      const opts2 = plan.replanOpts(legacy2, [{ date: todayK }])
+      if (!opts2 || opts2.frozenDays.length !== 1 || opts2.frozenDays[0].date !== todayK)
+        E('6m 自愈钉：今天有打卡却没被冻结 —— 打卡行会被重排掉（P2 回归）')
+      else {
+        const back = plan.generate(Object.assign({}, base6m, {
+          birth: birthStr, startDate: opts2.startDate, frozenDays: opts2.frozenDays
+        }))
+        const fd = (back && back.days || []).filter((d) => d.date === todayK)[0]
+        const ld = (legacy2.days || []).filter((d) => d.date === todayK)[0]
+        if (fd && ld && JSON.stringify(fd.meals) !== JSON.stringify(ld.meals))
+          E('6m 自愈钉：已打卡的今天没照抄旧计划 —— 打卡行会从计划页消失（P2 回归）')
+      }
+    }
+
     // 窗口过期（整份计划都在过去）→ 没有可冻结的日子，照旧整份重来
     const oldStart = new Date()
     oldStart.setHours(0, 0, 0, 0)
     oldStart.setDate(oldStart.getDate() - 10)
     const expired = plan.generate(mk({ startDate: oldStart }))
-    if (plan.replanOpts(expired) !== null)
+    if (plan.replanOpts(expired, []) !== null)
       E('6m 对「窗口不覆盖今天」的计划仍返回冻结选项 —— 旧计划会被原样拖着走')
   } catch (e) {
     E('§6m 函数级断言执行异常：' + e.message)
   }
 
   if (errs.length === errsBefore)
-    console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、7 个起始日各 2 名额且全工作日+间隔≥3 ✓、已发生的日子逐餐照抄 ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
+    console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、7 个起始日各 2 名额且全工作日+间隔≥3 ✓、有打卡照抄+没打卡自愈成固定菜单(强化铁米粉糊+菜单用量) ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
 }
 
 /* ---------- 6n. 视觉层级与品牌面（v2.7 · 视觉改版 ①②③④⑥） ----------
@@ -2264,6 +2329,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  *      加餐行与正餐行同构（cats/克数/步骤齐）
  *   4) 加餐计入当日类别（6 月龄 catNames 必含『水果』）、catApplicable 8 月起为 true
  *   5) 页面接线：timeline 派生、奶行不打卡、时段头 chip、样式与摘要段数
+ *   5b) 时段头同行样式：不渲染时段名、时刻在菜名前、chip 在小标签后、
+ *        「辅食 + 奶」与菜名同行且右缘对齐「时段参考」列
  *   6) 冻结日的加餐行照抄保留（打卡按 date|recipeId 落库，丢行即断链）
  */
 {
@@ -2355,8 +2422,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('age.js 缺 mealsForMonth / slotsForMonth —— 餐次与时段锚点没有事实源')
   if (aj.indexOf('刚起步，一天 1–2 餐') < 0)
     E('puree 阶段 desc 没跟上 7 月 2 餐（描述与计划打架）')
-  if (pj.indexOf('STRUCT_V = 4') < 0)
-    E('STRUCT_V 没 bump 到 4 —— 结构变了旧缓存不失效，会一直渲染旧结构')
+  if (pj.indexOf('STRUCT_V = 5') < 0)
+    E('STRUCT_V 没 bump 到 5 —— 冻结语义修订（v2.10）没触发旧缓存重算，会一直渲染旧结构')
   if (pj.indexOf('function isSnackRecipe') < 0 || pj.indexOf('const snackPool =') < 0)
     E('plan.js 缺加餐分池实现（isSnackRecipe / snackPool）')
   if (ijQ.indexOf('d.timeline = rows') < 0)
@@ -2373,6 +2440,36 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('时段头缺正/加餐 chip 或「辅食 + 奶」标注')
   if (wsQ.indexOf('.milk-row') < 0 || wsQ.indexOf('.slot-head') < 0 || wsQ.indexOf('.slot-kind.snack') < 0)
     E('index.wxss 缺时段样式（.milk-row / .slot-head / .slot-kind.snack）')
+  // —— 5b) 时段头同行样式（v2.9 样式修订，用户四点）——
+  // ① 时段名不渲染（删「上午正餐」）② 时刻排在菜名前面且同行
+  // ③ 正/加餐 chip 排在质地/类别小标签之后 ④「辅食 + 奶」与菜名同一行头、
+  //   右缘与上下奶行「时段参考」同列（奶盒内边距 24rpx），且与菜名行共基线
+  if (iwQ.indexOf('slot-name') >= 0 || iwQ.indexOf('row.label') >= 0)
+    E('时段头还在渲染时段名 —— 样式修订要求删掉「上午正餐」那截')
+  if (wsQ.indexOf('.slot-name') >= 0)
+    E('index.wxss 还有 .slot-name 规则 —— 死样式')
+  const shAt = iwQ.indexOf('class="slot-head"')
+  const shEnd = shAt >= 0 ? iwQ.indexOf('<view class="meal"', shAt) : -1
+  const shSeg = shAt >= 0 && shEnd > shAt ? iwQ.slice(shAt, shEnd) : ''
+  if (!shSeg) E('index.wxml 缺时段头（.slot-head）或结构改了没同步钉子')
+  else {
+    const stAt = shSeg.indexOf('slot-time')
+    const mnAt = shSeg.indexOf('meal-name')
+    if (mnAt < 0 || stAt < 0) E('时段头缺时刻或菜名 —— 时刻与菜名必须同在一行')
+    else if (stAt > mnAt) E('时刻没排在菜名前面 —— 要求 10:00 在「强化铁米粉糊」前面且对齐')
+    const tgAt = shSeg.indexOf('meal-tag')
+    const kdAt = shSeg.indexOf('slot-kind')
+    if (tgAt >= 0 && kdAt >= 0 && kdAt < tgAt)
+      E('正/加餐 chip 没排在质地/类别小标签后面 —— 要求 chip 放在细泥/谷物之后')
+    if (shSeg.indexOf('辅食 + 奶') < 0)
+      E('「辅食 + 奶」不在时段头内 —— 要求与菜名同行、与上下「时段参考」对齐')
+  }
+  const swmRule = wsQ.match(/\.slot-withmilk\s*\{[^}]*\}/)
+  if (!swmRule || !/margin-right:\s*24rpx/.test(swmRule[0]))
+    E('.slot-withmilk 缺 margin-right:24rpx ——「辅食 + 奶」与奶行「时段参考」右缘对不齐（奶盒内边距 24rpx）')
+  const shRule = wsQ.match(/\.slot-head\s*\{[^}]*\}/)
+  if (!shRule || !/align-items:\s*baseline/.test(shRule[0]))
+    E('.slot-head 没有 align-items: baseline ——「辅食 + 奶」与菜名行不在同一基线')
   // 奶参考行：只标时段，不排菜不打卡（方案A 的边界就在这里）
   const milkAt = iwQ.indexOf('class="milk-row"')
   if (milkAt < 0) E('index.wxml 缺奶参考行（方案A 含奶时段）')
@@ -2385,6 +2482,84 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E('奶参考行缺「时段参考」标注')
     if (milkSeg.indexOf('{{row.time}}') < 0)
       E('奶参考行没渲染时刻')
+  }
+
+  // —— 5c) 方案C · 合并重铸（v2.10）：主餐成卡，新食材观察并入承载餐 ——
+  // 归属要讲真话：菜谱 foods 含该食材，或菜单加料在 day.menuAdd 里；都挂不上
+  // （7 月+ 首口独立即食）必须走顶部独立卡兜底 —— 两条渲染路径都要活着。
+  if (iwQ.indexOf('class="meal-card"') < 0)
+    E('index.wxml 缺主餐卡（.meal-card）包装 —— 方案C 的主餐没成卡')
+  const mealAt = iwQ.indexOf('<view class="meal"')
+  const mealSeg = mealAt >= 0 ? iwQ.slice(mealAt, mealAt + 2400) : ''
+  if (!mealSeg) E('index.wxml 缺 <view class="meal"> —— 结构改了没同步钉子')
+  else {
+    if (mealSeg.indexOf('nfstrip') < 0 || mealSeg.indexOf('row.meal.newFood') < 0)
+      E('主餐卡内没有新食材观察条（.nfstrip / row.meal.newFood）—— 方案C 没落地，观察还挂在头顶')
+    if (mealSeg.indexOf('newfood-dots') < 0 || mealSeg.indexOf('newfood-prog-text') < 0)
+      E('观察条缺 ●○○ 进度（newfood-dots/progText）—— 观察信息没并进主餐卡')
+    if (mealSeg.indexOf('newfood-body') < 0 || mealSeg.indexOf('newfood-note') < 0)
+      E('观察条缺用量/冲调方法或观察说明 —— 合并把说明丢了')
+  }
+  if (iwQ.indexOf('day.newFood && !day.newFoodAttached') < 0)
+    E('顶部独立新食材卡没挂 newFoodAttached 兜底闸 —— 挂上后头顶还留一张重复卡')
+  if (ijQ.indexOf('plan.attachNewFood') < 0)
+    E('markToday 没调 plan.attachNewFood —— 挂载缺失，主餐卡观察条永远不渲染')
+  if (pj.indexOf('function attachNewFood') < 0 || pj.indexOf('attachNewFood: attachNewFood') < 0)
+    E('plan.js 缺 attachNewFood 实现或没导出 —— 挂载链路根本不存在')
+  const mcRule = wsQ.match(/\.meal-card\s*\{[^}]*\}/)
+  if (!mcRule || !/background:\s*var\(--c-card\)/.test(mcRule[0]) || !/border:/.test(mcRule[0]))
+    E('.meal-card 缺白底/描边 —— 白卡 vs 白底只差 1.5%，主餐卡立不住')
+  if (!/\.day-card--today \.meal-card\s*\{[^}]*border-left:\s*3rpx solid var\(--c-green\)/.test(wsQ))
+    E('今天没有主餐卡绿边条（.day-card--today .meal-card）—— 今天主角缺视觉锚')
+  const nfRule = wsQ.match(/\.nfstrip\s*\{[^}]*\}/)
+  if (!nfRule || !/background:\s*var\(--c-amber-bg\)/.test(nfRule[0]))
+    E('.nfstrip 缺琥珀底 —— 观察条失去「新食材」语义色')
+  const mcSwm = wsQ.match(/\.meal-card \.slot-withmilk\s*\{[^}]*\}/)
+  if (!mcSwm || !/margin-right:\s*0/.test(mcSwm[0]))
+    E('.meal-card 内 .slot-withmilk 没归零 —— 卡内右缘多出 24rpx，与「时段参考」列错位')
+  // 功能钉：真生成一份 6 月菜单计划跑挂载 —— 有 newFood 的天必须挂上（同对象
+  // 引用，否则 dots/progText 派生态不同步），挂的餐必须真含该食材；没挂上时
+  // attached 必须为 false（顶部兜底卡要渲染）。菜单日首口必在正餐 → carried > 0。
+  try {
+    const nC = new Date()
+    const bC = plan.dateKey(new Date(nC.getFullYear(), nC.getMonth() - 6, Math.min(nC.getDate(), 28)))
+    const pC = plan.generate({
+      months: 6, birth: bC, issues: [], sick: false,
+      safeFoodIds: foods.map((f) => f.id), blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+    })
+    if (!pC) E('5c 功能钉：6 月菜单计划生成失败')
+    else {
+      plan.attachNewFood(pC)
+      let carried = 0
+      pC.days.forEach((d) => {
+        const rows = (d.meals || []).concat(d.snack ? [d.snack] : [])
+        rows.forEach((m) => {
+          if (m.newFood && m.newFood !== d.newFood)
+            E(`5c ${d.date} 挂的不是 day.newFood 本体 —— 引用不同对象，dots/progText 会不同步`)
+        })
+        if (!d.newFood) {
+          if (d.newFoodAttached) E(`5c ${d.date} 没有 newFood 却标了 attached —— 顶部兜底卡被误藏`)
+          if (rows.some((m) => m.newFood)) E(`5c ${d.date} 没有 newFood 却有餐带观察条 —— 渲染出悬空卡片`)
+          return
+        }
+        if (!d.newFoodAttached) {
+          E(`5c ${d.date}（${d.newFood.name}）没挂到任何餐次 —— 主餐卡观察条不渲染，顶部兜底卡闪现`)
+          return
+        }
+        carried++
+        const hit = rows.filter((m) => m.newFood)[0]
+        if (!hit) { E(`5c ${d.date} 标了 attached 却找不到挂载餐 —— 挂载与渲染判定不一致`); return }
+        const r = recipes.filter((x) => x.id === hit.recipeId)[0]
+        const inRecipe = !!(r && (r.mainFoods || []).concat(r.sideFoods || []).indexOf(d.newFood.foodId) >= 0)
+        const inAdd = (d.menuAdd || []).some((a) => a.foodId === d.newFood.foodId)
+        if (!inRecipe && !inAdd)
+          E(`5c ${d.date} 挂到的餐既不含「${d.newFood.name}」也不在菜单加料里 —— 挂载张冠李戴`)
+      })
+      if (!carried)
+        E('5c 功能钉：整份 6 月计划没有一天挂上观察条 —— 挂载逻辑成死代码（菜单日首口必在正餐）')
+    }
+  } catch (e) {
+    E('§6q 5c 功能断言执行异常：' + e.message)
   }
 
   // 6) 冻结日的加餐行照抄保留（隐式重排：打卡按 date|recipeId，丢行即断链）
@@ -2406,7 +2581,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   } else E('6q 冻结日测试：plan.generate 返回 null')
 
   if (errs.length === errsBefore)
-    console.log('  6q 时段锚点与正/加餐分槽：餐次按月龄(6→1/7–11→2/12→3) ✓、各月龄列数与时刻轴 ✓、main槽=餐次 ✓、正餐位零加餐类 ✓、加餐行同构+计入类别 ✓、奶行不可打卡 ✓、冻结日加餐保留 ✓、timeline 接线与样式 ✓')
+    console.log('  6q 时段锚点与正/加餐分槽：餐次按月龄(6→1/7–11→2/12→3) ✓、各月龄列数与时刻轴 ✓、main槽=餐次 ✓、正餐位零加餐类 ✓、加餐行同构+计入类别 ✓、奶行不可打卡 ✓、冻结日加餐保留 ✓、timeline 接线与样式 ✓、时段头同行四点(无时段名/时刻前置/chip后置/右列对齐) ✓、方案C主餐成卡+新食材观察并入承载餐(引用一致/归属真实/兜底闸) ✓')
 }
 
 /* ---------- 6r. 6–7 月强化铁米粉固定口径（v2.9 · ③） ----------

@@ -25,9 +25,11 @@ const RECIPES = require('../data/recipes')
 // 计划结构版本：结构或步骤文案变化必须 bump（v2.7 加 meal.cats 与占位符填数；
 // v2.8 步骤写入倍粥参考与蛋黄渐进、菜池 +2 道手抓菜；
 // v2.9 正餐/加餐分槽（day.snack）+ plan.slots 时段锚点 + 餐次按月龄重排，
-//        加餐行与正餐行同构但只从加餐池出，正餐池不再含水果泥/糕饼），
+//        加餐行与正餐行同构但只从加餐池出，正餐池不再含水果泥/糕饼；
+// v2.10 冻结语义修订（只有打卡的已过日子冻结，未打卡的按当前规则重排
+//        —— 旧引擎时代的错误行才能自愈成 6 月固定菜单内容）），
 // 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
-const STRUCT_V = 4
+const STRUCT_V = 5
 // v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
 const icons = require('../data/food-icons')
 
@@ -991,7 +993,7 @@ function planSignature(storage) {
 }
 
 /**
- * 隐式重排时该保留什么（P2 修复）。
+ * 隐式重排时该保留什么（P2 修复；v2.10 收窄冻结范围）。
  *
  * 只要输入指纹变了（改状态 / 标「有反应」/ 第二次拒吃……）refresh 就会重算。
  * 直接从今天重排有两个后果：
@@ -1001,22 +1003,35 @@ function planSignature(storage) {
  *      recipeId 不在新计划里，计划页不再渲染这些行（数据仍在「我的」14 天
  *      记录里，但用户看到的「哪一餐吃了没」断了）。
  *
- * 所以：旧计划仍覆盖今天时，沿用它的起始日（窗口不前移），
- * 并把「日期 ≤ 今天」的整天原样冻结，只有明天之后的日子参与重排 ——
- * 降权/新输入只影响未来的餐，这才是「重排」应有的语义。
+ * 所以：旧计划仍覆盖今天时，沿用它的起始日（窗口不前移，与冻结无关），
+ * 并把「日期 ≤ 今天 **且有打卡记录**」的整天冻结 —— 打卡行是唯一非保护
+ * 不可的行；**没打卡的已过日子不再冻结**，按当前规则重排：
+ *   · 观察点（dots/进度）只按 day.date 现算，不吃旧内容；
+ *   · 没打卡 = 这天还没吃，观察记录/打卡链路都不存在，改了不会对不上账；
+ *   · 收益是硬的：旧引擎时代的错误行（升级前生成的非菜单行）在升级后
+ *     第一次打开就自愈成 6 月固定菜单内容，不用用户手动「重新生成」。
  *
  * 明确点「重新生成」不走这里：用户已经确认「原来的会被替换」。
  *
  * @param {object|null} p 缓存的计划（storage.getPlan() 的结果，未做 markToday 装饰）
- * @returns {{startDate: string, frozenDays: object[]}|null} null = 没有可保留的，照旧从今天整份重来
+ * @param {Array<object|string>} [mealLogs] storage.getMealLogs() —— 打卡记录
+ *        （[{date, recipeId, ...}] 或纯日期串都行），决定哪些日子要冻结
+ * @returns {{startDate: string, frozenDays: object[]}|null} null = 计划不覆盖今天，
+ *          没有可保留的，照旧从今天整份重来
  */
-function replanOpts(p) {
+function replanOpts(p, mealLogs) {
   if (!p || !p.startDate || !p.days || !p.days.length) return null
   const todayKey = dateKey(new Date())
   // 窗口已经不覆盖今天 → 整份计划都成了过去时，没有可冻结的日子
   if (p.days[0].date > todayKey || p.days[p.days.length - 1].date < todayKey) return null
-  const frozen = p.days.filter(function (d) { return d.date <= todayKey })
-  if (!frozen.length) return null
+  const logged = {}
+  ;(mealLogs || []).forEach(function (it) {
+    const d = typeof it === 'string' ? it : it && it.date
+    if (d) logged[d] = true
+  })
+  const frozen = p.days.filter(function (d) { return d.date <= todayKey && logged[d.date] })
+  // 注意：即使一个打卡都没有也返回 opts（而不是 null）——
+  // 窗口沿用靠 startDate，与冻结无关；返回 null 会把窗口重置回今天
   return { startDate: p.startDate, frozenDays: frozen }
 }
 
@@ -1039,6 +1054,47 @@ function generateFromStorage(storage, opts) {
   return p
 }
 
+/**
+ * 方案C · 合并重铸（v2.10）：把当天的新食材观察挂到「确实含有这个食材」的餐次上，
+ * 页面据此把观察条（新食材尝试 + ●○○ + 用量/冲调方法/观察说明）并进那餐的主餐卡。
+ *
+ * 归属判定要讲真话，两条都算：
+ *   1. 菜谱 foods 含该食材（7 月+ 首口落在某道菜里时）；
+ *   2. 菜单锁定日的加料在 day.menuAdd 里（6 月加料进的是当天唯一那碗米粉 ——
+ *      加料不在菜谱 foods 里，见日循环 3.0 的采购注记）。
+ * 都挂不上（7 月+ 首口是独立的一两勺、与菜谱无关）就标 newFoodAttached=false，
+ * 顶部独立的新食材卡照旧兜底渲染 —— 不许对用户说「这餐含它」而实际不含。
+ *
+ * 挂的是同一个对象引用（meal.newFood === day.newFood）：dots/progText 是
+ * markToday 的现算派生态，引用可见；本函数同样只在渲染前跑、不写回 storage，
+ * 所以不改计划结构、不用 bump STRUCT_V。幂等：重跑先清旧挂载再判。
+ *
+ * @param {object} p 计划（storage.getPlan() / generate 的结果）
+ * @returns {object} p
+ */
+function attachNewFood(p) {
+  if (!p || !p.days) return p
+  p.days.forEach(function (d) {
+    d.newFoodAttached = false
+    const rows = (d.meals || []).concat(d.snack ? [d.snack] : [])
+    rows.forEach(function (m) { delete m.newFood })
+    if (!d.newFood) return
+    const fid = d.newFood.foodId
+    const inMenuAdd = (d.menuAdd || []).some(function (a) { return a.foodId === fid })
+    for (let i = 0; i < rows.length; i++) {
+      const r = RECIPE_MAP[rows[i].recipeId]
+      if (!r) continue
+      const inRecipe = (r.mainFoods || []).concat(r.sideFoods || []).indexOf(fid) >= 0
+      if (inRecipe || inMenuAdd) {
+        rows[i].newFood = d.newFood
+        d.newFoodAttached = true
+        return
+      }
+    }
+  })
+  return p
+}
+
 module.exports = {
   generate: generate,
   MENU_6: MENU_6,                         // 6 月固定菜单逐日表（v2.9 · ④，§6s 逐字钉）
@@ -1046,6 +1102,7 @@ module.exports = {
   menuDayOf: menuDayOf,                   // 生日 + 日期 →「6+N」菜单日
   generateFromStorage: generateFromStorage,
   replanOpts: replanOpts,
+  attachNewFood: attachNewFood,           // 方案C：新食材观察挂到承载餐（渲染前现算，不入缓存）
   planInputs: planInputs,
   planSignature: planSignature,
   getFood: getFood,

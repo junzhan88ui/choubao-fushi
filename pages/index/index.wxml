@@ -138,7 +138,9 @@
           <!-- 展开层：今天恒创建；非今天只在 openDay 命中时创建（fx-in 只挂用户点开的，不算入场动画） -->
           <view class="day-body {{!day.isToday && openDay === day.date ? 'fx-in' : ''}}"
                 wx:if="{{day.isToday || openDay === day.date}}">
-          <view class="newfood" wx:if="{{day.newFood}}">
+          <!-- 顶部独立新食材卡：只兜底「挂不上承载餐」的首口（7 月+ 独立即食、
+               与菜谱无关）—— 挂上了就并进那餐的主餐卡（方案C · v2.10） -->
+          <view class="newfood" wx:if="{{day.newFood && !day.newFoodAttached}}">
             <view class="newfood-title">
               <view class="food-ic" style="background:{{day.newFood.iconBg}}">{{day.newFood.icon}}</view>
               <text>新食材尝试 · {{day.newFood.name}}</text>
@@ -153,7 +155,9 @@
           </view>
 
           <!-- 时段锚点（v2.9 · 方案A）：奶 = 参考行（只标时段，不排菜不打卡）；
-               正餐/加餐 = 时段头 + 餐次行（加餐行与正餐行同构，打卡/展开同一套） -->
+               正餐/加餐 = 时段头（时刻+菜名+小标签+chip 同行，整行可点展开）+ 步骤/打卡
+               （样式修订：时段名不渲染，「辅食 + 奶」与上下「时段参考」右对齐；
+                方案C · v2.10：时段头+观察条+步骤+打卡收进一张主餐卡） -->
           <block wx:for="{{day.timeline}}" wx:key="key" wx:for-item="row">
             <view class="milk-row" wx:if="{{row.kind === 'milk'}}">
               <text class="slot-time">{{row.time}}</text>
@@ -161,20 +165,38 @@
               <text class="milk-note">时段参考</text>
             </view>
             <block wx:else>
-              <view class="slot-head">
-                <text class="slot-time">{{row.time}}</text>
-                <text class="slot-name">{{row.label}}</text>
-                <text class="slot-kind {{row.kind === 'snack' ? 'snack' : ''}}">{{row.kind === 'snack' ? '加餐' : '正餐'}}</text>
+              <view class="meal-card">
+              <view class="slot-head" data-key="{{row.meal.key}}" bindtap="toggleMeal">
+                <view class="meal-main">
+                  <text class="slot-time">{{row.time}}</text>
+                  <text class="meal-name">{{row.meal.name}}</text>
+                  <!-- v2.7：质地与类别改小标签、随菜名同行基线对齐；
+                       原来那行「质地 · 克数」灰字拆掉，克数下沉到展开的步骤里。
+                       样式修订：时刻与菜名同行且在前；chip 排在小标签之后；
+                       时段名（上午正餐）不再渲染 -->
+                  <text class="tag tag-grey meal-tag">{{row.meal.texture}}</text>
+                  <text class="tag tag-grey meal-tag" wx:for="{{row.meal.cats}}" wx:key="*this">{{item}}</text>
+                  <text class="slot-kind {{row.kind === 'snack' ? 'snack' : ''}}">{{row.kind === 'snack' ? '加餐' : '正餐'}}</text>
+                </view>
                 <text class="slot-withmilk" wx:if="{{row.withMilk}}">辅食 + 奶</text>
               </view>
               <view class="meal" data-key="{{row.meal.key}}" bindtap="toggleMeal">
-                <view class="meal-main">
-                  <text class="meal-name">{{row.meal.name}}</text>
-                  <!-- v2.7：质地与类别改小标签、随菜名同行基线对齐；
-                       原来那行「质地 · 克数」灰字拆掉，克数下沉到展开的步骤里 -->
-                  <text class="tag tag-grey meal-tag">{{row.meal.texture}}</text>
-                  <text class="tag tag-grey meal-tag" wx:for="{{row.meal.cats}}" wx:key="*this">{{item}}</text>
-                </view>
+                <!-- 方案C · 新食材观察并入本餐（attachNewFood 挂载；●○○ 仍由 markToday 现算）：
+                     挂不上的首口不进这里，由顶部独立卡兜底 -->
+                <block wx:if="{{row.meal.newFood}}">
+                  <view class="nfstrip">
+                    <view class="newfood-title">
+                      <view class="food-ic" style="background:{{row.meal.newFood.iconBg}}">{{row.meal.newFood.icon}}</view>
+                      <text>新食材尝试 · {{row.meal.newFood.name}}</text>
+                    </view>
+                    <view class="newfood-prog">
+                      <text class="newfood-dots">{{row.meal.newFood.dots}}</text>
+                      <text class="newfood-prog-text">{{row.meal.newFood.progText}}</text>
+                    </view>
+                  </view>
+                  <view class="newfood-body">{{row.meal.newFood.amount}}；{{row.meal.newFood.method}}</view>
+                  <view class="newfood-note">连续观察 {{row.meal.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
+                </block>
                 <view class="meal-steps fx-in" wx:if="{{expanded === row.meal.key}}">
                   <view class="step" wx:for="{{row.meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
                 </view>
@@ -198,6 +220,7 @@
                         data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}">有反应</view>
                 </view>
               </view>
+              </view><!-- /meal-card（方案C：主餐成卡） -->
             </block>
           </block>
 

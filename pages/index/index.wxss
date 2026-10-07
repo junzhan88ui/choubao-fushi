@@ -253,10 +253,11 @@
   color: var(--c-amber-ink);
 }
 
-/* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 时段名 + 正/加餐 chip + 奶标注 */
+/* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 菜名 + 质地/类别小标签 + 正/加餐 chip
+   + 右侧奶标注，一行基线对齐（样式修订：时段名不渲染，整行可点展开） */
 .slot-head {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   column-gap: 16rpx;
   padding: 24rpx 0 4rpx;
 }
@@ -265,11 +266,6 @@
   font-size: var(--fs-base);
   font-weight: 600; /* 与站内字重三档一致，不引入新档 */
   color: var(--c-text);
-}
-
-.slot-name {
-  font-size: var(--fs-sm);
-  color: var(--c-text-2);
 }
 
 .slot-kind {
@@ -288,7 +284,9 @@
 .slot-withmilk {
   font-size: var(--fs-xs);
   color: var(--c-text-3);
-  margin-left: auto; /* 「辅食 + 奶」右对齐，不挤时刻与 chip */
+  white-space: nowrap;
+  margin-left: auto;  /* 「辅食 + 奶」右对齐，不挤时刻与 chip */
+  margin-right: 24rpx; /* 与上下奶行「时段参考」同列 —— 奶盒内边距 24rpx */
 }
 
 /* 奶参考行：只标时段，不排菜、不打卡（方案A 的视觉核心） */
@@ -311,6 +309,36 @@
   font-size: var(--fs-xs);
   color: var(--c-text-3);
   margin-left: auto;
+}
+
+/* 方案C · 主餐卡（v2.10 合并重铸）：时刻头 + 并入的观察条 + 步骤/打卡收成一张
+   白卡 —— 主餐是这天的主角。横向内边距 24rpx 与奶盒内边距一致（内容列对齐）；
+   卡内 .slot-withmilk 归零 —— 基础规则那 24rpx 由卡内边距接管，右缘仍与
+   「时段参考」同列。白底 vs 白底靠 1rpx 描边分界（§6l：阴影只许 .card 一处，
+   这里不引新阴影） */
+.meal-card {
+  background: var(--c-card);
+  border: 1rpx solid var(--c-line);
+  border-radius: var(--r-md);
+  padding: 0 24rpx 8rpx;
+  margin-top: 16rpx;
+}
+/* 今天：3rpx 绿边条与 day-card--today 的 6rpx 呼应 —— 今天的主餐再压一头 */
+.day-card--today .meal-card {
+  border-left: 3rpx solid var(--c-green);
+}
+.meal-card .slot-withmilk {
+  margin-right: 0; /* 卡内 24rpx 已接管（基础规则保持 24rpx —— §6q 5b 钉） */
+}
+/* 并入的观察条：琥珀底只留给「标题 + ●○○」，说明文字走白底 —— 别让琥珀再压过菜名 */
+.nfstrip {
+  background: var(--c-amber-bg);
+  border-radius: var(--r-md);
+  padding: 14rpx 20rpx;
+  margin-top: 12rpx;
+}
+.meal-card .newfood-body {
+  margin-top: 12rpx; /* 基础规则无上边距（顶部兜底卡靠标题撑开），白底上要留一截 */
 }
 
 /* 时段头后面的餐次行：顶部分隔线由时段头的留白接管，别叠双线 */

@@ -14,6 +14,11 @@ const RECIPES = require('../../data/recipes')
 // v2.7 再加两组派生态：折叠摘要用的 done/total、观察进度点 dots/progText。
 function markToday(p) {
   if (!p || !p.days) return p
+  // 方案C（v2.10 · 合并重铸）：先把当天的新食材观察挂到承载它的餐次（同对象引用，
+  // dots/progText 仍是本函数后面现算的派生态）—— 页面据此把观察条并进主餐卡；
+  // 挂不上（首口不在任何菜里，如 7 月+独立即食）标 newFoodAttached=false，
+  // 顶部独立卡兜底。与 dots 同类：派生态，不写回 storage。
+  plan.attachNewFood(p)
   const todayKey = plan.dateKey(new Date())
   const LABEL = { full: '吃完了', some: '吃一些', refused: '没吃', reaction: '有反应' }
   const logMap = {}
@@ -216,17 +221,19 @@ Page({
     //      ⚠️ 第 3 条不能省：用户把某食材标成「有反应」后，旧计划里那道菜
     //      还在，下次打开照样推荐。「有反应」的语义是永久排除。
     //   4. 计划结构/内容版本变了（sv：v2.7 加 meal.cats 标签与步骤占位符填数，
-    //      v2.8 刷新步骤文案与菜池）—— 旧缓存里没有新字段/新菜，不 bump 就一直渲染旧的。
-    //      重算走 replanOpts 冻结已发生的日子，不会重排已打卡的行。
+    //      v2.8 刷新步骤文案与菜池，v2.9 分槽/时段锚点，v2.10 冻结语义收窄）
+    //      —— 旧缓存里没有新字段/新菜，不 bump 就一直渲染旧的。
+    //      重算走 replanOpts：只冻结「≤今天且有打卡」的整天（打卡行不丢），
+    //      没打卡的已过日子按当前规则重排 —— 旧计划里的非菜单行才能自愈。
     let p = storage.getPlan()
     const sig = plan.planSignature(storage)
     if (!p || p.months !== months || !coversToday(p) || p.signature !== sig || p.sv !== plan.STRUCT_V) {
       // 隐式重算（输入变了 / 窗口过期）：旧计划还盖住今天时，沿用它的起始日
-      // 并冻结「日期 ≤ 今天」的整天，只重排明天之后的餐 —— 整段从今天重排
+      // （窗口不前移），并冻结「≤今天 且有打卡」的整天 —— 整段从今天重排
       // 会把窗口前移（周一生成、周三重排变成周三~下周二），已打卡的行也会
       // 因为 recipeId 不在新计划里从页面凭空消失（P2，见 plan.replanOpts）。
       // 明确点「重新生成」走 regenerate()，不冻结：用户已确认「原来的会被替换」。
-      p = plan.generateFromStorage(storage, plan.replanOpts(p))
+      p = plan.generateFromStorage(storage, plan.replanOpts(p, storage.getMealLogs()))
       storage.setPlan(p)
     }
     markToday(p)
