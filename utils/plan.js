@@ -5,10 +5,12 @@
  * 好处是结果 100% 可控、可复现、零成本，而且每条内容都能追溯到数据表。
  *
  * 规则顺序：
- *   1. 月龄 → 性状档位 + 每日餐次
- *   2. 候选池 = 月龄合适 且 主料安全（高致敏食材必须已确认安全）
+ *   1. 月龄 → 性状档位（age.getStage）+ 每日正餐餐次（age.mealsForMonth，
+ *      v2.9 起按月龄对齐知识卡与固定菜单，不再绑性状阶段）+ 时段锚点（age.slotsForMonth）
+ *   2. 候选池 = 月龄合适 且 主料安全（高致敏食材必须已确认安全）；
+ *      v2.9 再分两池：水果泥/糕饼进加餐池（isSnackRecipe），正餐池不含它们
  *   3. 按「当前状态」加权（多选，每个状态各自贡献一个标签，命中任一 ×3）
- *   4. 去重（软约束）：同一道菜用过之后权重 ×0.2/次；当天已用主料权重 ×0.3
+ *   4. 去重（软约束）：同一道菜用过之后权重 ×0.2/次；当天已用主料权重 ×0.15
  *      —— 是权重衰减不是硬上限，实测一周最多 3 次、同日撞主料约 8~14% 的天。
  *      官方要求的多样性在「类别」层面，由下方每日 4 类覆盖的修补循环保证。
  *   5. 插入新食材名额（每周最多 2 个，只排工作日，遇周末顺延不丢槽）
@@ -21,9 +23,11 @@ const FOODS = require('../data/foods')
 const RECIPES = require('../data/recipes')
 
 // 计划结构版本：结构或步骤文案变化必须 bump（v2.7 加 meal.cats 与占位符填数；
-// v2.8 步骤写入倍粥参考与蛋黄渐进、菜池 +2 道手抓菜），
+// v2.8 步骤写入倍粥参考与蛋黄渐进、菜池 +2 道手抓菜；
+// v2.9 正餐/加餐分槽（day.snack）+ plan.slots 时段锚点 + 餐次按月龄重排，
+//        加餐行与正餐行同构但只从加餐池出，正餐池不再含水果泥/糕饼），
 // 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
-const STRUCT_V = 3
+const STRUCT_V = 4
 // v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
 const icons = require('../data/food-icons')
 
@@ -59,8 +63,11 @@ const RECIPE_MAP = (function () {
 })()
 
 // amount 按宝塔两阶段取值：6~12 月用「7-12」较小的参考量，13~24 月用「13-24」
+// v2.9·③：monthAmount 按整月龄优先覆盖通用档位 —— 6~7 月强化铁米粉的固定用量
+// 直接引用固定菜单（具体克数+水量，不是区间），8 月起没写覆盖就回通用档。
 function amountForStage(recipe, months) {
   if (!recipe || !recipe.amount) return ''
+  if (recipe.monthAmount && recipe.monthAmount[months]) return recipe.monthAmount[months]
   const key = (months >= 13 && months <= 24) ? '13-24' : '7-12'
   return recipe.amount[key] || recipe.amount.default || ''
 }
@@ -94,6 +101,24 @@ function catsFromAmount(amountStr) {
   return String(amountStr || '').split('，').map(function (seg) {
     return seg.trim().split(' ')[0]
   }).filter(Boolean)
+}
+
+/** 计划里的餐次行对象（v2.9 抽成公共构造：正餐行与加餐行同构，
+ *  打卡、展开、类别标签、克数填数走同一套逻辑）。 */
+function mealRow(recipe, key, months, amountOverride) {
+  // v2.9 · ④：6 月固定菜单锁定日传入逐日用量（amountOverride），其余路径走月龄档
+  const amountStr = amountOverride || amountForStage(recipe, months)
+  return {
+    key: key,
+    recipeId: recipe.id,
+    name: recipe.name,
+    texture: recipe.texture,
+    amount: amountStr,
+    cats: catsFromAmount(amountStr), // 餐次行小标签（质地之外的类别名，v2.7）
+    tags: recipe.tags || [],
+    // 步骤里的 {分类} 占位符按当期档位填成真克数（v2.7，见 fillPortions）
+    steps: fillPortions(recipe.steps, amountStr)
+  }
 }
 
 function foodName(id) {
@@ -184,6 +209,27 @@ function recipeUsable(recipe, safeIds, blockedIds) {
 }
 
 /**
+ * 加餐类菜谱（v2.9 · 正餐与加餐分槽）。
+ * 口径（用户定）：**水果泥 / 糕类不占正餐位** —— 只进加餐池，排进 day.snack。
+ * 两条判定：
+ *   ① 主料全是水果（水果泥、水果酸奶杯）—— 固定菜单里它们固定在 15:00/15:30 加餐列；
+ *   ② 菜名含「糕 / 饼 / 馒头」（蔬菜蒸糕、南瓜小馒头、小饼、土豆饼）—— 糕饼点心类。
+ * 第②条兜在菜名上而不是标记字段：新菜谱归类对了就自动进对池，
+ * 不依赖「记得打标」；判定口径写进 _validate §6q，改规则会被断言拦住。
+ */
+function isSnackRecipe(r) {
+  if (r.mainFoods && r.mainFoods.length) {
+    let allFruit = true
+    for (let i = 0; i < r.mainFoods.length; i++) {
+      const f = FOOD_MAP[r.mainFoods[i]]
+      if (!f || f.category !== '水果') { allFruit = false; break }
+    }
+    if (allFruit) return true
+  }
+  return /糕|饼|馒头/.test(r.name)
+}
+
+/**
  * 把候选食材按「非致敏 / 致敏」交错排列。
  *
  * 目的：让易过敏食物在引入序列里均匀分布，而不是被排到最后。
@@ -247,11 +293,17 @@ function catsOf(recipe) {
   return CATS_CACHE[recipe.id]
 }
 
-/** 一组菜谱（+可选新食材）合并后的类别覆盖，动物性已合并 */
-function coverageOf(recipes, newFood) {
+/** 一组菜谱（+可选新食材/加餐）合并后的类别覆盖，动物性已合并。
+ *  v2.9：第三个参数传当天加餐 —— 官方「每日不少于4 类」数的是全天食物，
+ *  水果加餐贡献的类别要算进去，正餐修补循环才能看见它。 */
+function coverageOf(recipes, newFood, also) {
   const cats = {}
   for (let i = 0; i < recipes.length; i++) {
     const rc = catsOf(recipes[i])
+    Object.keys(rc).forEach(function (c) { cats[c] = true })
+  }
+  if (also) {
+    const rc = catsOf(also)
     Object.keys(rc).forEach(function (c) { cats[c] = true })
   }
   if (newFood && FOOD_MAP[newFood.id]) {
@@ -298,10 +350,14 @@ function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats, ref
     if (refusedIds && refusedIds.indexOf(r.id) >= 0) w *= 0.15
 
     // 当天主料重复惩罚（同样是软的：只压权重，不拦截；
-    // 而且修补循环只按覆盖度换菜、不检查这里，所以同日撞主料仍会发生）
+    // 而且修补循环只按覆盖度换菜、不检查这里，所以同日撞主料仍会发生）。
+    // ×0.15（v2.9 从 0.3 加强）：正餐池去掉水果/糕饼后撞车分布变陡，
+    // 0.3 撑不住（15 月龄实测 ~19%，贴 §5f 的 20% 上限）；0.15 让同日撞主料
+    // 压过 ×6 补类加成（6×0.15=0.9 < 1），实测回落到 ~11%（文档带 8–14% 内），
+    // 且类别达标率不动（修补循环保底，见 §5c/§5f）。
     for (let i = 0; i < r.mainFoods.length; i++) {
       const fid = r.mainFoods[i]
-      if (dayMainUse[fid]) w *= 0.3
+      if (dayMainUse[fid]) w *= 0.15
     }
 
     // 补齐当天缺失的食物类别 —— 把「每日不少于4类、且含动物性/蔬菜/谷薯」
@@ -334,6 +390,62 @@ function pickWeighted(candidates, usedCount, dayMainUse, issueTags, dayCats, ref
     if (rnd <= 0) return scored[i].r
   }
   return scored[scored.length - 1].r
+}
+
+/* ---------- 6 月龄固定菜单（v2.9 · ④ 用户决策：主食严格按固定食谱） ----------
+ * 逐日钉死 6 月正餐 = 强化铁米粉糊 + 当日用量（含菜泥/肉泥加料），数值逐字取自
+ * 固定菜单月龄表（本地存档不入库 → 值直接写进代码，_validate §6s 全量断言）：
+ *   1–3: 2.5g+水40ml → 4–6: 5g+水60ml → 7–9: 5g+水50ml+核桃油2滴
+ *   10–30: 5g+水50ml + 菜泥/肉泥按 1→2→3 勺逐 3 天升级
+ *   （菠菜+猪肉 19–21 并行、西兰花+牛肉 28–30 并行）。
+ * add：当日加料 [{foodId, label, qty}] —— 供类别/采购/新食材卡派生。
+ * 安全语义优先于菜单：有反应剔加料；病中/观察中剔「未记录」的加料。
+ */
+const MENU_6_SNACK_START = 19 // 菜单节奏要点原文「水果泥从 6+19 起加入 15:00」
+const MENU_6 = {
+  1: { base: '谷物 2.5g+水40ml', add: [] },
+  2: { base: '谷物 2.5g+水40ml', add: [] },
+  3: { base: '谷物 2.5g+水40ml', add: [] },
+  4: { base: '谷物 5g+水60ml', add: [] },
+  5: { base: '谷物 5g+水60ml', add: [] },
+  6: { base: '谷物 5g+水60ml', add: [] },
+  7: { base: '谷物 5g+水50ml', add: [{ foodId: 'walnut_oil', label: '核桃油2滴', qty: '2 滴' }] },
+  8: { base: '谷物 5g+水50ml', add: [{ foodId: 'walnut_oil', label: '核桃油2滴', qty: '2 滴' }] },
+  9: { base: '谷物 5g+水50ml', add: [{ foodId: 'walnut_oil', label: '核桃油2滴', qty: '2 滴' }] },
+  10: { base: '谷物 5g+水50ml', add: [{ foodId: 'potato', label: '土豆泥1勺', qty: '1 勺' }] },
+  11: { base: '谷物 5g+水50ml', add: [{ foodId: 'potato', label: '土豆泥2勺', qty: '2 勺' }] },
+  12: { base: '谷物 5g+水50ml', add: [{ foodId: 'potato', label: '土豆泥3勺', qty: '3 勺' }] },
+  13: { base: '谷物 5g+水50ml', add: [{ foodId: 'carrot', label: '胡萝卜泥1勺', qty: '1 勺' }] },
+  14: { base: '谷物 5g+水50ml', add: [{ foodId: 'carrot', label: '胡萝卜泥2勺', qty: '2 勺' }] },
+  15: { base: '谷物 5g+水50ml', add: [{ foodId: 'carrot', label: '胡萝卜泥3勺', qty: '3 勺' }] },
+  16: { base: '谷物 5g+水50ml', add: [{ foodId: 'pork', label: '猪肉泥1勺', qty: '1 勺' }] },
+  17: { base: '谷物 5g+水50ml', add: [{ foodId: 'pork', label: '猪肉泥2勺', qty: '2 勺' }] },
+  18: { base: '谷物 5g+水50ml', add: [{ foodId: 'pork', label: '猪肉泥3勺', qty: '3 勺' }] },
+  19: { base: '谷物 5g+水50ml', add: [{ foodId: 'spinach', label: '菠菜泥1勺', qty: '1 勺' }] },
+  20: { base: '谷物 5g+水50ml', add: [{ foodId: 'spinach', label: '菠菜泥2勺', qty: '2 勺' }, { foodId: 'pork', label: '猪肉泥2勺', qty: '2 勺' }] },
+  21: { base: '谷物 5g+水50ml', add: [{ foodId: 'spinach', label: '菠菜泥3勺', qty: '3 勺' }, { foodId: 'pork', label: '猪肉泥3勺', qty: '3 勺' }] },
+  22: { base: '谷物 5g+水50ml', add: [{ foodId: 'pumpkin', label: '南瓜泥1勺', qty: '1 勺' }] },
+  23: { base: '谷物 5g+水50ml', add: [{ foodId: 'pumpkin', label: '南瓜泥2勺', qty: '2 勺' }] },
+  24: { base: '谷物 5g+水50ml', add: [{ foodId: 'pumpkin', label: '南瓜泥3勺', qty: '3 勺' }] },
+  25: { base: '谷物 5g+水50ml', add: [{ foodId: 'beef', label: '牛肉泥1勺', qty: '1 勺' }] },
+  26: { base: '谷物 5g+水50ml', add: [{ foodId: 'beef', label: '牛肉泥2勺', qty: '2 勺' }] },
+  27: { base: '谷物 5g+水50ml', add: [{ foodId: 'beef', label: '牛肉泥3勺', qty: '3 勺' }] },
+  28: { base: '谷物 5g+水50ml', add: [{ foodId: 'broccoli', label: '西兰花泥1勺', qty: '1 勺' }] },
+  29: { base: '谷物 5g+水50ml', add: [{ foodId: 'broccoli', label: '西兰花泥2勺', qty: '2 勺' }, { foodId: 'beef', label: '牛肉泥2勺', qty: '2 勺' }] },
+  30: { base: '谷物 5g+水50ml', add: [{ foodId: 'broccoli', label: '西兰花泥3勺', qty: '3 勺' }, { foodId: 'beef', label: '牛肉泥3勺', qty: '3 勺' }] }
+}
+
+/** 生日 + 日期 →「6+N」菜单日。anchor = 生日 + 6 个日历月；anchor 当天记作
+ *  菜单第 1 天（与菜单起步档一致）。越界（非 6 月龄窗口）返回值交给调用方
+ *  按 1..30 夹取，夹不住就落回原引擎。 */
+function menuDayOf(birth, d) {
+  if (!birth) return 0
+  const b = parseDateKey(birth)
+  if (isNaN(b.getTime())) return 0
+  const day = parseDateKey(d)
+  const anchor = new Date(b.getFullYear(), b.getMonth() + 6, b.getDate())
+  const diff = Math.round((new Date(day.getFullYear(), day.getMonth(), day.getDate()) - anchor) / 86400000)
+  return diff + 1
 }
 
 /* ---------- 主流程 ---------- */
@@ -415,6 +527,23 @@ function generate(opts) {
   }
   if (pool.length === 0) return null
 
+  // 1.1 正餐池 / 加餐池分槽（v2.9 · 用户决策①）：水果泥与糕饼只进加餐池，
+  //     不占正餐位。mainPool 空（极端屏蔽场景）时退回整池 ——
+  //     一份「正餐里有水果泥」的计划好过排不出餐的空计划。
+  const snackPool = pool.filter(isSnackRecipe)
+  const mainPool = pool.filter(function (r) { return !isSnackRecipe(r) })
+  if (!mainPool.length) mainPool = pool.slice()
+
+  // 餐次与时段锚点（v2.9 · 决策②③）：按月龄对齐知识卡与固定菜单，
+  // 不再随性状阶段走（见 age.mealsForMonth / age.slotsForMonth）
+  const mealsPerDay = age.mealsForMonth(months)
+  const slots = age.slotsForMonth(months)
+
+  // 6 月固定菜单锁定（v2.9 · ④）：生日进指纹后每天各自算「6+N」菜单日
+  // （窗口可跨月龄边界）。没有 birth 的直接调用（旧测试路径/详情页）走
+  // 原引擎 + monthAmount 稳态值，行为不变。
+  const menuLock = months === 6 && !!opts.birth
+
   // 2. 安排新食材引入日（只在工作日，最多 2 天，遇周末顺延不丢槽 —— newFoodSlots）
   //
   // ⚠️ 排序规则：按月龄升序，同月龄内把「致敏」和「非致敏」交错开。
@@ -422,7 +551,8 @@ function generate(opts) {
   // 而官方指南明确说「1岁内适时引入」可以降低过敏风险，「避免食用未见明显益处」。
   const newFoodDays = {}
   // WS/T 678—2020 3.8：患病期间暂停添加新的辅食
-  if (!opts.observingCount && !sick) {
+  // v2.9 · ④：6 月菜单锁定日的新食材卡由菜单加料派生（见日循环 3.0），这里不排
+  if (!opts.observingCount && !sick && !menuLock) {
     const pool2 = FOODS.filter(function (f) {
       // introducible === false 是「禁食提示条目」（蜂蜜），不是待引入的辅食。
       // 漏掉这一条，12 月龄时会把蜂蜜当成新食材排进计划，
@@ -475,7 +605,8 @@ function generate(opts) {
     const fz = frozenByDate[dateKey(d)]
     if (fz) {
       days.push(fz)
-      ;(fz.meals || []).forEach(function (m) {
+      // v2.9：冻结日带加餐行，用量/采购照常计入（旧版冻结日没有 snack，天然跳过）
+      ;(fz.meals || []).concat(fz.snack ? [fz.snack] : []).forEach(function (m) {
         usedCount[m.recipeId] = (usedCount[m.recipeId] || 0) + 1
         const r = RECIPE_MAP[m.recipeId]
         if (!r) return
@@ -486,17 +617,138 @@ function generate(opts) {
           foodUse[r.sideFoods[k]] = (foodUse[r.sideFoods[k]] || 0) + 1
         }
       })
+      // v2.9 · ④：菜单锁定日的加料不在菜谱 foods 里，冻结重排时单独计入采购
+      ;(fz.menuAdd || []).forEach(function (a) {
+        foodUse[a.foodId] = (foodUse[a.foodId] || 0) + 1
+      })
       continue
     }
 
-    const nf = newFoodDays[i] || null
+    let nf = newFoodDays[i] || null
+    let nfQty = null // v2.9 · ④：菜单锁定日新食材卡用量取菜单勺数（1/2/3 勺）
 
-    // 3.1 先按加权随机选出当天的菜
+    // 3.0 6 月固定菜单锁定（v2.9 · ④ 用户决策「主食严格按固定食谱」）：
+    // 正餐 = 米粉 + 当日菜单用量（定值，重新生成不变）；15:00 加餐 6+19 起
+    // 才有水果 ——「重新生成计划只修改水果加餐」改的就是这里（水果加权随机）。
+    // 拿不到菜单日（越界/缺生日）就落回原引擎，7 月+ 与旧测试路径不受影响。
+    let menuDay = 0
+    if (menuLock) {
+      const md0 = menuDayOf(opts.birth, d)
+      if (md0 >= 1 && md0 <= 30) menuDay = md0
+    }
+    if (menuDay) {
+      const entry = MENU_6[menuDay]
+      // 加料过滤：有反应永远剔除；病中/观察中剔「未记录」的 —— 新食材暂停
+      // 语义优先于菜单（WS/T 678—2020 3.8），已引入过的照排。
+      const add = (entry.add || []).filter(function (a) {
+        if (blockedIds.indexOf(a.foodId) >= 0) return false
+        if ((sick || opts.observingCount) && recordedIds.indexOf(a.foodId) < 0) return false
+        return true
+      })
+      const amount = entry.base + add.map(function (a) { return '+' + a.label }).join('')
+      // 加料进采购清单（正餐行的 recipe foods 只有米粉，加料得单独计数）
+      add.forEach(function (a) { foodUse[a.foodId] = (foodUse[a.foodId] || 0) + 1 })
+      const rice = RECIPE_MAP['r_rice_cereal']
+
+      // 新食材卡由菜单加料派生：第一个未记录且非屏蔽的（油脂不进卡 ——
+      // foods.js 注明油不需单独观察）；菜单前 3 天的「新食材」就是米粉本身。
+      if (!sick && !opts.observingCount) {
+        for (let k = 0; k < add.length && !nf; k++) {
+          const f = FOOD_MAP[add[k].foodId]
+          if (!f || f.category === '油脂') continue
+          if (recordedIds.indexOf(f.id) >= 0 || blockedIds.indexOf(f.id) >= 0) continue
+          nf = f
+          nfQty = add[k].qty
+        }
+        if (!nf && menuDay <= 3 && recordedIds.indexOf('rice_cereal') < 0 && blockedIds.indexOf('rice_cereal') < 0) {
+          nf = FOOD_MAP['rice_cereal']
+          nfQty = entry.base.slice(3) // 卡片用量显示菜单起步档（2.5g+水40ml）
+        }
+      }
+
+      const menuMeals = []
+      if (rice) {
+        usedCount[rice.id] = (usedCount[rice.id] || 0) + 1
+        foodUse[rice.mainFoods[0]] = (foodUse[rice.mainFoods[0]] || 0) + 1
+        const row = mealRow(rice, 'm' + i + '_0', months, amount)
+        // 餐次行小标签补上加料类别（土豆在 foods.js 归谷薯 → 谷物，去重自然处理）
+        add.forEach(function (a) {
+          const f = FOOD_MAP[a.foodId]
+          if (f && COUNTED_CATS.indexOf(f.category) >= 0 && row.cats.indexOf(f.category) < 0) row.cats.push(f.category)
+        })
+        menuMeals.push(row)
+      }
+
+      // 水果加餐：6+19 起才有（菜单节奏要点「水果泥从 6+19 起加入 15:00」），
+      // 从加餐池加权随机 —— 正餐是定值，重新生成时唯一会变的就是这份水果。
+      let menuSnack = null
+      if (menuDay >= MENU_6_SNACK_START && snackPool.length) {
+        menuSnack = pickWeighted(snackPool, usedCount, { 'rice_cereal': true }, issueTags, {}, opts.refusedRecipeIds)
+      }
+
+      // 当日类别与覆盖（与原引擎同口径：菜谱类别 + 加料类别 + 新食材类别）
+      const dayCatsMenu = {}
+      if (rice) Object.keys(catsOf(rice)).forEach(function (c) { dayCatsMenu[c] = true })
+      add.forEach(function (a) {
+        const f = FOOD_MAP[a.foodId]
+        if (f && COUNTED_CATS.indexOf(f.category) >= 0) dayCatsMenu[f.category] = true
+      })
+      if (nf && FOOD_MAP[nf.id] && COUNTED_CATS.indexOf(FOOD_MAP[nf.id].category) >= 0) {
+        dayCatsMenu[FOOD_MAP[nf.id].category] = true
+      }
+      let menuSnackRow = null
+      if (menuSnack) {
+        usedCount[menuSnack.id] = (usedCount[menuSnack.id] || 0) + 1
+        for (let k = 0; k < menuSnack.mainFoods.length; k++) {
+          foodUse[menuSnack.mainFoods[k]] = (foodUse[menuSnack.mainFoods[k]] || 0) + 1
+        }
+        for (let k = 0; k < (menuSnack.sideFoods || []).length; k++) {
+          foodUse[menuSnack.sideFoods[k]] = (foodUse[menuSnack.sideFoods[k]] || 0) + 1
+        }
+        Object.keys(catsOf(menuSnack)).forEach(function (c) { dayCatsMenu[c] = true })
+        menuSnackRow = mealRow(menuSnack, 's' + i, months)
+      }
+
+      const coveredMenu = dayCatSet(dayCatsMenu)
+      const missingMenu = REQUIRED_CATS.filter(function (c) { return !coveredMenu[c] })
+      const catCountMenu = Object.keys(coveredMenu).length
+      days.push({
+        date: dateKey(d),
+        dateLabel: (d.getMonth() + 1) + '/' + pad2(d.getDate()),
+        weekday: WEEKDAYS[d.getDay()],
+        isWeekend: isWeekend(d),
+        meals: menuMeals,
+        snack: menuSnackRow, // null = 菜单第 19 天之前：15:00 空白（timeline 自然少一行）
+        catCount: catCountMenu,
+        catNames: Object.keys(dayCatsMenu),
+        catApplicable: months >= 8, // 6 月恒 false（「逐渐达到」豁免语义与原引擎一致）
+        catOk: catCountMenu >= DAY_MIN_CATS && missingMenu.length === 0,
+        catMissing: missingMenu,
+        newFood: nf
+          ? {
+              foodId: nf.id,
+              name: nf.name,
+              amount: nfQty || nf.firstIntro.amount,
+              method: nf.firstIntro.method,
+              observeDays: 3,
+              note: nf.note || '',
+              icon: icons.iconFor(nf),
+              iconBg: icons.bgFor(nf)
+            }
+          : null,
+        menuDay: menuDay, // 调试与校验用（_validate §6s 按它断言菜单日）
+        // 菜单加料清单：冻结日被复制重排时，采购清单靠它补上加料食材
+        menuAdd: add.map(function (a) { return { foodId: a.foodId, label: a.label } })
+      })
+      continue
+    }
+
+    // 3.1 先按加权随机选出当天的正餐（正餐先选：主槽是锚点，加餐随后补位）
     const dayMainUse = {}
     const dayCats = {}
     const picked = []
-    for (let m = 0; m < stage.meals; m++) {
-      const recipe = pickWeighted(pool, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
+    for (let m = 0; m < mealsPerDay; m++) {
+      const recipe = pickWeighted(mainPool, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
       if (!recipe) break
       picked.push(recipe)
       for (let k = 0; k < recipe.mainFoods.length; k++) dayMainUse[recipe.mainFoods[k]] = true
@@ -504,23 +756,40 @@ function generate(opts) {
       Object.keys(rc0).forEach(function (c) { dayCats[c] = true })
     }
 
-    // 3.2 确定性修补：把「每日不少于4类，且含动物性/蔬菜/谷薯」补到位。
+    // 3.2 加餐再选（v2.9 · 决策①）：从独立的加餐池出 —— 水果泥/糕饼不占正餐位；
+    //     dayMainUse 已含正餐主料，加餐自动避开同主料（比如正餐有燕麦苹果粥就不再配苹果泥）；
+    //     传 dayCats：正餐随机挑选若漏了必需类，加餐优先补位（再由修补循环保底）。
+    //     不排与当天新食材同源的菜：新食材那 3 天观察口是一两勺，
+    //     同一天再拿它当一整份加餐，排敏语义就乱了。
+    let snack = null
+    if (snackPool.length) {
+      let snackCands = snackPool
+      if (nf) {
+        const filtered = snackPool.filter(function (r) {
+          return r.mainFoods.concat(r.sideFoods || []).indexOf(nf.id) < 0
+        })
+        if (filtered.length) snackCands = filtered
+      }
+      snack = pickWeighted(snackCands, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
+    }
+
+    // 3.3 确定性修补：把「每日不少于4类，且含动物性/蔬菜/谷薯」补到位。
     //     只靠加权随机命中率不够（实测约 76%），这里做一次定向替换。
-    //     6~7 月龄每天只有 1 餐，物理上凑不齐 4 类，官方原文也是「逐渐达到」，
-    //     所以 meals >= 2 才做修补。
-    if (stage.meals >= 2 && picked.length >= 2) {
+    //     加餐的类别算进覆盖（官方「每日4 类」数的是全天食物，不只正餐）；
+    //     6~7 月龄官方原文是「逐渐达到」，正餐 <2 时不做修补。
+    if (mealsPerDay >= 2 && picked.length >= 2) {
       for (let pass = 0; pass < 4; pass++) {
-        const cur = coverageOf(picked, nf)
+        const cur = coverageOf(picked, nf, snack)
         const curMissing = REQUIRED_CATS.filter(function (c) { return !cur[c] })
         if (curMissing.length === 0 && Object.keys(cur).length >= DAY_MIN_CATS) break
 
         let best = null
         for (let idx = 0; idx < picked.length; idx++) {
           const rest = picked.filter(function (_, k) { return k !== idx })
-          for (let c = 0; c < pool.length; c++) {
-            const cand = pool[c]
+          for (let c = 0; c < mainPool.length; c++) {
+            const cand = mainPool[c]
             if (picked.indexOf(cand) >= 0) continue
-            const cov = coverageOf(rest.concat([cand]), nf)
+            const cov = coverageOf(rest.concat([cand]), nf, snack)
             const sc = covScore(cov)
             // 覆盖度相同时，优先选「本周用得少」的那道。
             // 否则修补循环会退化成「取池子里第一个最优解」，让靠前的高覆盖菜
@@ -537,15 +806,14 @@ function generate(opts) {
       }
     }
 
-    // 3.3 结算这一天的用量与类别覆盖
-    const dayMainUseFinal = {}
+    // 3.4 结算这一天的用量与类别覆盖（v2.9：加餐一并计入 —— 采购、
+    //     去重计数、当日类别都按「全天吃进嘴的」算，不只算正餐）
     const dayCatsFinal = {}
     const meals = []
     for (let m = 0; m < picked.length; m++) {
       const recipe = picked[m]
       usedCount[recipe.id] = (usedCount[recipe.id] || 0) + 1
       for (let k = 0; k < recipe.mainFoods.length; k++) {
-        dayMainUseFinal[recipe.mainFoods[k]] = true
         foodUse[recipe.mainFoods[k]] = (foodUse[recipe.mainFoods[k]] || 0) + 1
       }
       for (let k = 0; k < (recipe.sideFoods || []).length; k++) {
@@ -554,21 +822,25 @@ function generate(opts) {
       const rc = catsOf(recipe)
       Object.keys(rc).forEach(function (c) { dayCatsFinal[c] = true })
 
-      const amountStr = amountForStage(recipe, months)
-      meals.push({
-        key: 'm' + i + '_' + m,
-        recipeId: recipe.id,
-        name: recipe.name,
-        texture: recipe.texture,
-        amount: amountStr,
-        cats: catsFromAmount(amountStr), // 餐次行小标签（质地之外的类别名，v2.7）
-        tags: recipe.tags || [],
-        // 步骤里的 {分类} 占位符按当期档位填成真克数（v2.7，见 fillPortions）
-        steps: fillPortions(recipe.steps, amountStr)
-      })
+      meals.push(mealRow(recipe, 'm' + i + '_' + m, months))
     }
 
-    const coveredSet = coverageOf(picked, nf)
+    let snackRow = null
+    if (snack) {
+      usedCount[snack.id] = (usedCount[snack.id] || 0) + 1
+      for (let k = 0; k < snack.mainFoods.length; k++) {
+        foodUse[snack.mainFoods[k]] = (foodUse[snack.mainFoods[k]] || 0) + 1
+      }
+      for (let k = 0; k < (snack.sideFoods || []).length; k++) {
+        foodUse[snack.sideFoods[k]] = (foodUse[snack.sideFoods[k]] || 0) + 1
+      }
+      const rc = catsOf(snack)
+      Object.keys(rc).forEach(function (c) { dayCatsFinal[c] = true })
+
+      snackRow = mealRow(snack, 's' + i, months)
+    }
+
+    const coveredSet = coverageOf(picked, nf, snack)
     const catKeys = Object.keys(coveredSet)
     const missingRequired = REQUIRED_CATS.filter(function (c) { return !coveredSet[c] })
     const catNames = []
@@ -583,11 +855,12 @@ function generate(opts) {
       weekday: WEEKDAYS[d.getDay()],
       isWeekend: isWeekend(d),
       meals: meals,
+      snack: snackRow, // v2.9 加餐行（null = 当天加餐池空/没排上），与正餐行同构
       catCount: catKeys.length,
       catNames: catNames,
-      // 6~7 月龄每天只有 1 餐，凑不齐 4 类是正常的（官方原文是「逐渐达到」），
-      // 所以只有 meals >= 2 时才把这条当作应当满足的要求
-      catApplicable: stage.meals >= 2,
+      // 6~7 月龄官方原文是「逐渐达到」，不作硬要求（v2.9 起 7 月龄也按固定菜单
+      // 排 2 餐，但该月菜池全是单类菜，4 类 + 3 必需靠加餐也补不齐 —— 豁免语义不变）
+      catApplicable: months >= 8,
       catOk: catKeys.length >= DAY_MIN_CATS && missingRequired.length === 0,
       catMissing: missingRequired,
       newFood: nf
@@ -642,7 +915,10 @@ function generate(opts) {
     stageKey: stage.key,
     stageLabel: stage.label,
     stageDesc: stage.desc,
-    mealsPerDay: stage.meals,
+    mealsPerDay: mealsPerDay,
+    // v2.9 时段锚点（方案A）：每天的时段模板，由 index.js markToday 按当天
+    // 正餐/加餐填成渲染行（day.timeline）；main 槽数 === mealsPerDay
+    slots: slots,
     issues: issues,
     sick: sick,
     days: days,
@@ -673,6 +949,9 @@ function planInputs(storage) {
 
   return {
     months: months,
+    // 6 月固定菜单按生日锚定「6+N」菜单日（v2.9 · ④）；进指纹 —— 生日改了
+    // 菜单日整体错位，必须触发重算（名称取值仍不进指纹，见 planSignature 注释）
+    birth: baby.birthday,
     issues: storage.getIssues(),
     sick: storage.getSick(),
     safeFoodIds: storage.safeFoodIds(),
@@ -696,6 +975,8 @@ function planSignature(storage) {
   }
   return [
     'm' + inputs.months,
+    // 6 月固定菜单锚定日（v2.9 · ④）：生日变了菜单日错位，必须重算
+    'd' + inputs.birth,
     // 排序后再拼：多选项的勾选顺序不该影响指纹，
     // 否则同一组状态换个顺序就会白重算一次
     'i' + list(inputs.issues),
@@ -760,6 +1041,9 @@ function generateFromStorage(storage, opts) {
 
 module.exports = {
   generate: generate,
+  MENU_6: MENU_6,                         // 6 月固定菜单逐日表（v2.9 · ④，§6s 逐字钉）
+  MENU_6_SNACK_START: MENU_6_SNACK_START, // 水果加餐起始菜单日（菜单：6+19 起 15:00）
+  menuDayOf: menuDayOf,                   // 生日 + 日期 →「6+N」菜单日
   generateFromStorage: generateFromStorage,
   replanOpts: replanOpts,
   planInputs: planInputs,
@@ -769,6 +1053,7 @@ module.exports = {
   dateKey: dateKey,
   amountForStage: amountForStage, // 食材详情页按月龄档取分量（步骤填数用）
   fillPortions: fillPortions,     // 步骤 {分类} 占位符填数（计划页与食材详情页共用）
+  isSnackRecipe: isSnackRecipe,   // 加餐分类口径（正餐/加餐分槽，_validate §6q 钉死）
   STRUCT_V: STRUCT_V,
   WEEKDAYS: WEEKDAYS
 }

@@ -25,16 +25,50 @@ function markToday(p) {
     // 只有 ≤ 今天的日期能打卡（未来餐还没发生）
     d.checkable = d.date <= todayKey
     let done = 0
-    ;(d.meals || []).forEach(function (m) {
+    const markLog = function (m) {
       const e = logMap[d.date + '|' + m.recipeId]
       m.log = e
         ? { status: e.status, label: LABEL[e.status] || e.status, reaction: e.reaction || '' }
         : null
       if (m.log) done++
-    })
-    // 折叠摘要用：这一天打了几餐 / 共几餐（v2.7 · ①「待打卡 N」现算）
-    d.total = (d.meals || []).length
+    }
+    ;(d.meals || []).forEach(markLog)
+    // v2.9 加餐行与正餐行同构，一并挂打卡态（奶参考行不打卡）
+    if (d.snack) markLog(d.snack)
+    // 折叠摘要用：这一天打了几餐 / 共几餐（v2.7 · ①「待打卡 N」现算；v2.9 含加餐）
+    d.total = (d.meals || []).length + (d.snack ? 1 : 0)
     d.done = done
+    // v2.9 时段锚点（方案A · 用户看模拟页确认）：plan.slots 模板 × 当天正餐/加餐
+    // → 渲染行 timeline。派生态（同 isToday/checkable）：每次渲染现算，不写回缓存。
+    // 冻结日可能来自旧版计划：模板里多余的正餐槽不填（缺行跳过），
+    // 餐数多于模板时把多出的正餐补在末尾，别让升级过渡期丢餐。
+    const slots = p.slots || age.slotsForMonth(p.months)
+    const rows = []
+    let mi = 0
+    for (let s = 0; s < slots.length; s++) {
+      const sl = slots[s]
+      if (sl.kind === 'milk') {
+        rows.push({ key: sl.time + '|milk', time: sl.time, kind: 'milk' })
+      } else if (sl.kind === 'main') {
+        const meal = (d.meals || [])[mi++]
+        if (meal) {
+          rows.push({
+            key: sl.time + '|main|' + meal.key, time: sl.time, kind: 'main',
+            label: sl.label, withMilk: !!sl.withMilk, meal: meal
+          })
+        }
+      } else if (d.snack) { // kind === 'snack'
+        rows.push({
+          key: sl.time + '|snack', time: sl.time, kind: 'snack',
+          label: sl.label, meal: d.snack
+        })
+      }
+    }
+    while (d.meals && mi < d.meals.length) {
+      const meal = d.meals[mi++]
+      rows.push({ key: 'x|main|' + meal.key, time: '', kind: 'main', label: '', meal: meal })
+    }
+    d.timeline = rows
     // 观察进度点（v2.7 · ④）：引入日 = day.date，观察窗 = observeDays（3 天）。
     // 还没到的日子 → ○○○ +「周几开始」；已发生的 → ● 按天数填充，封顶 3/3。
     if (d.newFood) {

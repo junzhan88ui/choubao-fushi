@@ -253,6 +253,72 @@
   color: var(--c-amber-ink);
 }
 
+/* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 时段名 + 正/加餐 chip + 奶标注 */
+.slot-head {
+  display: flex;
+  align-items: center;
+  column-gap: 16rpx;
+  padding: 24rpx 0 4rpx;
+}
+
+.slot-time {
+  font-size: var(--fs-base);
+  font-weight: 600; /* 与站内字重三档一致，不引入新档 */
+  color: var(--c-text);
+}
+
+.slot-name {
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+}
+
+.slot-kind {
+  font-size: var(--fs-xs);
+  padding: 4rpx 16rpx;
+  border-radius: var(--r-pill);
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.slot-kind.snack {
+  background: var(--c-blue-bg);
+  color: var(--c-blue);
+}
+
+.slot-withmilk {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  margin-left: auto; /* 「辅食 + 奶」右对齐，不挤时刻与 chip */
+}
+
+/* 奶参考行：只标时段，不排菜、不打卡（方案A 的视觉核心） */
+.milk-row {
+  display: flex;
+  align-items: center;
+  column-gap: 16rpx;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
+  padding: 20rpx 24rpx;
+  margin-top: 16rpx;
+}
+
+.milk-name {
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+}
+
+.milk-note {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  margin-left: auto;
+}
+
+/* 时段头后面的餐次行：顶部分隔线由时段头的留白接管，别叠双线 */
+.slot-head + .meal {
+  border-top: none;
+  padding-top: 8rpx;
+}
+
 /* 餐次 */
 .meal {
   padding: 18rpx 0;

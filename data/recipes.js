@@ -26,8 +26,13 @@ module.exports = [
     monthRange: [6, 9], texture: '细泥',
     mainFoods: ['rice_cereal'], sideFoods: [],
     tags: ['补铁', '易消化'], allergens: [],
+    // v2.9·③ 6–7 月固定用量直接引用固定菜单（6 月 5g+水50ml、7 月 10g+水70ml，
+    // 逐字取自月龄表）；8 月起回通用档 —— 菜单 8 月起米粉是混合菜配料、
+    // 没有单独用量行。amountForStage 优先读 monthAmount。
+    monthAmount: { 6: '谷物 5g+水50ml', 7: '谷物 10g+水70ml' },
     amount: { '7-12': '谷物 20–30g', '13-24': '谷物 30–50g', default: '谷物 20–30g' },
-    steps: ['按{谷物}的量取强化铁米粉放入碗中', '倒入约 60℃ 温水，边倒边搅拌', '调成能挂勺又缓慢滴落的稀糊，静置 1 分钟再喂'],
+    steps: ['取强化铁米粉放入碗中，用量按{谷物}', '冲入约 60℃ 温水，边倒边搅拌',
+      '调成能挂勺又缓慢滴落的稀糊，静置 30 秒再喂'],
     freezable: false, source: SOURCE
   },
   {

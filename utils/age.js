@@ -13,13 +13,75 @@ const MIN_MONTH = 6
 // 必须显式提示「超出覆盖范围」，而不是静默给出一份空计划。
 const CONTENT_MAX = 24
 
-// 阶段定义：月龄区间 → 性状档位 + 每日辅食餐次
+// 阶段定义：月龄区间 → 性状档位（v2.9 起「每日餐次」从这里拆出去，见 mealsForMonth：
+// 餐次按月龄逐月对齐知识卡与固定菜单，不再绑在性状阶段上）
 const STAGES = [
-  { key: 'puree', label: '细泥', min: 6, max: 7, meals: 1, desc: '刚起步，一天 1 餐，从强化铁米粉开始' },
-  { key: 'thick', label: '稠糊 / 带颗粒', min: 8, max: 9, meals: 2, desc: '一天 2 餐，质地加稠、留一点颗粒' },
-  { key: 'mince', label: '碎末 / 小丁', min: 10, max: 12, meals: 3, desc: '一天 2–3 餐，练咀嚼，可以自己抓着吃' },
-  { key: 'junior', label: '小丁 / 小块', min: 13, max: 24, meals: 3, desc: '一天 3 餐，逐步接近成人食物（仍然少盐）' }
+  { key: 'puree', label: '细泥', min: 6, max: 7, desc: '刚起步，一天 1–2 餐，从强化铁米粉开始' },
+  { key: 'thick', label: '稠糊 / 带颗粒', min: 8, max: 9, desc: '一天 2 餐，质地加稠、留一点颗粒' },
+  { key: 'mince', label: '碎末 / 小丁', min: 10, max: 12, desc: '一天 2–3 餐，练咀嚼，可以自己抓着吃' },
+  { key: 'junior', label: '小丁 / 小块', min: 13, max: 24, desc: '一天 3 餐，逐步接近成人食物（仍然少盐）' }
 ]
+
+/**
+ * 每日正餐餐次（v2.9 · 与固定菜单逐月对齐）。
+ * 依据两处已确认口径：
+ *   - data/guides.js 分月知识卡：7 月「每天 2 次」、8–9 月「每天 2 次」、
+ *     10–11 月「2–3 次」、12 月「每天 3 次」（6 月卡按 1 餐起步）；
+ *   - docs/月度辅食计划-存档.md 固定菜单正餐列：6 月 1 列、7–11 月 2 列、12 月起 3 列。
+ * 10–11 月从原来的 3 餐改为 2 餐，12 月起恢复 3 餐（用户决策③）。
+ */
+function mealsForMonth(months) {
+  if (months <= 6) return 1
+  if (months <= 11) return 2
+  return 3
+}
+
+/**
+ * 每天的时段锚点（v2.9 · 方案A「含奶参考行」，用户已看模拟页确认）。
+ * 列结构取固定菜单各月龄的实际列数：6–9 月 6 列、10–11 月 5 列、12 月起 4 段。
+ * kind：milk = 奶参考行（只标时段，不排菜不打卡）/ main = 正餐 / snack = 加餐。
+ * 约束（_validate §6q 钉死）：main 槽数 === mealsForMonth(months)，snack 恒 1 槽。
+ */
+function slotsForMonth(months) {
+  if (months <= 6) return [
+    { time: '07:00', kind: 'milk' },
+    { time: '10:00', kind: 'main', label: '上午正餐', withMilk: true },
+    { time: '13:00', kind: 'milk' },
+    { time: '15:00', kind: 'snack', label: '加餐' },
+    { time: '16:00', kind: 'milk' },
+    { time: '19:00', kind: 'milk' }
+  ]
+  if (months === 7) return [
+    { time: '07:00', kind: 'milk' },
+    { time: '10:00', kind: 'main', label: '上午正餐', withMilk: true },
+    { time: '13:00', kind: 'milk' },
+    { time: '15:30', kind: 'snack', label: '加餐' },
+    { time: '17:00', kind: 'main', label: '傍晚正餐' },
+    { time: '19:00', kind: 'milk' }
+  ]
+  if (months <= 9) return [ // 8–9 月：同 7 月，17:00 那顿也是「辅食 + 奶」
+    { time: '07:00', kind: 'milk' },
+    { time: '10:00', kind: 'main', label: '上午正餐', withMilk: true },
+    { time: '13:00', kind: 'milk' },
+    { time: '15:30', kind: 'snack', label: '加餐' },
+    { time: '17:00', kind: 'main', label: '傍晚正餐', withMilk: true },
+    { time: '19:00', kind: 'milk' }
+  ]
+  if (months <= 11) return [ // 10–11 月：5 列（减奶增饭，正餐列是纯辅食）
+    { time: '07:00', kind: 'milk' },
+    { time: '10:00', kind: 'main', label: '上午正餐' },
+    { time: '13:00', kind: 'milk' },
+    { time: '15:30', kind: 'snack', label: '加餐' },
+    { time: '18:00', kind: 'main', label: '晚餐' }
+  ]
+  // 12–24 月：4 段，三餐向大人时间同步（13–24 月龄套 12 月节律）
+  return [
+    { time: '07:00', kind: 'main', label: '早餐' },
+    { time: '11:00', kind: 'main', label: '午餐' },
+    { time: '15:00', kind: 'snack', label: '加餐' },
+    { time: '18:00', kind: 'main', label: '晚餐' }
+  ]
+}
 
 /**
  * 计算月龄（整月）
@@ -122,5 +184,7 @@ module.exports = {
   getAgeStatus,
   describeAge,
   isFoodReady,
-  isRecipeSuitable
+  isRecipeSuitable,
+  mealsForMonth,
+  slotsForMonth
 }

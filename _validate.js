@@ -340,7 +340,9 @@ if (allSafe) {
   console.log(`  每日食物种类达标率：${(ok / total * 100).toFixed(1)}%（最差 ${worst.months} 月龄 ${(worst.rate * 100).toFixed(1)}%）`)
 }
 
-// 6~7 月龄虽然凑不齐 4 类，但不能报成「不达标」（catApplicable 应为 false）
+// 6~7 月龄官方原文是「逐渐达到」，不能报成「不达标」（catApplicable 应为 false）。
+// v2.9：7 月龄已按固定菜单/7月知识卡排 2 餐，但豁免口径没变 ——
+// 该月菜池全是单类菜，4 类 + 3 必需物理上凑不齐，断言钉的是「豁免」不是「餐数」。
 ;[6, 7].forEach(function (m) {
   const p = plan.generate({
     months: m, issues: [], safeFoodIds: foods.map(function (f) { return f.id }),
@@ -348,7 +350,7 @@ if (allSafe) {
   })
   if (!p) return
   p.days.forEach(function (d) {
-    if (d.catApplicable) E(`${m} 月龄的 catApplicable 应为 false（每天只有 1 餐）`)
+    if (d.catApplicable) E(`${m} 月龄的 catApplicable 应为 false（官方「逐渐达到」，6~7 月龄不作硬要求）`)
   })
 })
 
@@ -433,9 +435,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
 /* ---------- 5f. 同日主料撞车：软约束，但不能劣化 ----------
  * 这不是硬要求 —— 官方的多样性要求在「类别」层面，由 5c 保证（见 README）。
- * 阈值定在 20% 的依据（15 月龄、1050 天实测）：
- *   基线 11.7%  →  去掉主料惩罚后 27%
- * 20% 正好卡在两者之间：既给抽样波动留了 3σ≈4% 的余量，又能拦住
+ * 阈值定在 20% 的依据（15 月龄、多轮实测）：
+ *   基线 ~11%  →  去掉主料惩罚后 27%+
+ * （v2.9 基线：惩罚 ×0.15、正餐池分槽后实测 ~11.3%——0.15 是 v2.9 重新标定的：
+ *   分池后旧力度 ×0.3 会升到 ~19%，贴上限，故加强一档，见 plan.js 注释。）
+ * 20% 卡在基线与「无惩罚」之间：既给抽样波动留了 3σ≈4% 的余量，又能拦住
  * 「惩罚被移除 / 修补循环失守」这类劣化。真要收紧成硬约束，先改 README 再动这里。
  */
 {
@@ -463,7 +467,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
   const rate = total ? hit / total : 0
   if (rate > 0.20)
-    E(`${M} 月龄同日主料撞车率 ${(rate * 100).toFixed(1)}%，超过 20% 上限（基线 11.7%，去掉主料惩罚会升到 27%）`)
+    E(`${M} 月龄同日主料撞车率 ${(rate * 100).toFixed(1)}%，超过 20% 上限（基线 ~11%，去掉主料惩罚会升到 27%+）`)
   console.log(`  同日主料撞车率（软约束，上限 20%）：${(rate * 100).toFixed(1)}% ✓`)
 }
 
@@ -1289,7 +1293,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.wxss 的 .guide-arrow 没有 margin-left:auto —— 箭头不会靠右，看不出可点开')
 
   if (errs.length === errsBefore)
-    console.log('  6 月龄说明：points(7段：6要点+加量节奏并入)+cook(八种做法、排最后) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
+    console.log('  6 月龄说明：points(7段：6要点+加量节奏并入)+cook(九种做法、排最后，含起步阶梯) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
 }
 
 /* ---------- 6j. 「有反应」(bad) 不可被洗白：藏按钮 + JS 拨卫 + storage 硬拒（H-2） ----------
@@ -1444,7 +1448,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   // 4) 引擎：降权项 + 参数穿透 + planInputs 取名单 + 指纹 f 段
   if (pl.indexOf('refusedIds.indexOf(r.id) >= 0) w *= 0.15') < 0)
     E('pickWeighted 没有拒吃降权项（×0.15）—— 打卡不反哺排餐')
-  if (!/pickWeighted\(pool, usedCount, dayMainUse, issueTags, dayCats,\s*opts\.refusedRecipeIds\)/.test(pl.replace(/\n\s*/g, ' ')))
+  if (!/pickWeighted\(mainPool, usedCount, dayMainUse, issueTags, dayCats,\s*opts\.refusedRecipeIds\)/.test(pl.replace(/\n\s*/g, ' ')))
     E('调用点没把 refusedRecipeIds 传进 pickWeighted —— 名单算了白算')
   if (pl.indexOf('refusedRecipeIds: storage.refusedRecipeIds()') < 0)
     E('planInputs 没取打卡名单 —— 引擎看不到回写')
@@ -1902,8 +1906,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('regenerate 没复位 openDay —— 重新生成后旧展开态残留')
   if (iw.indexOf('wx:if="{{day.isToday || openDay === day.date}}"') < 0)
     E('展开条件没用 day.isToday 短路 —— 「今天恒展开」的语义没了')
-  if (iw.indexOf('day.meals.length}} 餐 · {{day.catCount}} 类') < 0)
-    E('折叠摘要缺 餐数·类数 —— 折叠把覆盖信息弄丢了')
+  if (iw.indexOf('day.timeline.length}} 段 · {{day.meals.length}} 餐 · {{day.catCount}} 类') < 0)
+    E('折叠摘要缺 段数·餐数·类数 —— 折叠把时段结构与覆盖信息弄丢了')
   if (iw.indexOf('day.total > day.done') < 0 || ij.indexOf('d.done = done') < 0)
     E('「待打卡 N」链路断了（wxml 没读 day.total/day.done，或 js 没算）')
 
@@ -2064,8 +2068,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   })
 
   // —— 4) 页面接线（静态） ——
-  if (iw.indexOf('wx:for="{{meal.cats}}"') < 0)
-    E('index.wxml 没渲染 meal.cats —— 类别标签没接上（数据算了不显示）')
+  if (iw.indexOf('wx:for="{{row.meal.cats}}"') < 0)
+    E('index.wxml 没渲染餐次行的类别标签 —— 类别标签没接上（数据算了不显示）')
   if (iw.indexOf('meal-meta') >= 0)
     E('index.wxml 还有 meal-meta —— 旧的「质地 · 克数」灰字行没拆干净')
   if (ix.indexOf('.meal-meta') >= 0)
@@ -2247,6 +2251,512 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
   if (errs.length === errsBefore)
     console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/加量节奏…) ✓、蛋黄渐进与倍粥参考落步骤 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
+}
+
+/* ---------- 6q. 时段锚点与正/加餐分槽（v2.9） ----------
+ * 依据：docs/月度辅食计划-存档.md 固定菜单的逐月时间轴 + 用户三问决策
+ * （方案A 含奶参考行 / 按各月龄实际列数 / 10–11月改2餐、12月起3餐）。
+ * 钉子：
+ *   1) 餐次按月龄：6→1、7–11→2、12–24→3（7月2餐同时对齐7月知识卡「每天2次」）
+ *   2) 各月龄时段模板：列数、main/snack/milk 槽数、时刻轴，
+ *      main 槽数 === mealsForMonth === 每天实际正餐数
+ *   3) 分槽：正餐位零加餐类（水果泥/糕饼不占正餐位）、加餐位必须是加餐类、
+ *      加餐行与正餐行同构（cats/克数/步骤齐）
+ *   4) 加餐计入当日类别（6 月龄 catNames 必含『水果』）、catApplicable 8 月起为 true
+ *   5) 页面接线：timeline 派生、奶行不打卡、时段头 chip、样式与摘要段数
+ *   6) 冻结日的加餐行照抄保留（打卡按 date|recipeId 落库，丢行即断链）
+ */
+{
+  const errsBefore = errs.length
+
+  // 1) 餐次 pin（决策③ + 7月知识卡口径）
+  const MEALS_PIN = { 6: 1, 7: 2, 8: 2, 9: 2, 10: 2, 11: 2, 12: 3, 15: 3, 24: 3 }
+  Object.keys(MEALS_PIN).forEach((m) => {
+    const got = age.mealsForMonth(+m)
+    if (got !== MEALS_PIN[m])
+      E(`age.mealsForMonth(${m}) = ${got}，期望 ${MEALS_PIN[m]}（决策③：10–11月2餐、12月起3餐；7月2餐对齐知识卡）`)
+  })
+
+  // 2) 各月龄时段模板 = 固定菜单实际列（6/7/8–9 六列、10–11 五列、12+ 四段）
+  const SLOT_PIN = {
+    6:  { total: 6, mains: 1, snacks: 1, milks: 4, times: ['07:00', '10:00', '13:00', '15:00', '16:00', '19:00'] },
+    7:  { total: 6, mains: 2, snacks: 1, milks: 3, times: ['07:00', '10:00', '13:00', '15:30', '17:00', '19:00'] },
+    8:  { total: 6, mains: 2, snacks: 1, milks: 3, times: ['07:00', '10:00', '13:00', '15:30', '17:00', '19:00'] },
+    10: { total: 5, mains: 2, snacks: 1, milks: 2, times: ['07:00', '10:00', '13:00', '15:30', '18:00'] },
+    12: { total: 4, mains: 3, snacks: 1, milks: 0, times: ['07:00', '11:00', '15:00', '18:00'] },
+    18: { total: 4, mains: 3, snacks: 1, milks: 0, times: ['07:00', '11:00', '15:00', '18:00'] },
+    24: { total: 4, mains: 3, snacks: 1, milks: 0, times: ['07:00', '11:00', '15:00', '18:00'] }
+  }
+  const rmap = {}
+  recipes.forEach((r) => { rmap[r.id] = r })
+  Object.keys(SLOT_PIN).forEach((mStr) => {
+    const m = +mStr
+    const pin = SLOT_PIN[mStr]
+    const slots = age.slotsForMonth(m)
+    const cnt = (k) => slots.filter((s) => s.kind === k).length
+    if (slots.length !== pin.total)
+      E(`${m} 月龄时段槽数 ${slots.length}，期望 ${pin.total}（固定菜单实际列数，决策②）`)
+    if (cnt('main') !== pin.mains || cnt('snack') !== pin.snacks || cnt('milk') !== pin.milks)
+      E(`${m} 月龄 main/snack/milk 槽 = ${cnt('main')}/${cnt('snack')}/${cnt('milk')}，期望 ${pin.mains}/${pin.snacks}/${pin.milks}`)
+    if (cnt('main') !== age.mealsForMonth(m))
+      E(`${m} 月龄 main 槽数 ${cnt('main')} 与 mealsForMonth ${age.mealsForMonth(m)} 不一致 —— 时段与餐次脱钩`)
+    if (slots.map((s) => s.time).join() !== pin.times.join())
+      E(`${m} 月龄时刻轴 ${slots.map((s) => s.time).join('/')}，期望 ${pin.times.join('/')}`)
+
+    const p = plan.generate({
+      months: m, issues: [], safeFoodIds: foods.map((f) => f.id),
+      blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+    })
+    if (!p) { E(`plan.generate({months:${m}}) 返回 null`); return }
+    if (!p.slots || !p.slots.length) E(`${m} 月龄计划没带 slots 时段锚点`)
+    if (p.mealsPerDay !== age.mealsForMonth(m))
+      E(`${m} 月龄计划 mealsPerDay=${p.mealsPerDay}，期望 ${age.mealsForMonth(m)}`)
+    p.days.forEach((d) => {
+      if (!d.meals || d.meals.length !== pin.mains)
+        E(`${m} 月龄 ${d.date} 正餐 ${d.meals ? d.meals.length : 0} 餐，期望 ${pin.mains}（与模板 main 槽数一致）`)
+      // 3) 分槽：正餐位零加餐类 + 行同构
+      ;(d.meals || []).forEach((meal) => {
+        const r = rmap[meal.recipeId]
+        if (r && plan.isSnackRecipe(r))
+          E(`${m} 月龄 ${d.date} 正餐位出现加餐类菜「${meal.name}」—— 水果泥/糕类不占正餐位`)
+        if (!Array.isArray(meal.cats) || !meal.cats.length)
+          E(`「${meal.name}」缺 cats —— 餐次行构造口径不一致`)
+        if (!Array.isArray(meal.steps) || !meal.steps.length)
+          E(`「${meal.name}」缺填好克数的 steps`)
+      })
+      if (d.snack) {
+        const r = rmap[d.snack.recipeId]
+        if (r && !plan.isSnackRecipe(r))
+          E(`${m} 月龄 ${d.date} 加餐位排了非加餐类菜「${d.snack.name}」`)
+        if (!Array.isArray(d.snack.cats) || !d.snack.cats.length || !d.snack.steps || !d.snack.steps.length)
+          E(`${m} 月龄 ${d.date} 加餐行不完整（cats/steps）—— 加餐行必须与正餐行同构`)
+      } else {
+        E(`${m} 月龄 ${d.date} 没排加餐 —— 加餐池不应为空（水果泥/糕饼均可用）`)
+      }
+      if (m >= 8 && !d.catApplicable)
+        E(`${m} 月龄 catApplicable 应为 true（8 月起才该作硬要求）`)
+    })
+    // 4) 加餐计入当日类别：6 月龄正餐 1 餐，唯一稳定的『水果』只能来自加餐
+    if (m === 6) {
+      p.days.forEach((d) => {
+        if ((d.catNames || []).indexOf('水果') < 0)
+          E(`6 月龄 ${d.date} catNames 缺『水果』—— 加餐没计入当日类别覆盖`)
+      })
+    }
+  })
+
+  // 5) 页面与引擎接线（源码钉）
+  const aj = fs.readFileSync('./utils/age.js', 'utf8')
+  const pj = fs.readFileSync('./utils/plan.js', 'utf8')
+  const ijQ = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const iwQ = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const wsQ = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  if (aj.indexOf('function mealsForMonth') < 0 || aj.indexOf('function slotsForMonth') < 0)
+    E('age.js 缺 mealsForMonth / slotsForMonth —— 餐次与时段锚点没有事实源')
+  if (aj.indexOf('刚起步，一天 1–2 餐') < 0)
+    E('puree 阶段 desc 没跟上 7 月 2 餐（描述与计划打架）')
+  if (pj.indexOf('STRUCT_V = 4') < 0)
+    E('STRUCT_V 没 bump 到 4 —— 结构变了旧缓存不失效，会一直渲染旧结构')
+  if (pj.indexOf('function isSnackRecipe') < 0 || pj.indexOf('const snackPool =') < 0)
+    E('plan.js 缺加餐分池实现（isSnackRecipe / snackPool）')
+  if (ijQ.indexOf('d.timeline = rows') < 0)
+    E('markToday 没生成 day.timeline —— 时段渲染无数据源')
+  if (ijQ.indexOf('p.slots || age.slotsForMonth') < 0)
+    E('markToday 没读 plan.slots（旧计划兜底缺失）')
+  if (ijQ.indexOf('if (d.snack) markLog(d.snack)') < 0)
+    E('markToday 没给加餐行挂打卡态 —— 加餐没法打卡')
+  if (ijQ.indexOf('d.snack ? 1 : 0') < 0)
+    E('day.total 没把加餐算进待打卡 —— 「待打卡 N」少数一个')
+  if (iwQ.indexOf('wx:for="{{day.timeline}}"') < 0)
+    E('index.wxml 没按 day.timeline 渲染时段')
+  if (iwQ.indexOf('slot-kind') < 0 || iwQ.indexOf('辅食 + 奶') < 0)
+    E('时段头缺正/加餐 chip 或「辅食 + 奶」标注')
+  if (wsQ.indexOf('.milk-row') < 0 || wsQ.indexOf('.slot-head') < 0 || wsQ.indexOf('.slot-kind.snack') < 0)
+    E('index.wxss 缺时段样式（.milk-row / .slot-head / .slot-kind.snack）')
+  // 奶参考行：只标时段，不排菜不打卡（方案A 的边界就在这里）
+  const milkAt = iwQ.indexOf('class="milk-row"')
+  if (milkAt < 0) E('index.wxml 缺奶参考行（方案A 含奶时段）')
+  else {
+    const elseAt = iwQ.indexOf('<block wx:else>', milkAt)
+    const milkSeg = iwQ.slice(milkAt, elseAt >= 0 ? elseAt : milkAt + 800)
+    if (milkSeg.indexOf('logMeal') >= 0 || milkSeg.indexOf('checkable') >= 0 || milkSeg.indexOf('toggleMeal') >= 0)
+      E('奶参考行带了打卡/展开入口 —— 奶行只标时段，不可交互排菜')
+    if (milkSeg.indexOf('时段参考') < 0)
+      E('奶参考行缺「时段参考」标注')
+    if (milkSeg.indexOf('{{row.time}}') < 0)
+      E('奶参考行没渲染时刻')
+  }
+
+  // 6) 冻结日的加餐行照抄保留（隐式重排：打卡按 date|recipeId，丢行即断链）
+  const startPast = plan.dateKey(new Date(Date.now() - 3 * 86400000))
+  const oq = {
+    months: 9, issues: [], safeFoodIds: foods.map((f) => f.id),
+    blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+  }
+  const g1 = plan.generate(Object.assign({}, oq, { startDate: startPast }))
+  const g2 = plan.generate(Object.assign({}, oq, { startDate: g1.startDate, frozenDays: g1.days }))
+  if (g1 && g2) {
+    const todayKeyQ = plan.dateKey(new Date())
+    g1.days.forEach((d, i) => {
+      if (d.date > todayKeyQ) return // 未来日允许重排，只查已冻结的
+      if (g2.days[i].date !== d.date) { E(`冻结日错位：${d.date} vs ${g2.days[i].date}`); return }
+      if (g2.days[i].snack !== d.snack)
+        E(`冻结日 ${d.date} 的加餐行没照抄保留 —— 已打卡的加餐会从计划里凭空消失`)
+    })
+  } else E('6q 冻结日测试：plan.generate 返回 null')
+
+  if (errs.length === errsBefore)
+    console.log('  6q 时段锚点与正/加餐分槽：餐次按月龄(6→1/7–11→2/12→3) ✓、各月龄列数与时刻轴 ✓、main槽=餐次 ✓、正餐位零加餐类 ✓、加餐行同构+计入类别 ✓、奶行不可打卡 ✓、冻结日加餐保留 ✓、timeline 接线与样式 ✓')
+}
+
+/* ---------- 6r. 6–7 月强化铁米粉固定口径（v2.9 · ③） ----------
+ * 用量直接引用固定菜单（月龄表，本地存档不入库 → 把值逐字钉进断言）：
+ *   6 月 5g+水50ml、7 月 10g+水70ml；8 月起回通用档（菜单 8 月起米粉只是
+ *   混合菜配料、没有单独用量行）。
+ * 月内节奏承接（v2.9 · ④ 后升级）：6 月已由 MENU_6 菜单锁定逐日入计划
+ *   （见 §6s，含起步阶梯与菜泥/肉泥 1→2→3 勺）；7 月计划仍是整月龄稳态值，
+ *   末 3 天升量由 7 月卡承接 15g+水80ml。
+ * 口径统一：冲泡静置与 6 月卡一致（30 秒，原步骤「1 分钟」撤掉）。
+ * 钉子：① amountForStage 实跑四个月龄 ② 固定值经 {谷物} 真填进步骤
+ *   ③ 静置口径 ④ 计划实跑：6/7 月排到的每餐米粉都必须是固定值
+ *   ⑤ 卡承接文案 + 源码（monthAmount 分支与逐字值）
+ */
+{
+  const errsBefore = errs.length
+  const rice = recipes.find((r) => r.id === 'r_rice_cereal')
+  const F6 = '谷物 5g+水50ml'
+  const F7 = '谷物 10g+水70ml'
+  if (!rice) E('r_rice_cereal 不见了 —— 6–7 月固定口径无从谈起')
+  else {
+    // 1) amountForStage 实跑：6/7 = 固定菜单值（逐字），8/9/18 = 通用档不被泄漏
+    if (plan.amountForStage(rice, 6) !== F6)
+      E(`6 月龄米粉用量「${plan.amountForStage(rice, 6)}」≠ 固定菜单「${F6}」—— 用量没直接引用固定菜单`)
+    if (plan.amountForStage(rice, 7) !== F7)
+      E(`7 月龄米粉用量「${plan.amountForStage(rice, 7)}」≠ 固定菜单「${F7}」`)
+    if (plan.amountForStage(rice, 8) !== '谷物 20–30g')
+      E(`8 月龄米粉应回通用档「谷物 20–30g」—— 固定口径只管 6–7 月（实际 ${plan.amountForStage(rice, 8)}）`)
+    if (plan.amountForStage(rice, 9) !== '谷物 20–30g' || plan.amountForStage(rice, 18) !== '谷物 30–50g')
+      E(`米粉通用档串了（9 月 ${plan.amountForStage(rice, 9)}、18 月 ${plan.amountForStage(rice, 18)}）—— monthAmount 覆盖泄漏到别的月龄`)
+
+    // 2) 固定值必须经 {谷物} 占位符真的填进步骤（克数下沉链路对固定值同样成立）
+    ;[[6, '5g+水50ml'], [7, '10g+水70ml']].forEach(([m, v]) => {
+      const t = plan.fillPortions(rice.steps, plan.amountForStage(rice, m)).join('\n')
+      if (/[{}]/.test(t)) E(`${m} 月龄米粉步骤填数后残留花括号: ${t}`)
+      if (t.indexOf(v) < 0) E(`${m} 月龄米粉固定用量「${v}」没填进步骤 —— 固定菜单口径没落到眼前`)
+    })
+
+    // 3) 静置口径统一：与 6 月卡「静置 30 秒」一致，旧「1 分钟」撤净
+    const st6r = (rice.steps || []).join('\n')
+    if (st6r.indexOf('静置 30 秒') < 0) E('米粉步骤缺「静置 30 秒」—— 与 6 月卡冲泡口径不统一')
+    if (/静置\s*1\s*分钟/.test(st6r)) E('米粉步骤仍写「静置 1 分钟」—— 同一碗粉两种口径')
+
+    // 4) 真生成计划：6/7 月排到的每一餐米粉都必须是固定值（跑到见到为止，防断言空转）
+    ;[[6, F6], [7, F7]].forEach(([m, expectAmt]) => {
+      let hits = 0
+      for (let rep = 0; rep < 30 && hits === 0; rep++) {
+        const pg6r = plan.generate({
+          months: m, issues: [], safeFoodIds: foods.map((f) => f.id),
+          blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
+        })
+        if (!pg6r) { E(`plan.generate({months:${m}}) 返回 null`); break }
+        pg6r.days.forEach((day) => {
+          (day.meals || []).forEach((meal) => {
+            if (meal.recipeId !== rice.id) return
+            hits++
+            if (meal.amount !== expectAmt)
+              E(`${m} 月龄 ${day.date} 米粉用量「${meal.amount}」≠ 固定菜单「${expectAmt}」`)
+            if ((meal.cats || []).join() !== '谷物')
+              E(`${m} 月龄 ${day.date} 米粉 cats「${(meal.cats || []).join('/')}」≠ 谷物 —— 固定用量串没按分类口径解析`)
+            const text = (meal.steps || []).join('\n')
+            if (text.indexOf(expectAmt.slice(3)) < 0)
+              E(`${m} 月龄 ${day.date} 米粉计划步骤没带固定用量「${expectAmt.slice(3)}」`)
+            if (/[{}]/.test(text)) E(`${m} 月龄 ${day.date} 米粉计划步骤残留花括号 —— 没走 fillPortions`)
+          })
+        })
+      }
+      if (!hits) E(`${m} 月龄 30 轮生成都没排到强化铁米粉 —— §6r 断言空转（菜池可疑）`)
+    })
+  }
+
+  // 5) 知识卡承接月内节奏 + 源码钉
+  const gm6 = require('./data/guides')
+  const six6r = JSON.stringify(gm6.sixMonth || [])
+  const sev6r = JSON.stringify(gm6.sevenMonth || [])
+  ;[[/2\.5g/, '起步阶梯 2.5g'], [/40ml/, '起步水量 40ml'],
+    [/5g\+水 60ml/, '第 4–6 天 5g+水60ml'], [/5g\+水 50ml/, '第 7 天起 5g+水50ml'],
+    [/核桃油 2 滴/, '第 7 天起核桃油 2 滴']]
+    .forEach(([re, what]) => { if (!re.test(six6r)) E(`sixMonth 缺「${what}」—— 固定菜单的起步阶梯没承接`) })
+  ;[[/10g\+水 70ml/, '7 月固定用量 10g+水70ml'], [/15g\+水 80ml/, '7 月末 3 天升量 15g+水80ml']]
+    .forEach(([re, what]) => { if (!re.test(sev6r)) E(`sevenMonth 缺「${what}」—— 固定菜单的月内节奏没承接`) })
+
+  const pj6r = fs.readFileSync('./utils/plan.js', 'utf8')
+  const rj6r = fs.readFileSync('./data/recipes.js', 'utf8')
+  if (pj6r.indexOf('recipe.monthAmount') < 0)
+    E('plan.js amountForStage 缺 monthAmount 分支 —— 固定用量实现被回退')
+  if (rj6r.indexOf("monthAmount: { 6: '谷物 5g+水50ml', 7: '谷物 10g+水70ml' }") < 0)
+    E('recipes.js 缺 6/7 月 monthAmount，或值与固定菜单不逐字一致')
+
+  if (errs.length === errsBefore)
+    console.log('  6r 6–7 月强化铁米粉固定口径：6→5g+水50ml、7→10g+水70ml（逐字引用固定菜单）✓、8 月起回通用档 ✓、{谷物} 占位符填数 ✓、静置 30 秒统一 ✓、6 月卡起步阶梯+7 月卡末 3 天升量承接 ✓、计划实跑钉 ✓')
+}
+
+/* ---------- 6s. 6 月主食固定菜单锁定（v2.9 · ④ 用户决策） ----------
+ * 用户口径：「6月份主食安排请严格参照固定食谱，第20天之前15:00加餐都为空白，
+ * 第20天之后加入水果加餐（重新生成计划只修改水果加餐）」。
+ * 菜单口径（存档节奏要点原文）：「水果泥从 6+19 起加入 15:00」—— 用户说的
+ * 「第20天」按菜单取 19（严格参照固定食谱优先）；MENU_6 三十天逐日值逐字断言。
+ * 钉子：① MENU_6 逐日 base+加料逐字钉（30 天全量）+ menuDayOf 锚点 ② 计划实跑：
+ *   正餐恒为米粉+当日菜单用量、步骤带用量、menuDay<19 无加餐（15:00 空白）、
+ *   ≥19 有水果加餐且计入类别 ③ 加料类别进 cats 与采购清单 ④ 有反应剔加料、
+ *   病中/观察中剔未记录加料且不出新食材卡 ⑤ 新食材卡由菜单加料派生
+ *   （1→2→3 勺跟菜单、油脂不进卡、前 3 天为米粉）⑥ 重新生成只改水果
+ *   （正餐逐字相同、水果有变化）⑦ 生日进指纹 ⑧ 6 月卡承接 + 源码钉
+ */
+{
+  const errsBefore = errs.length
+  const rice6s = recipes.find((r) => r.id === 'r_rice_cereal')
+  const rmap6s = {}
+  recipes.forEach((r) => { rmap6s[r.id] = r })
+  const allIds6s = foods.map((f) => f.id)
+
+  // 0) 导出与常量
+  if (!plan.MENU_6 || typeof plan.menuDayOf !== 'function')
+    E('plan.js 缺 MENU_6 / menuDayOf 导出 —— 6 月固定菜单没有事实源')
+  if (plan.MENU_6_SNACK_START !== 19)
+    E(`MENU_6_SNACK_START = ${plan.MENU_6_SNACK_START}，期望 19 —— 菜单节奏要点「水果泥从 6+19 起加入 15:00」`)
+  if (!rice6s) E('r_rice_cereal 不见了 —— 6 月固定菜单锁定无从谈起')
+
+  // 1) MENU_6 三十天逐字钉（base + 加料 label 拼出完整用量串）
+  const M6_PIN = {
+    1: '谷物 2.5g+水40ml', 2: '谷物 2.5g+水40ml', 3: '谷物 2.5g+水40ml',
+    4: '谷物 5g+水60ml', 5: '谷物 5g+水60ml', 6: '谷物 5g+水60ml',
+    7: '谷物 5g+水50ml+核桃油2滴', 8: '谷物 5g+水50ml+核桃油2滴', 9: '谷物 5g+水50ml+核桃油2滴',
+    10: '谷物 5g+水50ml+土豆泥1勺', 11: '谷物 5g+水50ml+土豆泥2勺', 12: '谷物 5g+水50ml+土豆泥3勺',
+    13: '谷物 5g+水50ml+胡萝卜泥1勺', 14: '谷物 5g+水50ml+胡萝卜泥2勺', 15: '谷物 5g+水50ml+胡萝卜泥3勺',
+    16: '谷物 5g+水50ml+猪肉泥1勺', 17: '谷物 5g+水50ml+猪肉泥2勺', 18: '谷物 5g+水50ml+猪肉泥3勺',
+    19: '谷物 5g+水50ml+菠菜泥1勺',
+    20: '谷物 5g+水50ml+菠菜泥2勺+猪肉泥2勺', 21: '谷物 5g+水50ml+菠菜泥3勺+猪肉泥3勺',
+    22: '谷物 5g+水50ml+南瓜泥1勺', 23: '谷物 5g+水50ml+南瓜泥2勺', 24: '谷物 5g+水50ml+南瓜泥3勺',
+    25: '谷物 5g+水50ml+牛肉泥1勺', 26: '谷物 5g+水50ml+牛肉泥2勺', 27: '谷物 5g+水50ml+牛肉泥3勺',
+    28: '谷物 5g+水50ml+西兰花泥1勺',
+    29: '谷物 5g+水50ml+西兰花泥2勺+牛肉泥2勺', 30: '谷物 5g+水50ml+西兰花泥3勺+牛肉泥3勺'
+  }
+  const m6amt = (md) => {
+    const e = plan.MENU_6 && plan.MENU_6[md]
+    if (!e) return null
+    return e.base + (e.add || []).map((a) => '+' + a.label).join('')
+  }
+  Object.keys(M6_PIN).forEach((k) => {
+    if (m6amt(+k) !== M6_PIN[k])
+      E(`MENU_6 第 ${k} 天用量「${m6amt(+k)}」≠ 固定菜单「${M6_PIN[k]}」—— 主食没严格按固定食谱`)
+  })
+  if (plan.menuDayOf('2026-01-01', '2026-07-01') !== 1)
+    E(`menuDayOf 锚点算错：2026-01-01 生日的 2026-07-01 应为菜单第 1 天（实际 ${plan.menuDayOf('2026-01-01', '2026-07-01')}）`)
+  if (plan.menuDayOf('2026-01-01', '2026-07-30') !== 30)
+    E(`menuDayOf 边界算错：2026-01-01 生日的 2026-07-30 应为菜单第 30 天（实际 ${plan.menuDayOf('2026-01-01', '2026-07-30')}）`)
+
+  // 2) 生日锚点 + 计划实跑（窗口 = 今天起 7 天，用 birthOn 把「今天」钉到指定菜单日）
+  const birthOn = (N) => {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const todayKey = plan.dateKey(today)
+    let target = new Date(today.getTime())
+    target.setDate(target.getDate() - (N - 1))
+    let birth = new Date(target.getFullYear(), target.getMonth() - 6, target.getDate())
+    // 月末归一化（如 9-31 回拨 6 个月落成 10-01）会让菜单日偏移，迭代校正
+    for (let it = 0; it < 4; it++) {
+      const md = plan.menuDayOf(plan.dateKey(birth), todayKey)
+      if (md === N) break
+      target.setDate(target.getDate() - (md - N))
+      birth = new Date(target.getFullYear(), target.getMonth() - 6, target.getDate())
+    }
+    return plan.dateKey(birth)
+  }
+  const gen6s = (birth, extra) => plan.generate(Object.assign({
+    months: 6, issues: [], safeFoodIds: allIds6s,
+    blockedFoodIds: [], recordedFoodIds: [], observingCount: 0,
+    birth: birth
+  }, extra || {}))
+  const assertMain = (d, birth, tag) => {
+    const md = plan.menuDayOf(birth, d.date)
+    const meal = d.meals && d.meals[0]
+    if (!meal) { E(`6s ${tag} ${d.date} 没有正餐行`); return md }
+    if (d.meals.length !== 1 || meal.recipeId !== 'r_rice_cereal')
+      E(`6s ${tag} ${d.date} 正餐不是唯一一份强化铁米粉 —— 6 月主食没锁定到固定菜单`)
+    if (meal.amount !== M6_PIN[md])
+      E(`6s ${tag} ${d.date}（菜单第 ${md} 天）用量「${meal.amount}」≠ 固定菜单「${M6_PIN[md]}」`)
+    const text = (meal.steps || []).join('\n')
+    if (text.indexOf(String(M6_PIN[md]).slice(3)) < 0)
+      E(`6s ${tag} ${d.date} 步骤没带菜单用量 —— 固定菜单口径没落到眼前`)
+    if (/[{}]/.test(text)) E(`6s ${tag} ${d.date} 步骤残留花括号 —— 没走 fillPortions`)
+    return md
+  }
+
+  // 窗口 A：今天 = 菜单第 5 天 → 窗口 5–11 全部 <19：正餐锁米粉、15:00 全空白
+  const bA = birthOn(5)
+  const pA = gen6s(bA)
+  if (!pA) E('6s 窗口 A：plan.generate({months:6, birth}) 返回 null')
+  else pA.days.forEach((d) => {
+    const md = assertMain(d, bA, 'A')
+    if (md >= 1 && md <= 18 && d.snack)
+      E(`6s A ${d.date}（菜单第 ${md} 天 <19）不该有加餐 —— 15:00 应为空白`)
+  })
+
+  // 窗口 B：今天 = 菜单第 16 天 → 跨 6+19 边界：16–18 空白、19–22 有水果
+  const bB = birthOn(16)
+  const pB = gen6s(bB)
+  if (!pB) E('6s 窗口 B：plan.generate 返回 null')
+  else {
+    pB.days.forEach((d) => {
+      const md = assertMain(d, bB, 'B')
+      if (md < 19) {
+        if (d.snack) E(`6s B ${d.date}（菜单第 ${md} 天）15:00 不该有加餐 —— 第 19 天之前应为空白`)
+        return
+      }
+      if (!d.snack) { E(`6s B ${d.date}（菜单第 ${md} 天）缺水果加餐 —— 菜单 6+19 起 15:00 加水果泥`); return }
+      const rr = rmap6s[d.snack.recipeId]
+      const isFruit = rr && rr.mainFoods.length > 0 && rr.mainFoods.every((fid) => {
+        const f = foods.find((x) => x.id === fid)
+        return f && f.category === '水果'
+      })
+      if (!isFruit) E(`6s B ${d.date} 加餐「${d.snack.name}」不是水果 —— 菜单 15:00 加餐列是水果泥`)
+      if ((d.catNames || []).indexOf('水果') < 0)
+        E(`6s B ${d.date} catNames 缺『水果』—— 水果加餐没计入当日类别`)
+    })
+    // 加料进采购清单（pork/spinach/pumpkin 覆盖 16–22 日窗口）
+    const shopIds = []
+    ;(pB.shopping || []).forEach((g) => (g.items || []).forEach((it) => shopIds.push(it.foodId)))
+    ;['rice_cereal', 'pork', 'spinach', 'pumpkin'].forEach((fid) => {
+      if (shopIds.indexOf(fid) < 0) E(`6s 采购清单缺「${fid}」—— 菜单加料没进采购`)
+    })
+  }
+
+  // 窗口 C：新食材卡派生（今天 = 第 1 天 → 窗口 1–7）
+  const bC = birthOn(1)
+  const pC = gen6s(bC)
+  if (!pC) E('6s 窗口 C：plan.generate 返回 null')
+  else pC.days.forEach((d) => {
+    const md = plan.menuDayOf(bC, d.date)
+    if (md <= 3) {
+      if (!d.newFood || d.newFood.foodId !== 'rice_cereal')
+        E(`6s C ${d.date}（菜单第 ${md} 天）新食材卡应为强化铁米粉（第一口）—— 实际 ${d.newFood ? d.newFood.foodId : 'null'}`)
+      else if (d.newFood.amount !== '2.5g+水40ml')
+        E(`6s C ${d.date} 米粉卡用量「${d.newFood.amount}」≠ 菜单起步档「2.5g+水40ml」`)
+    } else if (md >= 4 && md <= 6) {
+      if (d.newFood) E(`6s C ${d.date}（菜单第 ${md} 天）不该出新食材卡 —— 菜单此段无新引入`)
+    } else if (md === 7) {
+      if (d.newFood) E(`6s C ${d.date} 油脂不该进新食材卡（foods.js：油不需单独观察）`)
+    }
+  })
+
+  // 窗口 D：菜泥/肉泥卡片（今天 = 第 10 天 → 窗口 10–16，1→2→3 勺跟菜单走）
+  const bD = birthOn(10)
+  const pD = gen6s(bD)
+  const cardPin = { 10: 'potato', 11: 'potato', 12: 'potato', 13: 'carrot', 14: 'carrot', 15: 'carrot', 16: 'pork' }
+  const qtyOf = (md) => (md % 3 === 1 ? '1 勺' : md % 3 === 2 ? '2 勺' : '3 勺')
+  if (!pD) E('6s 窗口 D：plan.generate 返回 null')
+  else pD.days.forEach((d) => {
+    const md = plan.menuDayOf(bD, d.date)
+    const want = cardPin[md]
+    if (!want) return
+    if (!d.newFood || d.newFood.foodId !== want)
+      E(`6s D ${d.date}（菜单第 ${md} 天）新食材卡应为「${want}」—— 实际 ${d.newFood ? d.newFood.foodId : 'null'}（1→2→3 勺跟菜单走）`)
+    else if (d.newFood.amount !== qtyOf(md))
+      E(`6s D ${d.date} 新食材卡量「${d.newFood.amount}」≠ 菜单「${qtyOf(md)}」`)
+  })
+
+  // 4) 安全语义优先：有反应剔加料；病中/观察中剔未记录加料且不出新食材卡
+  const pE = gen6s(bD, { blockedFoodIds: ['potato'] })
+  if (!pE) E('6s 有反应测试：plan.generate 返回 null')
+  else pE.days.forEach((d) => {
+    const md = plan.menuDayOf(bD, d.date)
+    if (md >= 10 && md <= 12) {
+      if (d.meals[0] && d.meals[0].amount !== '谷物 5g+水50ml')
+        E(`6s E ${d.date} 有反应食材（土豆）没从加料剔除 —— 用量「${d.meals[0].amount}」`)
+      if (d.newFood && d.newFood.foodId === 'potato')
+        E(`6s E ${d.date} 有反应食材还挂在新食材卡上 —— §6j 语义不可洗白`)
+    }
+  })
+
+  const pF = gen6s(bD, { sick: true })
+  if (!pF) E('6s 病中测试：plan.generate 返回 null')
+  else pF.days.forEach((d) => {
+    const md = plan.menuDayOf(bD, d.date)
+    if (md >= 10 && d.meals[0] && /\+(土豆泥|胡萝卜泥|猪肉泥)/.test(d.meals[0].amount))
+      E(`6s F ${d.date} 病中仍排了未记录新加料 —— WS/T 678—2020 3.8 暂停新辅食`)
+    if (d.newFood) E(`6s F ${d.date} 病中出了新食材卡 —— 病中不引入新食材`)
+  })
+
+  const pG = gen6s(bD, { recordedFoodIds: ['potato'], observingCount: 1 })
+  if (!pG) E('6s 观察中测试：plan.generate 返回 null')
+  else pG.days.forEach((d) => {
+    const md = plan.menuDayOf(bD, d.date)
+    if (md >= 13 && d.meals[0] && /\+(胡萝卜泥|猪肉泥)/.test(d.meals[0].amount))
+      E(`6s G ${d.date} 观察中仍排了未记录新加料 —— 一次只引入一种（新食材暂停语义）`)
+    if (d.newFood) E(`6s G ${d.date} 观察中出了新食材卡 —— 观察期不再引入新食材`)
+  })
+
+  // 5) 重新生成只改水果：正餐逐字不动、水果加餐有可变性
+  const bH = birthOn(16)
+  const pH1 = gen6s(bH)
+  const pH2 = gen6s(bH)
+  if (!pH1 || !pH2) E('6s 重新生成测试：plan.generate 返回 null')
+  else {
+    pH1.days.forEach((d, i) => {
+      const d2 = pH2.days[i]
+      if (!d2 || !d.meals[0] || !d2.meals[0] ||
+        d.meals[0].amount !== d2.meals[0].amount ||
+        d.meals[0].recipeId !== d2.meals[0].recipeId)
+        E(`6s 重新生成改变了正餐（${d.date}）——「重新生成计划只修改水果加餐」被破坏`)
+    })
+    let fruitVaried = false
+    for (let rep = 0; rep < 8 && !fruitVaried; rep++) {
+      const pa = gen6s(bH)
+      const pb = gen6s(bH)
+      if (!pa || !pb) break
+      for (let i = 0; i < pa.days.length && !fruitVaried; i++) {
+        if (pa.days[i].snack && pb.days[i].snack &&
+          pa.days[i].snack.recipeId !== pb.days[i].snack.recipeId) fruitVaried = true
+      }
+    }
+    if (!fruitVaried) E('6s 8 轮重新生成水果加餐一次没变 —— 水果加餐没有可变性（加权随机失效？）')
+  }
+
+  // 6) 生日进指纹
+  const mkS6s = (birthday) => ({
+    getBaby: () => ({ name: '测试', birthday: birthday }),
+    getIssues: () => [], getSick: () => false,
+    safeFoodIds: () => [], badFoodIds: () => [],
+    recordedFoodIds: () => [], observingFoodIds: () => [],
+    refusedRecipeIds: () => []
+  })
+  const in6s = plan.planInputs(mkS6s(bA))
+  if (!in6s || in6s.birth !== bA)
+    E('planInputs 没带 birth —— 6 月菜单日锚定拿不到生日')
+  const sB6s = plan.planSignature(mkS6s(birthOn(5)))
+  const sC6s = plan.planSignature(mkS6s(birthOn(6)))
+  if (!sB6s || !sC6s || sB6s === sC6s)
+    E('生日没进计划指纹 —— 换生日不触发重算，菜单日会整体错位')
+
+  // 7) 6 月卡承接 + 源码钉
+  const gm6s = require('./data/guides')
+  const six6s = JSON.stringify(gm6s.sixMonth || [])
+  if (!/逐 3 天升级/.test(six6s) || !/6\+19/.test(six6s))
+    E('sixMonth 缺「菜泥/肉泥逐 3 天升级 + 加餐列 6+19 起」—— 固定菜单的月内节奏没承接')
+
+  const pj6s = fs.readFileSync('./utils/plan.js', 'utf8')
+  if (pj6s.indexOf('const MENU_6') < 0 || pj6s.indexOf('function menuDayOf') < 0)
+    E('plan.js 缺 MENU_6 / menuDayOf —— 6 月固定菜单锁定没有实现')
+  if (pj6s.indexOf('birth: baby.birthday') < 0)
+    E('planInputs 没带 birth —— 菜单日锚定拿不到生日')
+  if (pj6s.indexOf("'d' + inputs.birth") < 0)
+    E('planSignature 没把 birth 计入指纹 —— 换生日不重算')
+  if (pj6s.indexOf('MENU_6_SNACK_START') < 0)
+    E('plan.js 缺 MENU_6_SNACK_START —— 水果加餐起始日没有事实源')
+  if (pj6s.indexOf('menuAdd') < 0)
+    E('plan.js 缺 menuAdd（冻结日加料采购补计）—— 隐式重排后采购清单会漏加料')
+
+  if (errs.length === errsBefore)
+    console.log('  6s 6 月主食固定菜单锁定：MENU_6 三十天逐字钉 ✓、正餐恒米粉+当日菜单用量 ✓、15:00 加餐 6+19 前空白/后果实 ✓、加料类别与采购 ✓、有反应/病中/观察中剔加料 ✓、新食材卡菜单派生（1→2→3 勺、油脂不进卡、前 3 天米粉）✓、重新生成只改水果 ✓、生日进指纹 ✓、6 月卡承接 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

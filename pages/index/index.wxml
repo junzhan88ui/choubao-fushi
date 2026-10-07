@@ -123,7 +123,7 @@
                  展开态 → 类别覆盖（非今天时「今天」改说「当日」）。两分支必须贴在一起，
                  中间插注释会打断 wx:if/elif 链 -->
             <view class="day-peek" wx:if="{{!(day.isToday || openDay === day.date)}}">
-              <text class="day-peek-sum">{{day.meals.length}} 餐 · {{day.catCount}} 类</text>
+              <text class="day-peek-sum">{{day.timeline.length}} 段 · {{day.meals.length}} 餐 · {{day.catCount}} 类</text>
               <text class="day-peek-todo" wx:if="{{day.checkable && day.total > day.done}}">待打卡 {{day.total - day.done}}</text>
             </view>
             <view class="cat-row" wx:elif="{{day.meals.length}}">
@@ -152,38 +152,54 @@
             <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
           </view>
 
-          <view class="meal" wx:for="{{day.meals}}" wx:key="key" wx:for-item="meal"
-                data-key="{{meal.key}}" bindtap="toggleMeal">
-            <view class="meal-main">
-              <text class="meal-name">{{meal.name}}</text>
-              <!-- v2.7：质地与类别改小标签、随菜名同行基线对齐；
-                   原来那行「质地 · 克数」灰字拆掉，克数下沉到展开的步骤里 -->
-              <text class="tag tag-grey meal-tag">{{meal.texture}}</text>
-              <text class="tag tag-grey meal-tag" wx:for="{{meal.cats}}" wx:key="*this">{{item}}</text>
+          <!-- 时段锚点（v2.9 · 方案A）：奶 = 参考行（只标时段，不排菜不打卡）；
+               正餐/加餐 = 时段头 + 餐次行（加餐行与正餐行同构，打卡/展开同一套） -->
+          <block wx:for="{{day.timeline}}" wx:key="key" wx:for-item="row">
+            <view class="milk-row" wx:if="{{row.kind === 'milk'}}">
+              <text class="slot-time">{{row.time}}</text>
+              <text class="milk-name">奶</text>
+              <text class="milk-note">时段参考</text>
             </view>
-            <view class="meal-steps fx-in" wx:if="{{expanded === meal.key}}">
-              <view class="step" wx:for="{{meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
-            </view>
-            <!-- 每餐打卡（v2.1）：只在日期 ≤ 今天时出现；按钮用 catchtap，
-                 否则冒泡到 meal 的 bindtap=toggleMeal 会顺手展开步骤 -->
-            <view class="meal-log" wx:if="{{day.checkable}}">
-              <block wx:if="{{meal.log}}">
-                <text class="ml-state ml-s-{{meal.log.status}}">已记录 · {{meal.log.label}}</text>
-                <text class="ml-undo" catchtap="undoMealLog"
-                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}">撤销</text>
-              </block>
-              <block wx:else>
-                <view class="ml-btn" catchtap="logMeal"
-                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="full">吃完了</view>
-                <view class="ml-btn" catchtap="logMeal"
-                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="some">吃一些</view>
-                <view class="ml-btn" catchtap="logMeal"
-                      data-date="{{day.date}}" data-rid="{{meal.recipeId}}" data-status="refused">没吃</view>
-              </block>
-              <view class="ml-btn ml-btn-react" catchtap="reactionMeal"
-                    data-date="{{day.date}}" data-rid="{{meal.recipeId}}">有反应</view>
-            </view>
-          </view>
+            <block wx:else>
+              <view class="slot-head">
+                <text class="slot-time">{{row.time}}</text>
+                <text class="slot-name">{{row.label}}</text>
+                <text class="slot-kind {{row.kind === 'snack' ? 'snack' : ''}}">{{row.kind === 'snack' ? '加餐' : '正餐'}}</text>
+                <text class="slot-withmilk" wx:if="{{row.withMilk}}">辅食 + 奶</text>
+              </view>
+              <view class="meal" data-key="{{row.meal.key}}" bindtap="toggleMeal">
+                <view class="meal-main">
+                  <text class="meal-name">{{row.meal.name}}</text>
+                  <!-- v2.7：质地与类别改小标签、随菜名同行基线对齐；
+                       原来那行「质地 · 克数」灰字拆掉，克数下沉到展开的步骤里 -->
+                  <text class="tag tag-grey meal-tag">{{row.meal.texture}}</text>
+                  <text class="tag tag-grey meal-tag" wx:for="{{row.meal.cats}}" wx:key="*this">{{item}}</text>
+                </view>
+                <view class="meal-steps fx-in" wx:if="{{expanded === row.meal.key}}">
+                  <view class="step" wx:for="{{row.meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>
+                </view>
+                <!-- 每餐打卡（v2.1）：只在日期 ≤ 今天时出现；按钮用 catchtap，
+                     否则冒泡到 meal 的 bindtap=toggleMeal 会顺手展开步骤 -->
+                <view class="meal-log" wx:if="{{day.checkable}}">
+                  <block wx:if="{{row.meal.log}}">
+                    <text class="ml-state ml-s-{{row.meal.log.status}}">已记录 · {{row.meal.log.label}}</text>
+                    <text class="ml-undo" catchtap="undoMealLog"
+                          data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}">撤销</text>
+                  </block>
+                  <block wx:else>
+                    <view class="ml-btn" catchtap="logMeal"
+                          data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="full">吃完了</view>
+                    <view class="ml-btn" catchtap="logMeal"
+                          data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="some">吃一些</view>
+                    <view class="ml-btn" catchtap="logMeal"
+                          data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="refused">没吃</view>
+                  </block>
+                  <view class="ml-btn ml-btn-react" catchtap="reactionMeal"
+                        data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}">有反应</view>
+                </view>
+              </view>
+            </block>
+          </block>
 
           <view class="meal-hint muted" wx:if="{{!day.meals.length}}">暂无合适的菜谱，去「我的」补一下已吃食材</view>
           </view><!-- /day-body：非今天的天到这里收拢 -->
