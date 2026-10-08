@@ -597,7 +597,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.js 还留着 saltTipFor —— 喂养提醒卡已删，这是死代码')
 
   const BP = [
-    [/额外加盐/, '不额外加盐的口径'],
+    // 容错：文案从「不额外加盐」改成「不加盐」也算在（钉的是口径，不是用词）
+    [/不加盐/, '不加盐的口径'],
     [/酱油/, '酱油等含盐调料也不加']
   ]
   BP.forEach(([re, what]) => {
@@ -1237,15 +1238,20 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
         E('points 段里有空 title/text —— 会渲染出空的小标题或空段落')
 
       const all = JSON.stringify(pt.points)
+      // v2.10 用户删掉「新食物加量有节奏」「确保饮食卫生」两段 → 原钉的
+      // 中午（过敏段）、洗手/生熟（卫生段）随之作废，只留仍存在的四条口径
       const PPT = [
         [/尽快/, '尽快添加的口径'],
         [/第一口辅食/, '第一口辅食怎么喂'],
         [/富含铁/, '首选富含铁的泥糊（补铁）'],
-        [/2[–-]3 天/, '新食材观察 2–3 天'],
-        [/中午/, '新食材安排中午'],
-        [/洗手|生熟/, '饮食卫生']
+        [/2[–-]3 天/, '新食材观察 2–3 天']
       ]
       PPT.forEach(([re, what]) => { if (!re.test(all)) E(`points 段丢了「${what}」—— 6 月龄要点不完整`) })
+      // 反向钉：删掉的两段不许再加回来
+      ;['新食物加量有节奏', '确保饮食卫生'].forEach((t) => {
+        if (all.indexOf(t) >= 0)
+          E(`points 段又出现了「${t}」—— v2.10 已按用户要求删除，别加回来`)
+      })
     }
 
     // cook 卡：七种做法一种都不能少（用户点名：肉/肝/鱼/虾/菜/薯/果）
@@ -1293,7 +1299,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.wxss 的 .guide-arrow 没有 margin-left:auto —— 箭头不会靠右，看不出可点开')
 
   if (errs.length === errsBefore)
-    console.log('  6 月龄说明：points(7段：6要点+加量节奏并入)+cook(九种做法、排最后，含起步阶梯) ✓、口径（尽快/第一口/铁/2–3天/中午/卫生）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
+    console.log('  6 月龄说明：points(5段，加量节奏/卫生两段已按用户要求删+反向钉)+cook(八行、排最后，含起步阶梯) ✓、口径（尽快/第一口/铁/2–3天）在 ✓、闸门=满6不满7 ✓、默认收起+toggle 接通 ✓、箭头靠右 ✓')
 }
 
 /* ---------- 6j. 「有反应」(bad) 不可被洗白：藏按钮 + JS 拨卫 + storage 硬拒（H-2） ----------
@@ -1971,8 +1977,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('regenerate 没复位 openDay —— 重新生成后旧展开态残留')
   if (iw.indexOf('wx:if="{{day.isToday || openDay === day.date}}"') < 0)
     E('展开条件没用 day.isToday 短路 —— 「今天恒展开」的语义没了')
-  if (iw.indexOf('day.timeline.length}} 段 · {{day.meals.length}} 餐 · {{day.catCount}} 类') < 0)
-    E('折叠摘要缺 段数·餐数·类数 —— 折叠把时段结构与覆盖信息弄丢了')
+  // 折叠摘要只留 餐数·类数（v2.10 用户要求：不再出现「N 段」）—— 正向钉新格式 + 反向钉段数已删
+  if (iw.indexOf('{{day.meals.length}} 餐 · {{day.catCount}} 类') < 0)
+    E('折叠摘要缺 餐数·类数 —— 折叠把覆盖信息弄丢了')
+  if (iw.indexOf('段 · {{day.meals.length}}') >= 0)
+    E('折叠摘要还在显示「N 段」—— 段数已按用户要求从计划页删掉')
   if (iw.indexOf('day.total > day.done') < 0 || ij.indexOf('d.done = done') < 0)
     E('「待打卡 N」链路断了（wxml 没读 day.total/day.done，或 js 没算）')
 
@@ -2267,11 +2276,12 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   })
 
   // 4) 6 月龄卡的海报补充：冲泡比例 / 过敏症状清单 / 午后水果 / 早期红肉 / 叶菜剁碎
-  //    + 喂养重点表的加量节奏（1→2→3 勺、菜泥不超米糊一半）
+  //    v2.10 用户删掉「加量节奏」「饮食卫生」两段 → 原钉的 1 勺、菜泥不超米糊一半作废；
+  //    空格改 \s* 容错 —— 文案里的排版空格不该让自检卡死
   const six = JSON.stringify(gm.sixMonth || [])
-  ;[[/50\s*ml/, '冲泡 50ml 温水'], [/30 秒/, '静置 30 秒'], [/嘴边/, '过敏症状（嘴边发红）'],
+  ;[[/50\s*ml/, '冲泡 50ml 温水'], [/30\s*秒/, '静置 30 秒'], [/嘴边/, '过敏症状（嘴边发红）'],
     [/肛周/, '过敏症状（肛周发红）'], [/午后/, '水果午后吃'], [/红肉/, '尽早加红肉'],
-    [/剁碎/, '叶菜剁碎不用打泥'], [/1 勺/, '新食物第 1 天 1 勺'], [/米糊的一半/, '菜泥不超米糊一半']]
+    [/剁碎/, '叶菜剁碎不用打泥']]
     .forEach(([re, what]) => {
     if (!re.test(six)) E(`sixMonth 补充丢了「${what}」—— 公开资料的要点没写进去`)
   })
@@ -2315,7 +2325,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E(`r_broccoli_egg_custard 起始月龄 ${cust.monthRange[0]} —— 9 月龄卡说蒸蛋羹可以安排，菜池却排不进去（建议落不了地）`)
 
   if (errs.length === errsBefore)
-    console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/加量节奏…) ✓、蛋黄渐进与倍粥参考落步骤 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
+    console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/午后水果…) ✓、蛋黄渐进与倍粥参考落步骤 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
 }
 
 /* ---------- 6q. 时段锚点与正/加餐分槽（v2.9） ----------
@@ -2328,7 +2338,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  *   3) 分槽：正餐位零加餐类（水果泥/糕饼不占正餐位）、加餐位必须是加餐类、
  *      加餐行与正餐行同构（cats/克数/步骤齐）
  *   4) 加餐计入当日类别（6 月龄 catNames 必含『水果』）、catApplicable 8 月起为 true
- *   5) 页面接线：timeline 派生、奶行不打卡、时段头 chip、样式与摘要段数
+ *   5) 页面接线：timeline 派生、奶行不打卡、时段头 chip、样式与折叠摘要
  *   5b) 时段头同行样式：不渲染时段名、时刻在菜名前、chip 在小标签后、
  *        「辅食 + 奶」与菜名同行且右缘对齐「时段参考」列
  *   6) 冻结日的加餐行照抄保留（打卡按 date|recipeId 落库，丢行即断链）
@@ -2658,8 +2668,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const six6r = JSON.stringify(gm6.sixMonth || [])
   const sev6r = JSON.stringify(gm6.sevenMonth || [])
   ;[[/2\.5g/, '起步阶梯 2.5g'], [/40ml/, '起步水量 40ml'],
-    [/5g\+水 60ml/, '第 4–6 天 5g+水60ml'], [/5g\+水 50ml/, '第 7 天起 5g+水50ml'],
-    [/核桃油 2 滴/, '第 7 天起核桃油 2 滴']]
+    [/5g\+水\s*60ml/, '第 4–6 天 5g+水60ml'], [/5g\+水\s*50ml/, '第 7 天起 5g+水50ml'],
+    [/核桃油\s*2\s*滴/, '第 7 天起核桃油 2 滴']]
     .forEach(([re, what]) => { if (!re.test(six6r)) E(`sixMonth 缺「${what}」—— 固定菜单的起步阶梯没承接`) })
   ;[[/10g\+水 70ml/, '7 月固定用量 10g+水70ml'], [/15g\+水 80ml/, '7 月末 3 天升量 15g+水80ml']]
     .forEach(([re, what]) => { if (!re.test(sev6r)) E(`sevenMonth 缺「${what}」—— 固定菜单的月内节奏没承接`) })
@@ -2913,11 +2923,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('生日没进计划指纹 —— 换生日不触发重算，菜单日会整体错位')
 
   // 7) 6 月卡承接 + 源码钉
-  const gm6s = require('./data/guides')
-  const six6s = JSON.stringify(gm6s.sixMonth || [])
-  if (!/逐 3 天升级/.test(six6s) || !/6\+19/.test(six6s))
-    E('sixMonth 缺「菜泥/肉泥逐 3 天升级 + 加餐列 6+19 起」—— 固定菜单的月内节奏没承接')
-
+  //    v2.10 用户删掉 cook 卡整行「固定菜单：菜泥/肉泥逐 3 天升级 + 加餐列 6+19 起」
+  //    → 指南卡不再重复承接月内节奏，改由 plan.js MENU_6 自身保证（下面源码钉仍在）
   const pj6s = fs.readFileSync('./utils/plan.js', 'utf8')
   if (pj6s.indexOf('const MENU_6') < 0 || pj6s.indexOf('function menuDayOf') < 0)
     E('plan.js 缺 MENU_6 / menuDayOf —— 6 月固定菜单锁定没有实现')
@@ -2931,7 +2938,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('plan.js 缺 menuAdd（冻结日加料采购补计）—— 隐式重排后采购清单会漏加料')
 
   if (errs.length === errsBefore)
-    console.log('  6s 6 月主食固定菜单锁定：MENU_6 三十天逐字钉 ✓、正餐恒米粉+当日菜单用量 ✓、15:00 加餐 6+19 前空白/后果实 ✓、加料类别与采购 ✓、有反应/病中/观察中剔加料 ✓、新食材卡菜单派生（1→2→3 勺、油脂不进卡、前 3 天米粉）✓、重新生成只改水果 ✓、生日进指纹 ✓、6 月卡承接 ✓')
+    console.log('  6s 6 月主食固定菜单锁定：MENU_6 三十天逐字钉 ✓、正餐恒米粉+当日菜单用量 ✓、15:00 加餐 6+19 前空白/后果实 ✓、加料类别与采购 ✓、有反应/病中/观察中剔加料 ✓、新食材卡菜单派生（1→2→3 勺、油脂不进卡、前 3 天米粉）✓、重新生成只改水果 ✓、生日进指纹 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

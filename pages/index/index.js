@@ -36,6 +36,11 @@ function markToday(p) {
         ? { status: e.status, label: LABEL[e.status] || e.status, reaction: e.reaction || '' }
         : null
       if (m.log) done++
+      // 步骤展开态（v2.10 · 用户需求）：今天的餐默认展开详情，其余日子默认收起。
+      // 与 meal.log 同款派生态 —— setPlan 的快照发生在 markToday 之前，不写回缓存。
+      // 一餐一个开关（meal.open）而不是共用一个 expanded 字符串：今天有几餐就都展着，
+      // 点其中一餐不会把其它餐顶掉（字符串方案一次只能开一餐）。
+      m.open = d.isToday
     }
     ;(d.meals || []).forEach(markLog)
     // v2.9 加餐行与正餐行同构，一并挂打卡态（奶参考行不打卡）
@@ -127,8 +132,8 @@ Page({
     tab: 'plan',
     planData: null,
     dueObs: [],
-    expanded: '',
     // 当前展开的非今天日期（'' = 全折起）；今天恒展开，不进这个状态（v2.7 · ①）
+    // 餐级步骤展开态不在这儿 —— 是行上的 meal.open（markToday 按 isToday 现算）
     openDay: ''
   },
 
@@ -241,7 +246,7 @@ Page({
     base.stageLabel = stage.label
     base.stageDesc = stage.desc
     base.planData = p
-    base.expanded = ''
+    // 餐级展开态由 markToday 按「是不是今天」重算（今天的餐默认展开），这里只复位日期级折叠
     base.openDay = ''
     this.setData(base)
   },
@@ -250,9 +255,30 @@ Page({
     this.setData({ tab: e.currentTarget.dataset.tab })
   },
 
+  // 步骤展开/收起（v2.10 · 改成每餐独立开关 meal.open）：时段头与餐次卡都进这里。
+  // 默认值在 markToday 里给（今天 true、其余 false），所以只翻命中的那一餐 ——
+  // 今天多餐时点 A 不会连带收起 B。打卡按钮是 catchtap，冒不上来（§6k 钉死）。
+  //
+  // ⚠ 回写必须整包（setData 整个 planData），不能用路径式 setData：
+  //   setData({'planData.days.0.meals.0.open': v}) 会把 planData.days 写坏 ——
+  //   整周计划只剩一张天卡、摘要数字全空（v2.10 实测崩坏；storage 里没坏，
+  //   onShow/下拉 refresh 会重建）。本页 refresh/regenerate 走的就是整包通道。
   toggleMeal(e) {
     const key = e.currentTarget.dataset.key
-    this.setData({ expanded: this.data.expanded === key ? '' : key })
+    const p = this.data.planData
+    if (!p || !p.days) return
+    let hit = null
+    for (let i = 0; i < p.days.length && !hit; i++) {
+      const d = p.days[i]
+      const meals = d.meals || []
+      for (let j = 0; j < meals.length; j++) {
+        if (meals[j].key === key) { hit = meals[j]; break }
+      }
+      if (!hit && d.snack && d.snack.key === key) hit = d.snack
+    }
+    if (!hit) return
+    hit.open = !hit.open
+    this.setData({ planData: p })
   },
 
   // 折叠天展开/收起（v2.7 · ①）：今天恒展开 —— 点它不进这里（guard），
@@ -331,7 +357,7 @@ Page({
           return
         }
         storage.setPlan(p)
-        that.setData({ planData: markToday(p), tab: 'plan', expanded: '', openDay: '' })
+        that.setData({ planData: markToday(p), tab: 'plan', openDay: '' })
         wx.showToast({ title: '已重新生成', icon: 'success' })
       }
     })
