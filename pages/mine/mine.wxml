@@ -57,7 +57,7 @@
         <text class="muted">{{item.date}} 出现反应</text>
       </view>
       <view class="muted rd-empty" wx:if="{{!badList.length}}">没有标记过「有反应」的食材</view>
-      <view class="muted rd-hint" wx:if="{{badList.length}}">已永久排除、不再排进菜单；点食材进详情页可清除记录重新引入。</view>
+      <view class="muted rd-hint" wx:if="{{badList.length}}">已永久排除、不再排进菜单；到档案页「有反应的食材」卡里点「清除记录」可重新引入。</view>
     </view>
 
     <view class="row row-tap {{openRow === 'all' ? 'row-open' : ''}}"

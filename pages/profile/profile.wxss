@@ -85,7 +85,7 @@
 
 /* 「敏」= 常见致敏食材，中性描边，不做红色警示 */
 /* chip 内 emoji（v2.0）：托底由 chip 自己的分类色承担，emoji 不再套一层徽标 */
-/* v2.15 · 方案A：没到月龄的食材压淡 —— 提示「现在还不能引入」，
+/* v2.25 · 方案A：没到月龄的食材压淡 —— 提示「现在还不能引入」，
    点击时 toggleFood 会给具体月龄的提示 */
 .chip-early {
   opacity: 0.55;
@@ -114,7 +114,7 @@
   border-top: none;
 }
 
-/* v2.15 · 方案A：观察期由用户自己喂 —— 首次喂法（用量 + 做法）必须看得见 */
+/* v2.25 · 方案A：观察期由用户自己喂 —— 首次喂法（用量 + 做法）必须看得见 */
 .obs-feed {
   font-size: var(--fs-xs);
   line-height: 1.7;
@@ -154,6 +154,17 @@
 .mini-bad {
   background: var(--c-red-bg);
   color: var(--c-red);
+}
+
+/* 「标记有反应」入口行（v2.25 自首页餐卡移入本页） */
+.mark-bad-row {
+  margin: 6rpx 0 18rpx;
+}
+
+/* 「清除记录」（v2.25 自食材详情页移入本页：bad 的解除通道只此一处） */
+.mini-clear {
+  background: var(--c-muted);
+  color: var(--c-text-2);
 }
 
 /* 搜索框沿用 app.wxss 的全局 .search（默认即卡片内嵌样式） */

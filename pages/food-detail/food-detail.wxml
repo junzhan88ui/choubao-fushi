@@ -21,11 +21,12 @@
       <text>当前状态：</text>
       <text class="fd-status-val st-{{status}}">{{statusText}}</text>
     </view>
-    <view class="fd-warn" wx:if="{{status === 'bad'}}">标过「有反应」的食材不会排进菜单。要重新引入：先点「清除记录」，再按新食材少量试一次。</view>
+    <!-- v2.25：「清除记录」按钮与 clearRecord 一并移到档案页「有反应的食材」卡（bad 的另一条解除通道） -->
+    <view class="fd-warn" wx:if="{{status === 'bad'}}">标记为「食物过敏」的食材不会排进食谱。重新加入食谱请点下方按钮，再按新食材少量试一次。</view>
     <view class="fd-btns">
-      <view class="mini-btn mini-ok" wx:if="{{introducible && status !== 'safe' && status !== 'bad'}}" bindtap="markSafe">已经吃过，没问题</view>
-      <view class="mini-btn mini-obs" wx:if="{{introducible && status !== 'observing' && status !== 'bad'}}" bindtap="markObserving">今天第一次试</view>
-      <view class="mini-btn mini-clear" wx:if="{{status !== 'new'}}" bindtap="clearRecord">清除记录</view>
+      <!-- 已经吃过：bad 态下也显示 —— 这就是重新加入的入口（markSafe 的 bad 分支走确认弹窗，见 §6j） -->
+      <view class="mini-btn mini-ok" wx:if="{{introducible && status !== 'safe'}}" bindtap="markSafe">已经吃过，没问题</view>
+      <view class="mini-btn mini-bad" wx:if="{{introducible && status !== 'bad'}}" bindtap="markBad">食物过敏</view>
     </view>
   </view>
 

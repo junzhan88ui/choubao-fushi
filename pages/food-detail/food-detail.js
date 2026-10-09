@@ -8,7 +8,7 @@ const plan = require('../../utils/plan')
 const STATUS_TEXT = {
   safe: '已经吃过，没问题',
   observing: '观察中',
-  bad: '上次有反应',
+  bad: '有反应',
   new: '还没引入'
 }
 
@@ -79,11 +79,27 @@ Page({
   },
 
   markSafe() {
-    // bad 状态下按钮已藏（wxml），这里再挡一层：storage 层会拒写，
-    // 但不拦住就会弹「已加入菜单候选」的假成功 toast（H-2）
     const intro = storage.findIntro(this.foodId)
+    // bad 分支（§6j）：storage 层硬拒 bad→safe，所以这里绝不能直接标 ——
+    // v2.25 起允许用户显式「重新加入」，但必须先弹确认框（一次误触不该洗白过敏记录），
+    // 确认后走 removeIntroduced 解除再按正路重新标记。绕过弹窗直接调 markIntroduced
+    // 会被 storage 拒写（假成功 toast 防住了，H-2 的底线不变）。
     if (intro && intro.status === 'bad') {
-      wx.showToast({ title: '有反应的食材要先清除记录', icon: 'none' })
+      const that = this
+      wx.showModal({
+        title: '重新加入食谱？',
+        content: '「' + this.data.food.name + '」之前标记过食物过敏，已从食谱中排除。确认没问题后才会重新排进去，建议先按新食材少量试一次。',
+        confirmText: '重新加入',
+        success(res) {
+          if (!res.confirm) return
+          storage.removeIntroduced(that.foodId)
+          storage.markIntroduced(that.foodId)
+          storage.setIntroStatus(that.foodId, 'safe')
+          storage.setPlan(null)
+          that.build()
+          wx.showToast({ title: '已重新加入菜单候选', icon: 'success' })
+        }
+      })
       return
     }
     storage.markIntroduced(this.foodId)
@@ -93,31 +109,30 @@ Page({
     wx.showToast({ title: '已加入菜单候选', icon: 'success' })
   },
 
-  markObserving() {
-    const intro = storage.findIntro(this.foodId)
-    if (intro && intro.status === 'bad') {
-      wx.showToast({ title: '有反应的食材要先清除记录', icon: 'none' })
-      return
-    }
-    storage.markIntroduced(this.foodId)
-    storage.setPlan(null)
-    this.build()
-    wx.showToast({ title: '已记录，观察 3 天', icon: 'none' })
-  },
-
-  clearRecord() {
+  /** 「食物过敏」（v2.25 新增）：把当前食材标成 bad —— 永久排除，不再排进食谱。
+   *  与档案页「＋ 标记有反应」同一正路：markIntroduced → setIntroStatus('bad')，
+   *  反应当天日期随记录写入（§6j）。重新加入走上面 markSafe 的确认弹窗。 */
+  markBad() {
     const that = this
     wx.showModal({
-      title: '清除记录',
-      content: '会把这种食材从记录里移除，之后不会再排进菜单。',
+      title: '标记为食物过敏',
+      content: '会把「' + this.data.food.name + '」当作过敏食材，之后不再排进食谱。要重新加入请在本页确认。',
+      confirmText: '标记过敏',
       success(res) {
         if (!res.confirm) return
-        storage.removeIntroduced(that.foodId)
+        storage.markIntroduced(that.foodId)
+        storage.setIntroStatus(that.foodId, 'bad')
         storage.setPlan(null)
         that.build()
+        wx.showToast({ title: '已标记过敏，不再排进食谱', icon: 'none' })
       }
     })
   },
+
+  // v2.25：详情页标记按钮就这两颗 ——「已经吃过，没问题」(markSafe，bad 态下带确认弹窗
+  // 充当重新加入入口) 与「食物过敏」(markBad)。「清除记录」(clearRecord)、「今天第一次试」
+  // (markObserving) 都在档案页：解除 bad 的另一条通道是「有反应的食材」卡，
+  // 观察中只由档案页勾选致敏食材产生。
 
   toggleSteps(e) {
     const id = e.currentTarget.dataset.id

@@ -42,7 +42,7 @@
 }
 
 .fd-warn {
-  margin-top: 16rpx;
+  margin: 16rpx 0;
   font-size: var(--fs-md);
   color: var(--c-amber-ink);
   background: var(--c-amber-bg);
@@ -81,15 +81,15 @@
   color: var(--c-green-dark);
 }
 
-.mini-obs {
-  background: var(--c-amber-bg);
-  color: var(--c-amber-ink);
+/* 「食物过敏」（v2.25 新增）：标 bad 的入口，与档案页 mini-bad 同色 */
+.mini-bad {
+  background: var(--c-red-bg);
+  color: var(--c-red);
 }
 
-.mini-clear {
-  background: var(--c-muted);
-  color: var(--c-text-2);
-}
+/* .mini-obs 已随「今天第一次试」按钮移入档案页引入流程 —— 死样式删掉 */
+
+/* .mini-clear 已随「清除记录」按钮移到档案页（profile.wxss）—— 死样式删掉 */
 
 /* 引入方法 */
 .fd-method {

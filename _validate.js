@@ -233,11 +233,11 @@ if (noSafe) {
 /* ---------- 5b. 过敏原引入策略（对齐官方指南准则二） ----------
  * 官方：「不盲目回避易过敏食物，1岁内适时引入各种食物」，
  *       且「1岁内婴儿避免食用这些食物对防止食物过敏未见明显益处」。
- * v2.15 · 方案A：引入不再由引擎排序自动排（旧的「不能排到最后」已无对象），
+ * v2.25 · 方案A：引入不再由引擎排序自动排（旧的「不能排到最后」已无对象），
  * 改钉档案页这条通道 —— 门得关着、入口得走观察期、还得按月龄拦。
  */
 {
-  // v2.15 · 方案A：引擎不再自动排新食材（档案页是引入的唯一入口），所以旧的
+  // v2.25 · 方案A：引擎不再自动排新食材（档案页是引入的唯一入口），所以旧的
   // 「26 周自动引入序列」没有对象可扫 —— 改钉档案页这条通道的三个真条件：
   //   ① 门得关着：一条记录都没有时，计划里不许出现含致敏食材的菜；
   //   ② 过了门就得开：全部标 safe 后致敏食材必须真进菜（见下方 allSafe）；
@@ -366,7 +366,7 @@ if (allSafe) {
 
 /* ---------- 5d. 生病中状态（对齐 WS/T 678—2020 3.8） ----------
  * 「患病期间暂停添加新的辅食。……病愈后，及时恢复正常饮食。」
- * v2.15 · 方案A：引擎已不产出任何新食材，这里只钉「病中仍要正常排餐」；
+ * v2.25 · 方案A：引擎已不产出任何新食材，这里只钉「病中仍要正常排餐」；
  * 「病中剔未记录加料」这条真正的新辅食暂停语义由 6s F 钉。
  */
 ;[8, 12, 18].forEach(function (m) {
@@ -392,7 +392,7 @@ if (typeof age.isRecipeSuitable !== 'function') E('age.js 缺 isRecipeSuitable')
 if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
 /* ---------- 5e. 禁食提示条目不能被引入 ----------
- * foods 里的 honey 是「禁食提示」，不是待引入的辅食。v2.15 · 方案A 之后引擎
+ * foods 里的 honey 是「禁食提示」，不是待引入的辅食。v2.25 · 方案A 之后引擎
  * 已不排新食材，这道门落到档案页：honey 不进可勾选列表（rebuild 直接 continue），
  * 用户点不到；菜谱侧也不许引用它（下方 recipes 扫描）。
  */
@@ -412,7 +412,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     if (hit.length) E(`${r.id} 引用了不可引入的食材 ${hit.join('/')}（禁食条目不应进菜谱）`)
   })
 
-  // v2.15 · 方案A：引擎不再排新食材，这道门改到档案页 —— honey 必须被挡在
+  // v2.25 · 方案A：引擎不再排新食材，这道门改到档案页 —— honey 必须被挡在
   // 可勾选列表之外（profile.rebuild 里直接 continue），用户连点都点不到。
   // 旧的「构造唯一候选、看它会不会被排成新食材卡」已随方案A删除：候选池不复
   // 存在，扫 day.newFood 恒为 null，只会是假通过。
@@ -1019,7 +1019,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       ]
     },
     {
-      where: '采购清单（v2.15 · 方案A 后首页已无新食材卡）',
+      where: '采购清单（v2.25 · 方案A 后首页已无新食材卡）',
       js: './utils/plan.js', wxml: './pages/index/index.wxml',
       binds: ['{{it.icon}}', 'it.iconBg'],
       cls: [
@@ -1042,13 +1042,13 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     })
   })
 
-  // v2.15 · 方案A 后 plan.js 只喂采购清单一处（新食材卡随引擎停排一并删除）
+  // v2.25 · 方案A 后 plan.js 只喂采购清单一处（新食材卡随引擎停排一并删除）
   const planJs = rd('./utils/plan.js')
   if ((planJs.match(/iconFor\(/g) || []).length < 1)
     E('plan.js 里 iconFor 一次都没调 —— 采购清单的图标/底色断了')
 
   // 该 flex 的地方必须 flex：徽标是块级 view，不 flex 会把标题/标签撑成两行
-  // v2.15 · 方案A：.newfood-title 已随首页新食材卡删除，不再进这张表
+  // v2.25 · 方案A：.newfood-title 已随首页新食材卡删除，不再进这张表
   const flexChecks = [
     ['.shop-label', rd('./pages/index/index.wxss'), 'index.wxss'],
     ['.fd-title', rd('./pages/food-detail/food-detail.wxss'), 'food-detail.wxss']
@@ -1296,8 +1296,13 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  * bad 是系统里唯一的永久排除机制。旧版详情页按钮只排 safe/observing、
  * markIntroduced 又无条件覆写 —— 一次点按就把过敏食材洗白成「安全」，
  * 连反应日期都覆写丢失（档案页 profile.js 的拦截被整条绕过）。
- * 三层各司其职，缺一层都算回归：藏按钮=防误触，JS 拨卫=防假成功 toast，
- * storage 拒写=兜底不变量（bad 只能经 removeIntroduced 解除）。
+ * 三层各司其职，缺一层都算回归：确认弹窗/藏按钮=防误触，JS 拨卫=防假成功 toast，
+ * storage 拒写=兜底不变量（bad 只能经 removeIntroduced 解除，任何直接覆写都被硬拒）。
+ * v2.25：①「清除记录」+clearRecord、「今天第一次试」+markObserving 移出详情页 ——
+ * 清除走档案页「有反应的食材」卡（profile.clearBad），引入/观察走档案页勾选；
+ * ②详情页新增「食物过敏」按钮（markBad：就地标 bad）与重新加入入口（markSafe 的 bad
+ * 分支：确认弹窗 → removeIntroduced → 重标 safe）—— 防误触由「藏按钮」换成「确认弹窗」，
+ * storage 硬拒一层不动。
  * 断言走函数级真跑：内存 wx stub 造 bad 记录 → 各路径覆写 → 逐一验不变量。
  */
 {
@@ -1305,28 +1310,70 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const fj = fs.readFileSync('./pages/food-detail/food-detail.js', 'utf8')
   const fw = fs.readFileSync('./pages/food-detail/food-detail.wxml', 'utf8')
 
-  // 1) WXML：两颗按钮必须显式排除 bad（只排 safe/observing 正是旧版漏洞）
+  // 1) WXML：两颗标记按钮各司其职 ——「已经吃过」在 bad 态下**也要**显示（重新加入入口，
+  //    防误触靠 JS 弹窗而不是藏按钮）；「食物过敏」标 bad，自身不许对 bad 显示。
+  //    「清除记录」与「今天第一次试」仍不许回到详情页（清除的另一条通道在档案页）。
+  const pj6j = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const pw6j = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
   fw.split('\n').forEach((line) => {
-    if (line.indexOf('bindtap="markSafe"') >= 0 && line.indexOf("status !== 'bad'") < 0)
-      E('详情页「已经吃过，没问题」按钮没排除 bad —— bad 记录可被一键洗白（H-2 回归）')
-    if (line.indexOf('bindtap="markObserving"') >= 0 && line.indexOf("status !== 'bad'") < 0)
-      E('详情页「今天第一次试」按钮没排除 bad —— bad 记录可被一键洗白（H-2 回归）')
-    // 反向钉：清除记录必须对 bad 可见 —— 否则用户被永久锁死、无解除通道
-    if (line.indexOf('bindtap="clearRecord"') >= 0) {
-      if (line.indexOf("status !== 'new'") < 0)
-        E('详情页「清除记录」按钮的显示条件丢了 status !== new')
-      if (line.indexOf("status !== 'bad'") >= 0)
-        E('详情页把「清除记录」也对 bad 藏了 —— 解除 bad 的唯一通道被堵死，用户无法重新引入')
+    // 「已经吃过」必须对 bad 可见 —— 这是重新加入的入口（靠 JS 弹窗防误触，不是靠藏按钮）
+    if (line.indexOf('bindtap="markSafe"') >= 0 && line.indexOf("status !== 'bad'") >= 0)
+      E('详情页把「已经吃过，没问题」对 bad 藏了 —— 重新加入的确认弹窗入口没了')
+    // 「食物过敏」：标 bad 的入口，自身不许对 bad 显示（重复标记会覆写反应当天日期）
+    if (line.indexOf('bindtap="markBad"') >= 0) {
+      if (line.indexOf("status !== 'bad'") < 0)
+        E('详情页「食物过敏」按钮没排除 bad —— 已过敏的食材会被重复标记、反应当天日期被覆写')
+      if (line.indexOf('introducible') < 0)
+        E('详情页「食物过敏」按钮没过 introducible 闸 —— 禁食提示条目也能被标过敏')
     }
+    if (line.indexOf('bindtap="markObserving"') >= 0)
+      E('详情页又出现「今天第一次试」按钮 —— v2.25 起引入只走档案页勾选（致敏即停观察中），别搬回来')
+    if (line.indexOf('bindtap="clearRecord"') >= 0)
+      E('详情页又出现「清除记录」按钮 —— v2.25 起解除通道在档案页「有反应的食材」卡，别搬回来')
   })
+  if (fw.indexOf('bindtap="markBad"') < 0)
+    E('详情页缺「食物过敏」按钮 —— 标过敏只剩档案页一个入口，详情页应就地标')
+  // 引入/观察通道必须在档案页活着：观察中只由 markIntroduced（致敏）产生
+  if (pw6j.indexOf('bindtap="toggleFood"') < 0 || pj6j.indexOf('markIntroduced') < 0)
+    E('档案页的引入通道坏了 —— 「观察中」状态再也产生不出来（3 天观察期整个失效）')
+  if (/clearRecord\s*\(/.test(fj))
+    E('food-detail.js 还留着 clearRecord —— 功能已移到 profile.clearBad，这是死代码')
+  // 档案页必须真的给出 bad 的解除入口（按钮 → 处理器 → removeIntroduced 三段都要在）
+  if (pw6j.indexOf('bindtap="clearBad"') < 0)
+    E('档案页「有反应的食材」卡没有「清除记录」按钮 —— bad 的解除通道被堵死，用户永久锁死')
+  if (pj6j.indexOf('clearBad(') < 0 || pj6j.indexOf('storage.removeIntroduced') < 0)
+    E('profile.js 缺 clearBad 或它没调 removeIntroduced —— 解除通道是死的（点了解除不了）')
+  if (pw6j.indexOf('清除记录') < 0)
+    E('档案页文案里丢了「清除记录」字样 —— 引导文案与真实入口对不上')
   // bad 引导行：按钮消失必须给解释 + 正确路径
   if (fw.indexOf('wx:if="{{status === \'bad\'}}"') < 0)
     E('详情页缺 bad 状态的解释/引导行 —— 用户不知道按钮为什么消失了、该怎么重新引入')
+  if (fw.indexOf('先点「清除记录」') >= 0)
+    E('详情页 bad 引导行还在教用户「先点清除记录」—— 那颗按钮已删，指引是错的')
 
-  // 2) JS：markSafe/markObserving 各要一处 bad 拨卫（防 WXML 条件被改坏后弹假成功 toast）
+  // 2) JS：markSafe 的 bad 分支必须是「确认弹窗 + 先解除后重标」的正路（H-2 的 v2.25 形态：
+  //    允许显式重新加入，但不许绕过弹窗一键洗白；storage 层仍硬拒 bad→safe 兜底）。
+  //    markBad 则必须走 markIntroduced → setIntroStatus('bad') 正路。
+  const msS = fj.indexOf('markSafe()'), mbS = fj.indexOf('markBad()')
+  const msBad = msS >= 0 ? fj.slice(msS, mbS > msS ? mbS : msS + 800) : ''
+  if (!msBad) E('food-detail.js 缺 markSafe —— 没法标记已吃过')
+  else if (!/intro\.status === 'bad'/.test(msBad)) E('markSafe 没有 bad 分支 —— 过敏食材会被直接标安全（H-2 回归）')
+  else {
+    if (!/wx\.showModal/.test(msBad)) E('markSafe 的 bad 分支没弹确认框 —— 一次点按就把过敏食材洗回安全（H-2 回归）')
+    if (!/removeIntroduced/.test(msBad)) E('markSafe 的 bad 分支没先 removeIntroduced —— storage 会拒写，重新加入是假成功')
+    const irI = msBad.indexOf('removeIntroduced'), miI = msBad.indexOf('markIntroduced')
+    if (irI >= 0 && miI >= 0 && irI > miI)
+      E('markSafe 的 bad 分支顺序错了 —— 必须先 removeIntroduced 解除，再 markIntroduced 重新标记')
+  }
+  const mbd = fj.indexOf('markBad(') >= 0 ? fj.slice(fj.indexOf('markBad(')) : ''
+  if (!mbd) E('food-detail.js 缺 markBad 处理器 —— 「食物过敏」是死按钮')
+  else if (!/markIntroduced\(that\.foodId\)/.test(mbd) || !/setIntroStatus\(that\.foodId,\s*'bad'\)/.test(mbd))
+    E('markBad 没走 markIntroduced → setIntroStatus(bad) 正路 —— 反应食材没进永久排除')
   const guardCnt = (fj.match(/status === 'bad'/g) || []).length
-  if (guardCnt < 2)
-    E(`food-detail.js 的 bad 拨卫不足（找到 ${guardCnt} 处，markSafe/markObserving 各要 1 处）`)
+  if (guardCnt < 1)
+    E(`food-detail.js 的 bad 拨卫丢了（找到 ${guardCnt} 处，markSafe 至少要 1 处）`)
+  if (/markObserving\s*\(/.test(fj))
+    E('food-detail.js 还留着 markObserving —— 「今天第一次试」已并入档案页引入流程（§6j）')
 
   // 3) storage 硬拒：函数级真跑（内存 wx stub，跑完还原）
   const mem = {}
@@ -1389,14 +1436,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   if (errs.length === errsBefore)
-    console.log('  6j 有反应不可洗白：藏按钮×2 ? 反向钉(清除记录必可见) ? JS 拨卫×2 ? storage 硬拒(状态/日期/返回值) ? 正常路径(→bad、清除后重引入)不误伤 ✓')
+    console.log('  6j 有反应不可洗白：详情页两按钮(过敏可标·重加带弹窗) ? 反向钉(清除/观察入口在档案页) ? markSafe坏分支=弹窗+先解除 ? storage 硬拒(状态/日期/返回值) ? 正常路径(→bad、解除后重引入)不误伤 ✓')
 }
 
 /* ---------- 6k. 每餐打卡（记录 → 回写引擎 → 14 天证据列表，v2.1） ----------
- * 三态打卡（full/some/refused）+ 有反应联动标 bad；连续拒吃 → ×0.15 软降权
- * 进指纹；档案页 14 天证据列表。各断链的后果：
+ * 三态打卡（full/some/refused）；有反应入口 v2.25 移到档案页「已经吃过」卡；
+ * 连续拒吃 → ×0.15 软降权进指纹；档案页 14 天证据列表。各断链的后果：
  * 按钮 bindtap 冒泡 → 点打卡顺手展开步骤；指纹缺 f 段 → 打卡不触发重排，
- * 降权白算；参数没穿透 → 名单传不到 pickWeighted；reaction 不走 bad 正路
+ * 降权白算；参数没穿透 → 名单传不到 pickWeighted；标记有反应不走 bad 正路
  * → 过敏食材还留在菜单里（H-2 反向回归）。
  */
 {
@@ -1427,19 +1474,24 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   })
   if (iw.indexOf('bindtap="logMeal"') >= 0)
     E('打卡按钮用了 bindtap —— 冒泡到 toggleMeal，点打卡顺手展开步骤')
-  if (iw.indexOf('catchtap="reactionMeal"') < 0) E('index.wxml 缺「有反应」入口')
+  // v2.25：「有反应」入口与 reactionMeal 移到档案页「已经吃过」卡（pickBadFood）——
+  // 首页不许再有，档案页不许没有（否则已确认安全的食材过敏后无法标 bad）
+  if (iw.indexOf('reactionMeal') >= 0)
+    E('index.wxml 又出现「有反应」入口 —— v2.25 起标记有反应在档案页「已经吃过」卡，别搬回来')
   if (iw.indexOf('catchtap="undoMealLog"') < 0) E('index.wxml 缺打卡撤销入口')
   if (ij.indexOf('logMeal(e)') < 0) E('index.js 缺 logMeal 处理器')
-  if (ij.indexOf('reactionMeal(e)') < 0) E('index.js 缺 reactionMeal 处理器')
+  if (/reactionMeal\s*\(/.test(ij))
+    E('index.js 还留着 reactionMeal —— 功能已移到 profile.pickBadFood，这是死代码')
   if (ij.indexOf('undoMealLog(e)') < 0) E('index.js 缺 undoMealLog 处理器')
 
-  // 3) 有反应：必须走 markIntroduced → setIntroStatus('bad') 正路（§6j 同源），
-  //    且本餐记为 reaction —— 证据列表要能看到这次反应
-  const rs = ij.slice(ij.indexOf('reactionMeal(e)'))
-  if (!/markIntroduced\(fid\)/.test(rs) || !/setIntroStatus\(fid,\s*'bad'\)/.test(rs))
-    E('reactionMeal 没走 markIntroduced → setIntroStatus(bad) 正路 —— 反应食材没进永久排除')
-  if (!/logMeal\(d\.date,\s*d\.rid,\s*'reaction',\s*fid\)/.test(rs))
-    E('reactionMeal 没把本餐记为 reaction —— 证据列表缺这次反应')
+  // 3) 有反应：入口在档案页「已经吃过」卡（v2.25 自首页餐卡移入），且必须走
+  //    markIntroduced → setIntroStatus('bad') 正路（§6j 同源）
+  if (pw.indexOf('bindtap="pickBadFood"') < 0)
+    E('档案页「已经吃过」卡缺「标记有反应」入口 —— 已确认安全的食材过敏后无法标 bad，会继续排进菜单')
+  const pbd = pj.indexOf('pickBadFood(') >= 0 ? pj.slice(pj.indexOf('pickBadFood(')) : ''
+  if (!pbd) E('profile.js 缺 pickBadFood 处理器 —— 「标记有反应」是死按钮')
+  else if (!/markIntroduced\(f\.id\)/.test(pbd) || !/setIntroStatus\(f\.id,\s*'bad'\)/.test(pbd))
+    E('pickBadFood 没走 markIntroduced → setIntroStatus(bad) 正路 —— 反应食材没进永久排除')
 
   // 4) 引擎：降权项 + 参数穿透 + planInputs 取名单 + 指纹 f 段
   if (pl.indexOf('refusedIds.indexOf(r.id) >= 0) w *= 0.15') < 0)
@@ -1496,7 +1548,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('行内展开的数据链断了（toItems → safeList 渲染）—— 点开是空的')
   if (mj.indexOf('goFoodDetail(e)') < 0 || mw.indexOf('bindtap="goFoodDetail"') < 0)
     E('展开的食材点不进详情页（goFoodDetail 链断）')
-  // 6c′) 「正在观察中」行已从「我的记录」删掉（v2.15）：观察名单只在档案页观察卡管理，
+  // 6c′) 「正在观察中」行已从「我的记录」删掉（v2.25）：观察名单只在档案页观察卡管理，
   //       「我的」不留第二处入口，也不留算出来没人用的死数据 —— 反向钉防加回来
   if (mw.indexOf('正在观察中') >= 0 || mw.indexOf('observingList') >= 0 || mw.indexOf('observingCount') >= 0)
     E('mine.wxml 又出现「正在观察中」行 —— 观察名单入口已收归档案页观察卡，别在「我的」重复一份')
@@ -1506,11 +1558,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('profile.js 没有 observing 状态处理 ——「我的」删了观察行，观察名单会没有入口')
   if (pw.indexOf('观察') < 0)
     E('profile.wxml 没有观察卡 ——「我的」删了观察行，这里是观察名单的唯一入口')
-  // 6c″) 「查看本周计划」快捷入口已删（v2.15）：底部导航本就有「计划」tab，
+  // 6c″) 「查看本周计划」快捷入口已删（v2.25）：底部导航本就有「计划」tab，
   //       「我的」再放一份是重复入口；goPlan 处理器也一并删（留着是死代码）
   if (mw.indexOf('查看本周计划') >= 0 || mj.indexOf('goPlan(') >= 0)
     E('mine 又出现「查看本周计划」/ goPlan —— 底部已有「计划」tab，重复入口不该回来')
-  // 6c‴) 「食材查一查」快捷入口已删（v2.15）：查一查页从底部 tab 进就够了；
+  // 6c‴) 「食材查一查」快捷入口已删（v2.25）：查一查页从底部 tab 进就够了；
   //       goFood 处理器与 .link-row 规则一并删（留着是死代码/死样式）
   if (mw.indexOf('食材查一查') >= 0 || mj.indexOf('goFood(') >= 0)
     E('mine 又出现「食材查一查」/ goFood —— 快捷入口已移除，别加回来')
@@ -1523,7 +1575,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (pj.indexOf('return it.status === \'bad\'') < 0)
     E('badFoods 没按 status===bad 过滤 —— 观察中/安全的食材会混进有反应卡')
   if (pj.indexOf('goFoodDetail(e)') < 0)
-    E('profile.js 缺 goFoodDetail 处理器 —— 有反应卡点不进详情页（清除记录没入口）')
+    E('profile.js 缺 goFoodDetail 处理器 —— 有反应卡点不进详情页（看反应详情断链）')
   if (pj.indexOf('/pages/food-detail/food-detail?id=') < 0)
     E('goFoodDetail 没跳 food-detail?id= —— 详情页入口断链')
   if (pw.indexOf('有反应的食材') < 0)
@@ -1597,7 +1649,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   if (errs.length === errsBefore)
-    console.log('  6k 每餐打卡：三态按钮(catchtap)+撤销 ? 反应走 bad 正路+记本餐 ? 降权×0.15 穿透+指纹f段 ? checkable闸 ? 记录中枢(我的3行+行内展开+有反应行，观察行已移出) ? 14天喂养记录在「我的」 ? 档案页有反应卡+挪干净 ? 规则真跑(2次进/1次不进/窗外不算/吃过即解除/撤销/指纹联动) ✓')
+    console.log('  6k 每餐打卡：三态按钮(catchtap)+撤销 ? 有反应入口在档案页+bad 正路 ? 降权×0.15 穿透+指纹f段 ? checkable闸 ? 记录中枢(我的3行+行内展开+有反应行，观察行已移出) ? 14天喂养记录在「我的」 ? 档案页有反应卡+挪干净 ? 规则真跑(2次进/1次不进/窗外不算/吃过即解除/撤销/指纹联动) ✓')
 }
 
 /* ---------- 6l. v2.2 视觉基线：卡片阴影（B1） ----------
@@ -1689,11 +1741,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     if (hBtn && Math.abs(h - hBtn) > 4)
       E(`.${cls} 高度(${h}rpx)与 .ml-btn(${hBtn}rpx)差 >4rpx —— 打卡前后整行高度跳变`)
   })
-  // 反向：有反应也是打卡行的点击目标，不许缩水
-  const reactRule = ruleOf('ml-btn-react')
-  const hm = reactRule && reactRule.match(/min-height:\s*(\d+)rpx/)
-  if (hm && parseInt(hm[1], 10) < 88)
-    E('.ml-btn-react 把 min-height 改小了 —— 有反应也是打卡行的点击目标')
+  // 反向：「有反应」按钮已随 reactionMeal 移到档案页（v2.25），首页不许再留死样式
+  if (ruleOf('ml-btn-react'))
+    E('index.wxss 还留着 .ml-btn-react —— 按钮已移到档案页，这是死样式')
 
   if (errs.length === errsBefore)
     console.log('  6l 视觉基线：.card 阴影唯一+alpha≤0.1 ✓、今天日期=计划页唯一 display(40/600) ✓、基础日期 fs-sm ✓、三档 baseline ✓、打卡行 min-height96≥88+flex居中 ✓、state/undo 同高+行盒撑满 ✓')
@@ -1752,7 +1802,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const idxs = []
     p.days.forEach((d, i) => { if (d.newFood) idxs.push(i) })
     const label = `${p.days[0].date} ${p.days[0].weekday}起始`
-    // v2.15 · 方案A：引擎一个引入槽都不排 —— 反向钉。旧口径「每周恒 2 个、
+    // v2.25 · 方案A：引擎一个引入槽都不排 —— 反向钉。旧口径「每周恒 2 个、
     // 全在工作日、彼此隔 ≥3 天」已随自动排期删除；3 天观察间距改由
     // storage.OBSERVE_DAYS 承担（档案页观察卡 + 首页到期提醒）。
     if (idxs.length !== 0)
@@ -2075,7 +2125,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const tokens = (text.match(/\{([^{}]+)\}/g) || []).map((t) => t.slice(1, -1))
     tokTotal += tokens.length
     tokens.forEach((t) => {
-      if (t === '倍粥') return // v2.15 {倍粥} 是月龄占位符（非分类克数），按月龄填当档倍数
+      if (t === '倍粥') return // v2.25 {倍粥} 是月龄占位符（非分类克数），按月龄填当档倍数
       if (c7.indexOf(t) < 0)
         E(`${tag} 步骤占位符 {${t}} 不在 amount 分类 [${c7}] 里 —— 填不出数，会渲染成空`)
     })
@@ -2457,11 +2507,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('age.js 缺 mealsForMonth / slotsForMonth —— 餐次与时段锚点没有事实源')
   if (aj.indexOf('刚起步，一天 1–2 餐') < 0)
     E('puree 阶段 desc 没跟上 7 月 2 餐（描述与计划打架）')
-  // 结构版本用下界而不是逐字钉死：v2.10 冻结语义 = 5，v2.15 方案A（newFood
+  // 结构版本用下界而不是逐字钉死：v2.10 冻结语义 = 5，v2.25 方案A（newFood
   // 恒 null + 挂载函数删除）= 6。下次再 bump 不必回来改这句话。
   const svM = /STRUCT_V\s*=\s*(\d+)/.exec(pj)
   if (!svM || +svM[1] < 6)
-    E(`STRUCT_V 是 ${svM ? svM[1] : '缺失'}，应 ≥ 6 —— v2.15·方案A 没触发旧缓存重算，会一直渲染旧结构`)
+    E(`STRUCT_V 是 ${svM ? svM[1] : '缺失'}，应 ≥ 6 —— v2.25·方案A 没触发旧缓存重算，会一直渲染旧结构`)
   if (pj.indexOf('function isSnackRecipe') < 0 || pj.indexOf('const snackPool =') < 0)
     E('plan.js 缺加餐分池实现（isSnackRecipe / snackPool）')
   if (ijQ.indexOf('d.timeline = rows') < 0)
@@ -2522,7 +2572,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E('奶参考行没渲染时刻')
   }
 
-  // —— 5c) 方案A（v2.15）：主餐成卡保留，新食材观察条随「引擎停排」移除 ——
+  // —— 5c) 方案A（v2.25）：主餐成卡保留，新食材观察条随「引擎停排」移除 ——
   // 反向钉：首页一个新食材渲染入口都不许剩。留着的话观察信息会在计划页与档案页
   // 重复出现，而且计划页那份永远停在「○○○」—— 引擎已经不喂数据了。
   if (iwQ.indexOf('class="meal-card"') < 0)
@@ -2818,7 +2868,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   // 窗口 C：6 月固定菜单用量（今天 = 第 1 天 → 窗口 1–7）
-  // v2.15 · 方案A：新食材卡已移除；菜单用量是主食的真信息，逐日钉死。
+  // v2.25 · 方案A：新食材卡已移除；菜单用量是主食的真信息，逐日钉死。
   const bC = birthOn(1)
   const pC = gen6s(bC)
   if (!pC) E('6s 窗口 C：plan.generate 返回 null')

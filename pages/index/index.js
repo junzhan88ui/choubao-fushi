@@ -3,8 +3,8 @@ const storage = require('../../utils/storage')
 const plan = require('../../utils/plan')
 // <6 月龄的「开始之前」说明（tooYoung 分支铺开渲染）
 const guides = require('../../data/guides')
-// 打卡「有反应」时要点选这道菜里的哪个食材 —— 需要菜谱表反查主料/配料
-const RECIPES = require('../../data/recipes')
+// v2.25：「有反应」打卡移到档案页「已经吃过」卡 —— 菜谱表反查主料的依赖一并删除
+// （原 reactionMeal 用 RECIPES 反查这道菜里哪个食材出了反应）
 
 // 标记「今天」，供列表做视觉锚点。
 // 只在渲染前算，不写回 storage —— 它是派生状态，存下来会过期。
@@ -12,7 +12,7 @@ const RECIPES = require('../../data/recipes')
 // 同样是派生态 —— setPlan 的序列化发生在 markToday 之前（wx 写入即快照），
 // 这里的改动不会污染 storage 里的计划对象。
 // v2.7 加一组派生态：折叠摘要用的 done/total。
-// v2.15 · 方案A：观察进度点（dots/progText）与 plan.attachNewFood 一并移除 ——
+// v2.25 · 方案A：观察进度点（dots/progText）与 plan.attachNewFood 一并移除 ——
 // 引入和观察都搬进档案页，计划里不再有 day.newFood 可挂、可算。
 function markToday(p) {
   if (!p || !p.days) return p
@@ -284,38 +284,9 @@ Page({
     this.refresh()
   },
 
-  // 「有反应」：点选这道菜里的哪个食材 → 直接标 bad（走 §6j 守卫的正路：
-  // markIntroduced → setIntroStatus('bad')，反应当天日期随记录写入），
-  // 同时把本餐记为 reaction。ActionSheet 最多 6 项，菜谱食材不会超。
-  reactionMeal(e) {
-    const d = e.currentTarget.dataset
-    let recipe = null
-    for (let i = 0; i < RECIPES.length; i++) {
-      if (RECIPES[i].id === d.rid) { recipe = RECIPES[i]; break }
-    }
-    if (!recipe) return
-    const fids = []
-    recipe.mainFoods.concat(recipe.sideFoods || []).forEach(function (f) {
-      if (fids.indexOf(f) < 0) fids.push(f)
-    })
-    const names = fids.map(function (f) {
-      const o = plan.getFood(f)
-      return o ? o.name : f
-    })
-    const that = this
-    wx.showActionSheet({
-      itemList: names.slice(0, 6),
-      success(res) {
-        const fid = fids[res.tapIndex]
-        storage.markIntroduced(fid)
-        storage.setIntroStatus(fid, 'bad')
-        storage.logMeal(d.date, d.rid, 'reaction', fid)
-        storage.setPlan(null)
-        that.refresh()
-        wx.showToast({ title: '已标为有反应，不再排进菜单', icon: 'none' })
-      }
-    })
-  },
+  // v2.25：「有反应」打卡整体移到档案页「已经吃过、没问题的食材」卡
+  // （profile.pickBadFood：选食材 → markIntroduced → setIntroStatus('bad') 正路）——
+  // 首页餐卡只剩三态打卡。历史记录里的 reaction 状态仍由 LABEL 正常显示。
 
   // 指南卡（6 月龄 + 7–12 月龄 v2.8）：点卡头切换该卡的展开态
   // 默认全收起，sixOpen 里没有 key = 收起；卡 key 跨组唯一，展开态互不影响

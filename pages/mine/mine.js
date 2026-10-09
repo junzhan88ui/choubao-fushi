@@ -78,7 +78,7 @@ Page({
 
     // 行内展开的三组名单：与上面的计数同一数据源（bb_introduced），
     // 只是换成「带名字」的展示形态；点开哪行就渲哪组
-    // （观察中不再单列 —— 观察名单只在档案页观察卡管理，v2.15）
+    // （观察中不再单列 —— 观察名单只在档案页观察卡管理，v2.25）
     const safeList = toItems('safe')
     const badList = toItems('bad')
     const recordedList = toItems(null)
@@ -111,7 +111,7 @@ Page({
     this.setData({ openRow: this.data.openRow === row ? '' : row })
   },
 
-  // 展开的食材 → 详情页（bad 在那里清除记录、重新引入，§6j 反向钉保底）
+  // 展开的食材 → 详情页看信息（bad 的解除入口在档案页「有反应的食材」卡，§6j 反向钉保底）
   goFoodDetail(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/food-detail/food-detail?id=' + id })

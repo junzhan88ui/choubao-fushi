@@ -42,7 +42,7 @@
         <text class="obs-name">{{o.name}}</text>
         <text class="muted">{{o.date}} 开始</text>
       </view>
-      <!-- v2.15 · 方案A：观察期你自己喂、计划先不排 —— 首次喂法就地给出 -->
+      <!-- v2.25 · 方案A：观察期你自己喂、计划先不排 —— 首次喂法就地给出 -->
       <view class="obs-feed" wx:if="{{o.amount}}">首次喂 {{o.amount}}，{{o.method}}。连续观察 3 天，没异常再点「没问题」。</view>
       <view class="obs-actions">
         <view class="mini-btn mini-ok" data-id="{{o.foodId}}" data-ok="1" bindtap="confirmObservation">没问题</view>
@@ -55,14 +55,15 @@
        日期 = 出现反应的当天（markIntroduced 写入），就医时可与下方喂养记录对照。 -->
   <view class="card" wx:if="{{badFoods.length > 0}}">
     <view class="card-title">有反应的食材</view>
-    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点进详情页清除记录，再回下方食材列表重新勾选。</view>
+    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点这一行的「清除记录」，再回下方食材列表重新勾选。</view>
     <view class="obs-item" wx:for="{{badFoods}}" wx:key="foodId" wx:for-item="b">
       <view class="obs-head">
         <text class="obs-name">{{b.name}}</text>
         <text class="muted">{{b.date}} 出现反应</text>
       </view>
       <view class="obs-actions">
-        <view class="mini-btn mini-bad" data-id="{{b.foodId}}" bindtap="goFoodDetail">查看与处理</view>
+        <view class="mini-btn mini-clear" data-id="{{b.foodId}}" bindtap="clearBad">清除记录</view>
+        <view class="mini-btn mini-bad" data-id="{{b.foodId}}" bindtap="goFoodDetail">查看详情</view>
       </view>
     </view>
   </view>
@@ -71,7 +72,12 @@
   <view class="card">
     <view class="card-title">已经吃过、没问题的食材</view>
     <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材：勾选先进 3 天观察期（你来喂、计划先不排），确认没问题才排进菜单。</view>
-    <!-- v2.15 · 方案A：引入改由本页决定，必须给出「为什么不该回避」的理由 ——
+    <!-- v2.25：「标记有反应」入口自首页餐卡移入 —— 观察期内的由观察卡「有反应」落，
+         已确认安全的食材过敏后从这里补标（bad 是唯一硬排除机制，见 §6j） -->
+    <view class="mark-bad-row">
+      <view class="mini-btn mini-bad" bindtap="pickBadFood">＋ 标记有反应</view>
+    </view>
+    <!-- v2.25 · 方案A：引入改由本页决定，必须给出「为什么不该回避」的理由 ——
          口径出自《中国居民膳食指南(2022)》准则二，见 utils/plan.js foodUsable 注释 -->
     <view class="card-sub">1 岁内适时引入各种食物（含蛋、鱼、小麦等常见致敏食物）可降低过敏风险，别因为怕过敏就一直回避 —— 一次一种，逐个来。</view>
 
@@ -91,7 +97,7 @@
           <text class="chip-ic">{{f.icon}}</text>
           <text>{{f.name}}</text>
           <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
-          <!-- 引入的月龄门（v2.15 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
+          <!-- 引入的月龄门（v2.25 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
           <text class="chip-flag" wx:if="{{f.tooEarly}}">{{f.minMonth}}月起</text>
           <text class="chip-flag chip-flag-bad" wx:if="{{f.status === 'bad'}}">有反应</text>
         </view>

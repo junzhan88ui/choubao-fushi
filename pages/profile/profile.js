@@ -14,7 +14,7 @@ Page({
     today: '',
     minDate: '',
     ageText: '',
-    // 当前月龄（null = 没填生日）。v2.15 · 方案A 之后档案页是引入的唯一入口，
+    // 当前月龄（null = 没填生日）。v2.25 · 方案A 之后档案页是引入的唯一入口，
     // 引擎不再按 minMonth 升序排引入，这道月龄门只能在这里挡。
     months: null,
     // 状态多选：由 storage.STATUSES 逐项算出是否已勾选
@@ -82,7 +82,7 @@ Page({
         // bad 必须单独标出来：它的 chip 也是「未勾选」的样子，
         // 但点击语义完全不同（见 toggleFood）
         status: intro ? intro.status : 'new',
-        // v2.15 · 方案A：引擎不再按 minMonth 升序排引入，这道门由档案页补上 ——
+        // v2.25 · 方案A：引擎不再按 minMonth 升序排引入，这道门由档案页补上 ——
         // 没到月龄的食材点了不许引入（toggleFood 里再拦一道并给提示）。
         tooEarly: months !== null && !age.isFoodReady(f, months),
         minMonth: f.minMonth,
@@ -106,7 +106,7 @@ Page({
           if (FOODS[i].id === it.foodId) { fo = FOODS[i]; break }
         }
         const fi = fo && fo.firstIntro ? fo.firstIntro : null
-        // v2.15 · 方案A：观察期 = 你自己喂、计划不排 —— 首次喂法必须就地给出，
+        // v2.25 · 方案A：观察期 = 你自己喂、计划不排 —— 首次喂法必须就地给出，
         // 否则用户只知道「在观察」，不知道喂多少、怎么喂。
         return {
           foodId: it.foodId,
@@ -138,11 +138,61 @@ Page({
     })
   },
 
-  // 有反应卡 → 食材详情页：清除记录、重新引入都在那里
-  // （bad 的解除只许走详情页，见 toggleFood 的防护与 §6j 反向钉）
+  // 有反应卡 → 食材详情页看信息（v2.25 起「清除记录」就地在本页，见 clearBad）
   goFoodDetail(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/food-detail/food-detail?id=' + id })
+  },
+
+  /** 「清除记录」—— bad 的唯一解除通道（v2.25 自食材详情页移入本页）。
+   *  storage 层硬拒 bad→safe/observing（见 _validate §6j），
+   *  只有 removeIntroduced 能解除；先弹确认框，防一次误触洗掉过敏记录。 */
+  clearBad(e) {
+    const id = e.currentTarget.dataset.id
+    const f = FOODS.filter(function (x) { return x.id === id })[0] || null
+    const name = f ? f.name : id
+    const that = this
+    wx.showModal({
+      title: '清除记录',
+      content: '会把「' + name + '」从记录里移除，之后不会再排进菜单。要重新引入，再勾选一次即可。',
+      success(res) {
+        if (!res.confirm) return
+        storage.removeIntroduced(id)
+        storage.setPlan(null)
+        that.rebuild()
+      }
+    })
+  },
+
+  /** 「标记有反应」—— v2.25 自首页餐卡（原 reactionMeal）移入本页。
+   *  bad 是系统里唯一的硬排除机制：观察期内的食材由观察卡「有反应」落，
+   *  已确认安全的食材过敏后只能从这里补标，否则它会继续被排进菜单。
+   *  走 markIntroduced → setIntroStatus('bad') 正路（反应当天日期随记录写入，§6j）。 */
+  pickBadFood() {
+    const that = this
+    const list = []
+    FOODS.forEach(function (f) {
+      if (f.introducible === false) return // 禁食提示条目不参与引入
+      const it = storage.findIntro(f.id)
+      if (!it || it.status === 'bad') return // 只列已吃过/观察中的
+      list.push({ id: f.id, name: f.name })
+    })
+    if (!list.length) {
+      wx.showToast({ title: '还没有已吃过的食材', icon: 'none' })
+      return
+    }
+    // ActionSheet 最多 6 项
+    wx.showActionSheet({
+      itemList: list.slice(0, 6).map(function (x) { return x.name }),
+      success(res) {
+        const f = list[res.tapIndex]
+        storage.markIntroduced(f.id)
+        storage.setIntroStatus(f.id, 'bad')
+        storage.setPlan(null)
+        that.rebuild()
+        wx.showToast({ title: '已标为有反应，不再排进菜单', icon: 'none' })
+      }
+    })
   },
 
   /** 名称实时清洗后落库。
@@ -197,7 +247,7 @@ Page({
     if (exist && exist.status === 'bad') {
       wx.showModal({
         title: '这种食材标记过「有反应」',
-        content: '为安全起见它不会被排进菜单。要重新引入，请到它的详情页清除记录，再回下方食材列表重新勾选。',
+        content: '为安全起见它不会被排进菜单。要重新引入，请在上方「有反应的食材」卡里点「清除记录」，再回下方食材列表重新勾选。',
         showCancel: false,
         confirmText: '知道了'
       })
@@ -207,7 +257,7 @@ Page({
     if (exist) {
       storage.removeIntroduced(id)
     } else {
-      // v2.15 · 方案A：档案页是引入的唯一入口（引擎不再自动排新食材）。
+      // v2.25 · 方案A：档案页是引入的唯一入口（引擎不再自动排新食材）。
       const f = FOODS.filter(function (x) { return x.id === id })[0] || null
       if (f && this.data.months !== null && !age.isFoodReady(f, this.data.months)) {
         wx.showToast({ title: f.minMonth + ' 月龄起再引入「' + f.name + '」', icon: 'none' })

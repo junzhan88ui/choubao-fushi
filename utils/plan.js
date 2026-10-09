@@ -29,7 +29,7 @@ const RECIPES = require('../data/recipes')
 // v2.10 冻结语义修订（只有打卡的已过日子冻结，未打卡的按当前规则重排
 //        —— 旧引擎时代的错误行才能自愈成 6 月固定菜单内容）），
 // 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
-const STRUCT_V = 7 // v2.15 · 方案A + 倍粥阶梯按月龄填数：步骤文案变了，旧缓存必须失效重算
+const STRUCT_V = 7 // v2.25 · 方案A + 倍粥阶梯按月龄填数：步骤文案变了，旧缓存必须失效重算
 // v2.0 图标：只喂给展示字段（shopping / 档案页与详情页的食材 chip），不进指纹
 const icons = require('../data/food-icons')
 
@@ -130,7 +130,7 @@ function mealRow(recipe, key, months, amountOverride) {
     amount: amountStr,
     cats: catsFromAmount(amountStr), // 餐次行小标签（质地之外的类别名，v2.7）
     tags: recipe.tags || [],
-    // 步骤里的 {分类}/{倍粥} 占位符按当期月龄填真克数与当档倍粥（v2.7 / v2.15）
+    // 步骤里的 {分类}/{倍粥} 占位符按当期月龄填真克数与当档倍粥（v2.7 / v2.25）
     steps: fillPortions(recipe.steps, amountStr, months)
   }
 }
@@ -511,7 +511,7 @@ function generate(opts) {
   // 原引擎 + monthAmount 稳态值，行为不变。
   const menuLock = months === 6 && !!opts.birth
 
-  // 2. 新食材引入日：**引擎不再自动排**（v2.15 · 方案A，用户决策）
+  // 2. 新食材引入日：**引擎不再自动排**（v2.25 · 方案A，用户决策）
   //
   // 引入改由「档案页」主动勾选驱动：致敏食材勾选 = 进观察期（observing），
   // 3 天后由用户确认 safe 才进菜谱；非致敏食材 foodUsable 本来就放行，勾选即入。
@@ -583,7 +583,7 @@ function generate(opts) {
       add.forEach(function (a) { foodUse[a.foodId] = (foodUse[a.foodId] || 0) + 1 })
       const rice = RECIPE_MAP['r_rice_cereal']
 
-      // 新食材卡已随方案A移除（v2.15）：菜单锁定日「今天试什么」改由档案页引入
+      // 新食材卡已随方案A移除（v2.25）：菜单锁定日「今天试什么」改由档案页引入
       // 通道决定，引擎只管加料本身 —— 有反应永远剔除、病中/观察中剔未记录（上方 add）。
 
       const menuMeals = []
@@ -641,7 +641,7 @@ function generate(opts) {
         catApplicable: months >= 8, // 6 月恒 false（「逐渐达到」豁免语义与原引擎一致）
         catOk: catCountMenu >= DAY_MIN_CATS && missingMenu.length === 0,
         catMissing: missingMenu,
-        // v2.15 · 方案A：引擎不再产出新食材观察（引入改走档案页）。
+        // v2.25 · 方案A：引擎不再产出新食材观察（引入改走档案页）。
         // 字段恒 null 但保留在结构里，冻结日照抄与 WXML 的 wx:if 仍同构。
         newFood: null,
         menuDay: menuDay, // 调试与校验用（_validate §6s 按它断言菜单日）
@@ -758,7 +758,7 @@ function generate(opts) {
       catApplicable: months >= 8,
       catOk: catKeys.length >= DAY_MIN_CATS && missingRequired.length === 0,
       catMissing: missingRequired,
-      // v2.15 · 方案A：引擎不再产出新食材观察（引入改走档案页），字段恒 null
+      // v2.25 · 方案A：引擎不再产出新食材观察（引入改走档案页），字段恒 null
       newFood: null
     })
   }
@@ -936,7 +936,7 @@ function generateFromStorage(storage, opts) {
   return p
 }
 
-// v2.15 · 方案A：attachNewFood（方案C 把观察挂到承载餐）已随「引擎不再自动排
+// v2.25 · 方案A：attachNewFood（方案C 把观察挂到承载餐）已随「引擎不再自动排
 // 新食材」一并移除 —— 引入与观察都在档案页，计划里没有可挂载的 day.newFood。
 
 module.exports = {

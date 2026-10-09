@@ -203,7 +203,7 @@
   flex-shrink: 0;
 }
 
-/* v2.15 · 方案A：.newfood* 观察卡样式已随「首页不再渲染新食材尝试」移除 ——
+/* v2.25 · 方案A：.newfood* 观察卡样式已随「首页不再渲染新食材尝试」移除 ——
    观察卡与观察态都在档案页（pages/profile/profile.wxss）。 */
 
 /* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 菜名 + 质地/类别小标签 + 正/加餐 chip
@@ -339,7 +339,7 @@
   border-top: 1rpx solid var(--c-line);
 }
 
-/* 每餐打卡（v2.1）：三态按钮 + 有反应。颜色全走 token */
+/* 每餐打卡（v2.1）：三态按钮（v2.25 起「有反应」移到档案页）。颜色全走 token */
 .meal-log {
   display: flex;
   align-items: center;
@@ -366,12 +366,7 @@
   border: 1rpx solid var(--c-line);
 }
 
-.ml-btn-react {
-  color: var(--c-red);
-  background: var(--c-red-bg);
-  border-color: transparent;
-  margin-left: auto;
-}
+/* .ml-btn-react（有反应）已随入口移到档案页 —— 死样式删掉 */
 
 .ml-state {
   /* 与 .ml-btn 同高（96rpx）→ 打卡前后整行高度不跳。
