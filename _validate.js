@@ -233,41 +233,51 @@ if (noSafe) {
 /* ---------- 5b. 过敏原引入策略（对齐官方指南准则二） ----------
  * 官方：「不盲目回避易过敏食物，1岁内适时引入各种食物」，
  *       且「1岁内婴儿避免食用这些食物对防止食物过敏未见明显益处」。
- * 因此致敏食材必须能通过「新食材尝试」通道被引入，且不能被系统性地排到最后。
+ * v2.15 · 方案A：引入不再由引擎排序自动排（旧的「不能排到最后」已无对象），
+ * 改钉档案页这条通道 —— 门得关着、入口得走观察期、还得按月龄拦。
  */
-const newFoodSeq = []
 {
-  // 模拟连续 26 周、每周推进，月龄随之增长（6 月龄起步，每周约 0.23 个月）
-  let introduced = []
-  for (let wk = 0; wk < 26; wk++) {
-    const mm = Math.min(24, 6 + Math.floor(wk / 4.33))
-    const p = plan.generate({
-      months: mm, issues: [], safeFoodIds: introduced, blockedFoodIds: [],
-      recordedFoodIds: introduced, observingCount: 0,
-      startDate: new Date(2026, 0, 5 + wk * 7)   // 周一
+  // v2.15 · 方案A：引擎不再自动排新食材（档案页是引入的唯一入口），所以旧的
+  // 「26 周自动引入序列」没有对象可扫 —— 改钉档案页这条通道的三个真条件：
+  //   ① 门得关着：一条记录都没有时，计划里不许出现含致敏食材的菜；
+  //   ② 过了门就得开：全部标 safe 后致敏食材必须真进菜（见下方 allSafe）；
+  //   ③ 入口不许跳过观察期：profile.toggleFood 勾致敏食材必须停在 observing。
+  // 官方原文（准则二「不盲目回避易过敏食物」）见 utils/plan.js foodUsable 注释。
+
+  // ① 致敏门：safeFoodIds 为空 = 用户什么都没勾过
+  const gate = plan.generate({
+    months: 10, issues: [], safeFoodIds: [], blockedFoodIds: [],
+    recordedFoodIds: [], observingCount: 0
+  })
+  if (!gate) {
+    E('5b 致敏门测试：plan.generate 返回 null')
+  } else {
+    const leak = gate.days.some(function (d) {
+      return (d.meals || []).concat(d.snack ? [d.snack] : []).some(function (meal) {
+        const r = recipes.filter(function (x) { return x.id === meal.recipeId })[0]
+        if (!r) return false
+        return r.mainFoods.concat(r.sideFoods || []).some(function (id) { return allergenIds.indexOf(id) >= 0 })
+      })
     })
-    if (!p) break
-    p.days.forEach(function (d) {
-      if (d.newFood && introduced.indexOf(d.newFood.foodId) < 0) {
-        introduced.push(d.newFood.foodId)
-        newFoodSeq.push(d.newFood.foodId)
-      }
-    })
+    if (leak)
+      E('5b 什么都没记录时，计划里已经出现含致敏食材的菜 —— 未经引入就喂，比「盲目回避」更危险')
   }
 
-  const firstAllergenAt = newFoodSeq.findIndex(function (id) { return allergenIds.indexOf(id) >= 0 })
-  if (firstAllergenAt < 0) {
-    E('连续 26 周都没引入过任何一种致敏食材 —— 等于「盲目回避」，违反准则二')
-  } else if (firstAllergenAt > 3) {
-    E(`第 ${firstAllergenAt + 1} 个才引入第一种致敏食材，引入序列把致敏食材排得太靠后（应在前 4 位内出现）`)
+  // ③ 引入入口：勾选致敏食材必须留在观察期，不许当场标 safe
+  const pSrc5b = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const tg5b = pSrc5b.indexOf('toggleFood(')
+  const tgEnd5b = pSrc5b.indexOf('confirmObservation(', tg5b)
+  const tgSeg5b = tg5b >= 0 && tgEnd5b > tg5b ? pSrc5b.slice(tg5b, tgEnd5b) : ''
+  if (!tgSeg5b) {
+    E('5b profile.js 缺 toggleFood —— 档案页没有引入入口')
+  } else if (!/markIntroduced\(id\)/.test(tgSeg5b)) {
+    E('5b toggleFood 没调 storage.markIntroduced —— 勾选不落记录，引入通道是断的')
+  } else if (!/!\s*f\s*\|\|\s*!\s*f\.allergen/.test(tgSeg5b)) {
+    E('5b toggleFood 没把致敏食材留在观察期（缺 !f.allergen 分支）—— 一点就跳过 3 天观察，等于把 v2.11 的老毛病搬回来了')
+  } else if (!/isFoodReady\(f,\s*this\.data\.months\)/.test(tgSeg5b)) {
+    E('5b toggleFood 没按月龄拦引入 —— 6 月龄就能勾到 9 月龄才该吃的食材（引擎的 minMonth 升序已随方案A删除）')
   }
-
-  const allergenCount = newFoodSeq.filter(function (id) { return allergenIds.indexOf(id) >= 0 }).length
-  if (allergenCount < 5) {
-    E(`26 周内只引入了 ${allergenCount} 种致敏食材，明显偏少（全部 ${allergenIds.length} 种）`)
-  }
-  console.log(`  新食材引入序列前 12 位：${newFoodSeq.slice(0, 12).join(' → ')}`)
-  console.log(`  26 周共引入 ${newFoodSeq.length} 种，其中致敏 ${allergenCount} 种`)
+  console.log('  5b 致敏通道：未记录 → 菜里一道致敏食材都没有；档案页勾 → 停在观察期 + 月龄门 ✓')
 }
 
 // 已确认「有反应」的食材必须被永久排除
@@ -356,7 +366,8 @@ if (allSafe) {
 
 /* ---------- 5d. 生病中状态（对齐 WS/T 678—2020 3.8） ----------
  * 「患病期间暂停添加新的辅食。……病愈后，及时恢复正常饮食。」
- * 因此 sick=true 时：计划里不能出现任何「新食材尝试」，但仍要正常排餐。
+ * v2.15 · 方案A：引擎已不产出任何新食材，这里只钉「病中仍要正常排餐」；
+ * 「病中剔未记录加料」这条真正的新辅食暂停语义由 6s F 钉。
  */
 ;[8, 12, 18].forEach(function (m) {
   const p = plan.generate({
@@ -375,21 +386,21 @@ if (allSafe) {
   if (newFoodDays > 0) E(`${m} 月龄生病时仍排了 ${newFoodDays} 天新食材尝试 —— 违反 WS/T 678 3.8「暂停添加新辅食」`)
   if (emptyDays > 0) E(`${m} 月龄生病时排不出餐（${emptyDays} 天空）`)
 })
-console.log('  生病中状态：暂停新食材、仍正常排餐 ✓')
+console.log('  生病中状态：仍正常排餐 ✓、病中剔未记录加料（见 6s F）✓')
 
 if (typeof age.isRecipeSuitable !== 'function') E('age.js 缺 isRecipeSuitable')
 if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
-/* ---------- 5e. 禁食提示条目不能进「新食材尝试」通道 ----------
- * foods 里的 honey 是「禁食提示」，不是待引入的辅食。它 minMonth=12 恰好落在
- * 覆盖范围内，不显式排除的话会在 12 月龄被当成新食材排进计划，展示成
- * 「新食材尝试 · 蜂蜜 / 一岁以内禁食 / 观察 3 天」。
+/* ---------- 5e. 禁食提示条目不能被引入 ----------
+ * foods 里的 honey 是「禁食提示」，不是待引入的辅食。v2.15 · 方案A 之后引擎
+ * 已不排新食材，这道门落到档案页：honey 不进可勾选列表（rebuild 直接 continue），
+ * 用户点不到；菜谱侧也不许引用它（下方 recipes 扫描）。
  */
 {
   const honey = foods.filter(function (f) { return f.id === 'honey' })[0]
   if (!honey) E('foods 里找不到 honey（禁食条目），5e 断言已失效')
   else if (honey.introducible !== false)
-    E('honey 必须标 introducible:false —— 禁食条目不能进新食材通道')
+    E('honey 必须标 introducible:false —— 禁食条目不进可勾选列表、详情页也藏掉引入按钮')
 
   const noIntroIds = foods.filter(function (f) { return f.introducible === false })
     .map(function (f) { return f.id })
@@ -401,36 +412,15 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     if (hit.length) E(`${r.id} 引用了不可引入的食材 ${hit.join('/')}（禁食条目不应进菜谱）`)
   })
 
-  // 精准测试：把除禁食条目外的食材全部标成「已记录」，让新食材候选池只剩它。
-  // 候选唯一时，day0 / day3 的两个名额必然会给它 —— 这才测得到那条过滤。
-  //
-  // ⚠️ 不要改回「扫一遍全月龄看 newFood」：候选池 53 种按 minMonth 升序排，
-  // 蜂蜜的 minMonth 最大、永远落在两个引入名额之外，那种扫描永远是绿的（假通过）。
-  const others = foods.filter(function (f) { return noIntroIds.indexOf(f.id) < 0 })
-    .map(function (f) { return f.id })
-  const p = plan.generate({
-    months: 12, issues: [],
-    safeFoodIds: others, blockedFoodIds: [],
-    recordedFoodIds: others, observingCount: 0,
-    startDate: new Date(2026, 0, 5)   // 周一，保证 day0 不是周末
-  })
-  if (!p) E('5e 构造用例生成失败（月龄 12、其余食材均已记录）')
-  else {
-    p.days.forEach(function (d) {
-      if (d.newFood && noIntroIds.indexOf(d.newFood.foodId) >= 0)
-        E(`新食材候选池没排除禁食条目「${d.newFood.name}」，被排成了新食材尝试`)
-    })
-  }
+  // v2.15 · 方案A：引擎不再排新食材，这道门改到档案页 —— honey 必须被挡在
+  // 可勾选列表之外（profile.rebuild 里直接 continue），用户连点都点不到。
+  // 旧的「构造唯一候选、看它会不会被排成新食材卡」已随方案A删除：候选池不复
+  // 存在，扫 day.newFood 恒为 null，只会是假通过。
+  const pSrc5e = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  if (!/f\.introducible\s*===\s*false/.test(pSrc5e))
+    E('档案页没按 introducible:false 挡住禁食条目 —— 禁食提示现在能被用户勾选引入')
 
-  // 构造前提自证：候选池里除了禁食条目，不该还有别的可引入食材。
-  // 否则「没排到 newFood」可能只是名额被别人占了，断言是空转的。
-  const leftover = foods.filter(function (f) {
-    return f.minMonth <= 12 && others.indexOf(f.id) < 0 && noIntroIds.indexOf(f.id) < 0
-  })
-  if (leftover.length)
-    W(`5e 候选池里还有未记录的可引入食材 ${leftover.map(function (f) { return f.id }).join('/')}，断言没真正压到禁食条目`)
-
-  console.log(`  禁食条目（${noIntroIds.join('/') || '无'}）未进入新食材通道 ✓`)
+  console.log(`  禁食条目（${noIntroIds.join('/') || '无'}）：introducible:false 且不被任何菜谱引用 ✓`)
 }
 
 /* ---------- 5f. 同日主料撞车：软约束，但不能劣化 ----------
@@ -1029,9 +1019,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       ]
     },
     {
-      where: '首页新食材卡 + 采购清单',
+      where: '采购清单（v2.15 · 方案A 后首页已无新食材卡）',
       js: './utils/plan.js', wxml: './pages/index/index.wxml',
-      binds: ['{{day.newFood.icon}}', 'day.newFood.iconBg', '{{it.icon}}', 'it.iconBg'],
+      binds: ['{{it.icon}}', 'it.iconBg'],
       cls: [
         { name: 'food-ic', css: appWxss, from: 'app.wxss' },
         { name: 'shop-label', css: rd('./pages/index/index.wxss'), from: 'index.wxss' }
@@ -1052,14 +1042,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     })
   })
 
-  // plan.js 要喂两处（新食材卡 + 采购清单），只喂一处另一处就没图标
+  // v2.15 · 方案A 后 plan.js 只喂采购清单一处（新食材卡随引擎停排一并删除）
   const planJs = rd('./utils/plan.js')
-  if ((planJs.match(/iconFor\(/g) || []).length < 2)
-    E('plan.js 里 iconFor 只用了一次 —— newFood 和 shopping 应各喂一处')
+  if ((planJs.match(/iconFor\(/g) || []).length < 1)
+    E('plan.js 里 iconFor 一次都没调 —— 采购清单的图标/底色断了')
 
   // 该 flex 的地方必须 flex：徽标是块级 view，不 flex 会把标题/标签撑成两行
+  // v2.15 · 方案A：.newfood-title 已随首页新食材卡删除，不再进这张表
   const flexChecks = [
-    ['.newfood-title', rd('./pages/index/index.wxss'), 'index.wxss'],
     ['.shop-label', rd('./pages/index/index.wxss'), 'index.wxss'],
     ['.fd-title', rd('./pages/food-detail/food-detail.wxss'), 'food-detail.wxss']
   ]
@@ -1499,13 +1489,33 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (mj.indexOf('toggleRow(e)') < 0)
     E('mine.js 缺 toggleRow —— 记录行点不开')
   if (mw.indexOf('bindtap="toggleRow"') < 0)
-    E('mine.wxml 记录行没绑 toggleRow —— 四行还是只读统计')
+    E('mine.wxml 记录行没绑 toggleRow —— 记录行还是只读统计')
   if (mw.indexOf('wx:if="{{openRow === ') < 0)
     E('mine.wxml 没有按 openRow 展开的结构 —— 点开看不到名单')
   if (mj.indexOf('toItems(') < 0 || mw.indexOf('wx:for="{{safeList}}"') < 0)
     E('行内展开的数据链断了（toItems → safeList 渲染）—— 点开是空的')
   if (mj.indexOf('goFoodDetail(e)') < 0 || mw.indexOf('bindtap="goFoodDetail"') < 0)
     E('展开的食材点不进详情页（goFoodDetail 链断）')
+  // 6c′) 「正在观察中」行已从「我的记录」删掉（v2.15）：观察名单只在档案页观察卡管理，
+  //       「我的」不留第二处入口，也不留算出来没人用的死数据 —— 反向钉防加回来
+  if (mw.indexOf('正在观察中') >= 0 || mw.indexOf('observingList') >= 0 || mw.indexOf('observingCount') >= 0)
+    E('mine.wxml 又出现「正在观察中」行 —— 观察名单入口已收归档案页观察卡，别在「我的」重复一份')
+  if (mj.indexOf('observingList') >= 0 || mj.indexOf('observingCount') >= 0)
+    E('mine.js 还在算 observingList/observingCount —— 行删了数据就是死代码')
+  if (pj.indexOf('observing') < 0)
+    E('profile.js 没有 observing 状态处理 ——「我的」删了观察行，观察名单会没有入口')
+  if (pw.indexOf('观察') < 0)
+    E('profile.wxml 没有观察卡 ——「我的」删了观察行，这里是观察名单的唯一入口')
+  // 6c″) 「查看本周计划」快捷入口已删（v2.15）：底部导航本就有「计划」tab，
+  //       「我的」再放一份是重复入口；goPlan 处理器也一并删（留着是死代码）
+  if (mw.indexOf('查看本周计划') >= 0 || mj.indexOf('goPlan(') >= 0)
+    E('mine 又出现「查看本周计划」/ goPlan —— 底部已有「计划」tab，重复入口不该回来')
+  // 6c‴) 「食材查一查」快捷入口已删（v2.15）：查一查页从底部 tab 进就够了；
+  //       goFood 处理器与 .link-row 规则一并删（留着是死代码/死样式）
+  if (mw.indexOf('食材查一查') >= 0 || mj.indexOf('goFood(') >= 0)
+    E('mine 又出现「食材查一查」/ goFood —— 快捷入口已移除，别加回来')
+  if (/\.link-row\s*\{/.test(fs.readFileSync('./pages/mine/mine.wxss', 'utf8')))
+    E('mine.wxss 还有 .link-row 规则 —— 快捷入口卡已删，这是死样式')
 
   // 6d) 档案页保留的有反应卡（编辑语境下的管理入口，与「我的」行互为双保险）
   if (pj.indexOf('badFoods') < 0)
@@ -1587,7 +1597,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   if (errs.length === errsBefore)
-    console.log('  6k 每餐打卡：三态按钮(catchtap)+撤销 ? 反应走 bad 正路+记本餐 ? 降权×0.15 穿透+指纹f段 ? checkable闸 ? 记录中枢(我的4行+行内展开+有反应行) ? 14天喂养记录在「我的」 ? 档案页有反应卡+挪干净 ? 规则真跑(2次进/1次不进/窗外不算/吃过即解除/撤销/指纹联动) ✓')
+    console.log('  6k 每餐打卡：三态按钮(catchtap)+撤销 ? 反应走 bad 正路+记本餐 ? 降权×0.15 穿透+指纹f段 ? checkable闸 ? 记录中枢(我的3行+行内展开+有反应行，观察行已移出) ? 14天喂养记录在「我的」 ? 档案页有反应卡+挪干净 ? 规则真跑(2次进/1次不进/窗外不算/吃过即解除/撤销/指纹联动) ✓')
 }
 
 /* ---------- 6l. v2.2 视觉基线：卡片阴影（B1） ----------
@@ -1742,13 +1752,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const idxs = []
     p.days.forEach((d, i) => { if (d.newFood) idxs.push(i) })
     const label = `${p.days[0].date} ${p.days[0].weekday}起始`
-    if (idxs.length !== 2)
-      E(`6m ${label}：本周只排了 ${idxs.length} 个新食材（应恒为 2，遇周末顺延不丢槽）`)
-    idxs.forEach((i) => {
-      if (p.days[i].isWeekend) E(`6m ${label}：新食材排在了周末（${p.days[i].date}）`)
-    })
-    if (idxs.length === 2 && idxs[1] - idxs[0] < 3)
-      E(`6m ${label}：两个引入日只隔 ${idxs[1] - idxs[0]} 天 < 3 —— 观察期被压缩`)
+    // v2.15 · 方案A：引擎一个引入槽都不排 —— 反向钉。旧口径「每周恒 2 个、
+    // 全在工作日、彼此隔 ≥3 天」已随自动排期删除；3 天观察间距改由
+    // storage.OBSERVE_DAYS 承担（档案页观察卡 + 首页到期提醒）。
+    if (idxs.length !== 0)
+      E(`6m ${label}：引擎仍排了 ${idxs.length} 个新食材槽 —— 引入已改走档案页，计划里不该出现 day.newFood`)
   }
 
   // —— 3) 冻结：窗口不前移；有打卡的日子整段照抄、没打卡的按当前规则重排 ——
@@ -1881,7 +1889,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 
   if (errs.length === errsBefore)
-    console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、7 个起始日各 2 名额且全工作日+间隔≥3 ✓、有打卡照抄+没打卡自愈成固定菜单(强化铁米粉糊+菜单用量) ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
+    console.log('  6m 重排窗口与新食材槽位：隐式重算走 replanOpts+「重新生成」不冻结 ✓、引擎零引入槽（引入全在档案页，反向钉）✓、有打卡照抄+没打卡自愈成固定菜单(强化铁米粉糊+菜单用量) ✓、窗口不前移 ✓、采购清单覆盖冻结日 ✓')
 }
 
 /* ---------- 6n. 视觉层级与品牌面（v2.7 · 视觉改版 ①②③④⑥） ----------
@@ -1985,13 +1993,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (iw.indexOf('day.total > day.done') < 0 || ij.indexOf('d.done = done') < 0)
     E('「待打卡 N」链路断了（wxml 没读 day.total/day.done，或 js 没算）')
 
-  // —— 4) 观察进度点：js 按引入日现算，wxml 两处都绑 ——
-  if (ij.indexOf('newFood.dots') < 0 || ij.indexOf('newFood.progText') < 0)
-    E('index.js markToday 没算观察进度（dots/progText）—— ④ 白做')
-  if (iw.indexOf('day.newFood.dots') < 0 || iw.indexOf('day.newFood.progText') < 0)
-    E('index.wxml 没绑定观察进度（dots/progText）—— 数据算了不显示')
-  if (ij.indexOf('dayDiff(d.date, todayKey)') < 0)
-    E('观察进度没按「引入日 = day.date」实算 —— 进度点会和真实引入时间脱钩')
+  // —— 4) 观察进度点已随方案A搬进档案页：首页一个入口都不许剩 ——
+  if (ij.indexOf('newFood.dots') >= 0 || iw.indexOf('day.newFood.dots') >= 0)
+    E('首页仍在算/绑观察进度（dots/progText）—— 观察已搬进档案页，这里是残留死代码')
+  if (ij.indexOf('function dayDiff') >= 0)
+    E('index.js 还留着 dayDiff —— 它只被已删的观察进度用，是孤儿函数')
 
   // —— 5) 字重三档：标题系 600 ——
   const wOf = (css, cls) => {
@@ -2005,7 +2011,6 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     [ix, 'day-week', 'index.wxss'],
     [ix, 'meal-name', 'index.wxss'],
     [ix, 'empty-title', 'index.wxss'],
-    [ix, 'newfood-title', 'index.wxss'],
     [mW, 'head-name', 'mine.wxss'],
     [mW, 'head-age', 'mine.wxss'],
     [fdW, 'fd-name', 'food-detail.wxss']
@@ -2035,7 +2040,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('link-arrow-open 共享修饰类断链（app.wxss 必须定义，index/mine 必须使用）')
 
   if (errs.length === errsBefore)
-    console.log('  6n 视觉层级与品牌面：品牌浅绿对比度现算 AA ✓、顶卡/今天卡双向接线 ✓、openDay 折叠闭环（今天 guard + 双复位）✓、观察进度按引入日现算 ✓、字重三档 600 ✓、展开动效与箭头过渡 ✓')
+    console.log('  6n 视觉层级与品牌面：品牌浅绿对比度现算 AA ✓、顶卡/今天卡双向接线 ✓、openDay 折叠闭环（今天 guard + 双复位）✓、观察进度已移出首页（反向钉）✓、字重三档 600 ✓、展开动效与箭头过渡 ✓')
 }
 
 /* ---------- 6o. 餐次标签与步骤用量（v2.7 · ① 配套） ----------
@@ -2070,6 +2075,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const tokens = (text.match(/\{([^{}]+)\}/g) || []).map((t) => t.slice(1, -1))
     tokTotal += tokens.length
     tokens.forEach((t) => {
+      if (t === '倍粥') return // v2.15 {倍粥} 是月龄占位符（非分类克数），按月龄填当档倍数
       if (c7.indexOf(t) < 0)
         E(`${tag} 步骤占位符 {${t}} 不在 amount 分类 [${c7}] 里 —— 填不出数，会渲染成空`)
     })
@@ -2091,7 +2097,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     ;[9, 18].forEach((months) => {
       recipes.forEach((r) => {
         const amountStr = plan.amountForStage(r, months)
-        const filled = plan.fillPortions(r.steps, amountStr)
+        const filled = plan.fillPortions(r.steps, amountStr, months)
         const text = filled.join('\n')
         if (/[{}]/.test(text))
           E(`${r.id}（${months} 月龄档）填数后仍残留花括号: ${text.match(/\{[^}]*\}?/g)}`)
@@ -2108,8 +2114,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     // 档位敏感性：同一道菜两档必须填出不同的数（写死文案的假实现过不了这条）
     const oat = recipes.find((r) => r.id === 'r_oat_banana')
     if (oat) {
-      const t9 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 9)).join('\n')
-      const t18 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 18)).join('\n')
+      const t9 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 9), 9).join('\n')
+      const t18 = plan.fillPortions(oat.steps, plan.amountForStage(oat, 18), 18).join('\n')
       if (t9.indexOf('20–30g') < 0 || t18.indexOf('30–50g') < 0)
         E(`燕麦香蕉糊两档没填出各自的克数（9 月应含 20–30g、18 月应含 30–50g）: "${t9}" / "${t18}"`)
       if (t9 === t18)
@@ -2156,13 +2162,13 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('.meal-tag 没把全局 .tag 的 margin 清零 —— flex + gap 下间距会翻倍')
   if ((iw.match(/tag tag-grey meal-tag/g) || []).length < 2)
     E('index.wxml 质地标签或类别标签循环没挂 tag-grey meal-tag —— 小标签样式没接上')
-  if (pj.indexOf('catsFromAmount(amountStr)') < 0 || pj.indexOf('fillPortions(recipe.steps, amountStr)') < 0)
+  if (pj.indexOf('catsFromAmount(amountStr)') < 0 || pj.indexOf('fillPortions(recipe.steps, amountStr, months)') < 0)
     E('plan.js 的 meal 构建没接 catsFromAmount/fillPortions —— 餐次标签与步骤填数是死代码')
   if (!/sv:\s*STRUCT_V/.test(pj))
     E('plan.generate 返回里没有 sv: STRUCT_V —— 结构版本没写进计划')
   if (ij.indexOf('p.sv !== plan.STRUCT_V') < 0)
     E('index.js refresh 的失效条件没比对 sv —— 升级后旧缓存一直渲染旧结构（标签/克数全缺）')
-  if (fdj.indexOf('plan.fillPortions(r.steps, plan.amountForStage(r, months))') < 0)
+  if (fdj.indexOf('plan.fillPortions(r.steps, plan.amountForStage(r, months), months)') < 0)
     E('food-detail.js 没按宝宝月龄档填步骤占位符 —— 食材详情页会露出 {谷物} 原文')
 
   if (errs.length === errsBefore)
@@ -2175,8 +2181,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  * 卡 key 跨组撞了会串组。内容钉的是两份公开资料的独有知识点（喂养量、2:1:1、粥倍数、
  * 蛋黄渐进、1→3 勺加量、错峰排敏、每天蛋黄、盐 1.5g、油与水果克数……）：
  * 数据文件删一条页面照常渲染，属于「静默丢失」，必须显式钉。
- * 菜谱层：蛋黄泥写分次渐进；凡步骤里熬稠粥的菜必须带倍粥参考（月龄→米水比随月龄变，
- * 写死一种会指错月龄）；新菜式 = 海报点名的蒸糕与馒头（手抓食物，不加新食材）；
+ * 菜谱层：蛋黄泥写分次渐进；凡步骤里熬稠粥的菜必须带 {倍粥} 占位符（月龄→米水比随月龄变，
+ * 写死一种会指错月龄），渲染时按月龄只出当档倍数；新菜式 = 海报点名的蒸糕与馒头（手抓食物，不加新食材）；
  * 蒸蛋羹的菜池月龄必须 ≤9 —— 9 月龄卡承诺了「蒸蛋羹可以开始安排」。
  */
 {
@@ -2286,7 +2292,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     if (!re.test(six)) E(`sixMonth 补充丢了「${what}」—— 公开资料的要点没写进去`)
   })
 
-  // 5) 菜谱层：蛋黄渐进 / 倍粥参考 / 新菜式
+  // 5) 菜谱层：蛋黄渐进 / 倍粥占位符按月龄出当档 / 新菜式
   const eggY = rids['r_egg_yolk_paste']
   if (!eggY) E('蛋黄泥 r_egg_yolk_paste 不见了')
   else {
@@ -2295,15 +2301,34 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E('蛋黄泥步骤丢了渐进量（1/4 → 1/2）—— 蛋黄分次引入的知识点没落进步骤')
     if (!/整个蛋黄/.test(s)) E('蛋黄泥步骤没写「逐步到整个蛋黄」—— 渐进终点丢了')
   }
-  // 凡步骤里出现「稠粥」的菜，必须带倍粥参考（稠度随月龄变，不写会指错月龄）
+  // 凡步骤里出现「稠粥」的菜，必须写 {倍粥} 占位符 —— 米水比随月龄变，写死一种会指错月龄；
+  // 且不许把「8 倍粥起，9 月龄 7 倍粥、…」整段阶梯硬编码回原文（那会把别的月龄的倍数
+  // 一起显示给眼前的宝宝），渲染时按月龄只出当前那一档
   recipes.forEach((r) => {
     (r.steps || []).forEach((s) => {
-      if (/稠粥/.test(s) && !/倍粥/.test(s))
-        E(`${r.id} 步骤里有「稠粥」但没有倍粥参考 —— 粥的米水比随月龄变，写死一种会指错月龄`)
+      if (!/稠粥/.test(s)) return
+      if (!/\{倍粥\}/.test(s))
+        E(`${r.id} 步骤里有「稠粥」但没有 {倍粥} 占位符 —— 粥的米水比随月龄变，写死一种会指错月龄`)
+      if (/倍粥起|月龄\s*\d+\s*倍粥/.test(s))
+        E(`${r.id} 步骤把倍粥阶梯硬编码进原文 —— 会把其它月龄的倍数一起显示出来（应写 {倍粥}）`)
     })
   })
-  if ((rcs.match(/倍粥/g) || []).length < 7)
-    E('菜谱里的倍粥参考不足 7 处 —— 粥底类菜谱的海报稠度阶梯没落全')
+  if ((rcs.match(/\{倍粥\}/g) || []).length < 7)
+    E('菜谱里的 {倍粥} 占位符不足 7 处 —— 粥底类菜谱的稠度阶梯没落全')
+  // 按月龄只出当档：9 月龄只见 7 倍粥、11 月龄起只见 4 倍粥，旧档倍数不许跟着一起出
+  const porr = recipes.filter((r) => (r.steps || []).some((s) => /\{倍粥\}/.test(s)))
+  if (porr.length) {
+    const pr = porr[0]
+    ;[[8, '8 倍粥'], [9, '7 倍粥'], [10, '6 倍粥'], [11, '4 倍粥']].forEach(([m, want]) => {
+      const t = plan.fillPortions(pr.steps, plan.amountForStage(pr, m), m).join('\n')
+      const others = ['8 倍粥', '7 倍粥', '6 倍粥', '4 倍粥'].filter((x) => x !== want)
+      if (t.indexOf(want) < 0)
+        E(`${m} 月龄填出的步骤里没有「${want}」—— 倍粥阶梯没按月龄填（${t}）`)
+      const leaked = others.filter((x) => t.indexOf(x) >= 0)
+      if (leaked.length)
+        E(`${m} 月龄填出的步骤里混进了 ${leaked.join('、')} —— 只应显示当档倍数（${t}）`)
+    })
+  }
   ;[['r_steam_cake', '蔬菜蒸糕', ['wheat_flour', 'egg_whole']],
     ['r_steam_bun', '南瓜小馒头', ['wheat_flour']]].forEach(([id, name, allergs]) => {
     const r = rids[id]
@@ -2325,7 +2350,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E(`r_broccoli_egg_custard 起始月龄 ${cust.monthRange[0]} —— 9 月龄卡说蒸蛋羹可以安排，菜池却排不进去（建议落不了地）`)
 
   if (errs.length === errsBefore)
-    console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/午后水果…) ✓、蛋黄渐进与倍粥参考落步骤 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
+    console.log('  6p 公开月龄资料融入：六组卡(导出→六档选组闸门→挂 data→互斥渲染→key 不撞) ✓、两份资料知识点分组在 ✓、6 月卡补充(冲泡/症状/午后水果…) ✓、蛋黄渐进与 {倍粥} 按月龄只出当档 ✓、蒸糕+小馒头(手抓/致敏登记) ✓、9 月蒸蛋羹承诺↔菜池联动 ✓')
 }
 
 /* ---------- 6q. 时段锚点与正/加餐分槽（v2.9） ----------
@@ -2432,8 +2457,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('age.js 缺 mealsForMonth / slotsForMonth —— 餐次与时段锚点没有事实源')
   if (aj.indexOf('刚起步，一天 1–2 餐') < 0)
     E('puree 阶段 desc 没跟上 7 月 2 餐（描述与计划打架）')
-  if (pj.indexOf('STRUCT_V = 5') < 0)
-    E('STRUCT_V 没 bump 到 5 —— 冻结语义修订（v2.10）没触发旧缓存重算，会一直渲染旧结构')
+  // 结构版本用下界而不是逐字钉死：v2.10 冻结语义 = 5，v2.15 方案A（newFood
+  // 恒 null + 挂载函数删除）= 6。下次再 bump 不必回来改这句话。
+  const svM = /STRUCT_V\s*=\s*(\d+)/.exec(pj)
+  if (!svM || +svM[1] < 6)
+    E(`STRUCT_V 是 ${svM ? svM[1] : '缺失'}，应 ≥ 6 —— v2.15·方案A 没触发旧缓存重算，会一直渲染旧结构`)
   if (pj.indexOf('function isSnackRecipe') < 0 || pj.indexOf('const snackPool =') < 0)
     E('plan.js 缺加餐分池实现（isSnackRecipe / snackPool）')
   if (ijQ.indexOf('d.timeline = rows') < 0)
@@ -2494,42 +2522,38 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       E('奶参考行没渲染时刻')
   }
 
-  // —— 5c) 方案C · 合并重铸（v2.10）：主餐成卡，新食材观察并入承载餐 ——
-  // 归属要讲真话：菜谱 foods 含该食材，或菜单加料在 day.menuAdd 里；都挂不上
-  // （7 月+ 首口独立即食）必须走顶部独立卡兜底 —— 两条渲染路径都要活着。
+  // —— 5c) 方案A（v2.15）：主餐成卡保留，新食材观察条随「引擎停排」移除 ——
+  // 反向钉：首页一个新食材渲染入口都不许剩。留着的话观察信息会在计划页与档案页
+  // 重复出现，而且计划页那份永远停在「○○○」—— 引擎已经不喂数据了。
   if (iwQ.indexOf('class="meal-card"') < 0)
-    E('index.wxml 缺主餐卡（.meal-card）包装 —— 方案C 的主餐没成卡')
+    E('index.wxml 缺主餐卡（.meal-card）包装 —— 主餐没成卡')
   const mealAt = iwQ.indexOf('<view class="meal"')
   const mealSeg = mealAt >= 0 ? iwQ.slice(mealAt, mealAt + 2400) : ''
   if (!mealSeg) E('index.wxml 缺 <view class="meal"> —— 结构改了没同步钉子')
   else {
-    if (mealSeg.indexOf('nfstrip') < 0 || mealSeg.indexOf('row.meal.newFood') < 0)
-      E('主餐卡内没有新食材观察条（.nfstrip / row.meal.newFood）—— 方案C 没落地，观察还挂在头顶')
-    if (mealSeg.indexOf('newfood-dots') < 0 || mealSeg.indexOf('newfood-prog-text') < 0)
-      E('观察条缺 ●○○ 进度（newfood-dots/progText）—— 观察信息没并进主餐卡')
-    if (mealSeg.indexOf('newfood-body') < 0 || mealSeg.indexOf('newfood-note') < 0)
-      E('观察条缺用量/冲调方法或观察说明 —— 合并把说明丢了')
+    if (mealSeg.indexOf('class="nfstrip"') >= 0 || mealSeg.indexOf('row.meal.newFood') >= 0)
+      E('主餐卡内仍挂着新食材观察条（.nfstrip / row.meal.newFood）—— 观察已搬进档案页，这里是残留')
+    if (mealSeg.indexOf('newfood-dots') >= 0 || mealSeg.indexOf('newfood-prog-text') >= 0)
+      E('主餐卡内仍有 ●○○ 观察进度 —— 进度已由档案页观察卡接管')
   }
-  if (iwQ.indexOf('day.newFood && !day.newFoodAttached') < 0)
-    E('顶部独立新食材卡没挂 newFoodAttached 兜底闸 —— 挂上后头顶还留一张重复卡')
-  if (ijQ.indexOf('plan.attachNewFood') < 0)
-    E('markToday 没调 plan.attachNewFood —— 挂载缺失，主餐卡观察条永远不渲染')
-  if (pj.indexOf('function attachNewFood') < 0 || pj.indexOf('attachNewFood: attachNewFood') < 0)
-    E('plan.js 缺 attachNewFood 实现或没导出 —— 挂载链路根本不存在')
+  if (iwQ.indexOf('day.newFood && !day.newFoodAttached') >= 0)
+    E('顶部独立新食材卡还在（newFoodAttached 兜底闸）—— 引擎不再产出 day.newFood，这张卡永不渲染')
+  if (ijQ.indexOf('plan.attachNewFood(') >= 0)
+    E('markToday 仍在调 plan.attachNewFood( —— 该函数已随方案A删除，调它会直接抛错')
+  if (pj.indexOf('function attachNewFood') >= 0 || pj.indexOf('attachNewFood:') >= 0)
+    E('plan.js 里 attachNewFood 还活着 —— 没有任何 day.newFood 可挂，是死代码')
   const mcRule = wsQ.match(/\.meal-card\s*\{[^}]*\}/)
   if (!mcRule || !/background:\s*var\(--c-card\)/.test(mcRule[0]) || !/border:/.test(mcRule[0]))
     E('.meal-card 缺白底/描边 —— 白卡 vs 白底只差 1.5%，主餐卡立不住')
   if (!/\.day-card--today \.meal-card\s*\{[^}]*border-left:\s*3rpx solid var\(--c-green\)/.test(wsQ))
     E('今天没有主餐卡绿边条（.day-card--today .meal-card）—— 今天主角缺视觉锚')
-  const nfRule = wsQ.match(/\.nfstrip\s*\{[^}]*\}/)
-  if (!nfRule || !/background:\s*var\(--c-amber-bg\)/.test(nfRule[0]))
-    E('.nfstrip 缺琥珀底 —— 观察条失去「新食材」语义色')
+  if (/\.nfstrip\s*\{/.test(wsQ))
+    E('.nfstrip 样式还在 —— 观察条已删，这是没人引用的孤儿规则')
   const mcSwm = wsQ.match(/\.meal-card \.slot-withmilk\s*\{[^}]*\}/)
   if (!mcSwm || !/margin-right:\s*0/.test(mcSwm[0]))
     E('.meal-card 内 .slot-withmilk 没归零 —— 卡内右缘多出 24rpx，与「时段参考」列错位')
-  // 功能钉：真生成一份 6 月菜单计划跑挂载 —— 有 newFood 的天必须挂上（同对象
-  // 引用，否则 dots/progText 派生态不同步），挂的餐必须真含该食材；没挂上时
-  // attached 必须为 false（顶部兜底卡要渲染）。菜单日首口必在正餐 → carried > 0。
+  // 功能钉：真跑一份 6 月菜单计划 —— 逐日确认 day.newFood 恒 null、餐行也没挂、
+  // newFoodAttached 字段不再产生（attachNewFood 已删，挂载无从发生）。
   try {
     const nC = new Date()
     const bC = plan.dateKey(new Date(nC.getFullYear(), nC.getMonth() - 6, Math.min(nC.getDate(), 28)))
@@ -2538,36 +2562,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       safeFoodIds: foods.map((f) => f.id), blockedFoodIds: [], recordedFoodIds: [], observingCount: 0
     })
     if (!pC) E('5c 功能钉：6 月菜单计划生成失败')
-    else {
-      plan.attachNewFood(pC)
-      let carried = 0
-      pC.days.forEach((d) => {
-        const rows = (d.meals || []).concat(d.snack ? [d.snack] : [])
-        rows.forEach((m) => {
-          if (m.newFood && m.newFood !== d.newFood)
-            E(`5c ${d.date} 挂的不是 day.newFood 本体 —— 引用不同对象，dots/progText 会不同步`)
-        })
-        if (!d.newFood) {
-          if (d.newFoodAttached) E(`5c ${d.date} 没有 newFood 却标了 attached —— 顶部兜底卡被误藏`)
-          if (rows.some((m) => m.newFood)) E(`5c ${d.date} 没有 newFood 却有餐带观察条 —— 渲染出悬空卡片`)
-          return
-        }
-        if (!d.newFoodAttached) {
-          E(`5c ${d.date}（${d.newFood.name}）没挂到任何餐次 —— 主餐卡观察条不渲染，顶部兜底卡闪现`)
-          return
-        }
-        carried++
-        const hit = rows.filter((m) => m.newFood)[0]
-        if (!hit) { E(`5c ${d.date} 标了 attached 却找不到挂载餐 —— 挂载与渲染判定不一致`); return }
-        const r = recipes.filter((x) => x.id === hit.recipeId)[0]
-        const inRecipe = !!(r && (r.mainFoods || []).concat(r.sideFoods || []).indexOf(d.newFood.foodId) >= 0)
-        const inAdd = (d.menuAdd || []).some((a) => a.foodId === d.newFood.foodId)
-        if (!inRecipe && !inAdd)
-          E(`5c ${d.date} 挂到的餐既不含「${d.newFood.name}」也不在菜单加料里 —— 挂载张冠李戴`)
+    else pC.days.forEach((d) => {
+      if (d.newFood) E(`5c ${d.date} 仍在产出 day.newFood —— 引入已改走档案页（方案A）`)
+      if (d.newFoodAttached) E(`5c ${d.date} 仍标 newFoodAttached —— 该字段随 attachNewFood 一起删了`)
+      const rows = (d.meals || []).concat(d.snack ? [d.snack] : [])
+      rows.forEach((m) => {
+        if (m.newFood) E(`5c ${d.date} 餐行仍挂 newFood —— 会渲染出永远停在第一天的悬空观察条`)
       })
-      if (!carried)
-        E('5c 功能钉：整份 6 月计划没有一天挂上观察条 —— 挂载逻辑成死代码（菜单日首口必在正餐）')
-    }
+    })
   } catch (e) {
     E('§6q 5c 功能断言执行异常：' + e.message)
   }
@@ -2591,7 +2593,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   } else E('6q 冻结日测试：plan.generate 返回 null')
 
   if (errs.length === errsBefore)
-    console.log('  6q 时段锚点与正/加餐分槽：餐次按月龄(6→1/7–11→2/12→3) ✓、各月龄列数与时刻轴 ✓、main槽=餐次 ✓、正餐位零加餐类 ✓、加餐行同构+计入类别 ✓、奶行不可打卡 ✓、冻结日加餐保留 ✓、timeline 接线与样式 ✓、时段头同行四点(无时段名/时刻前置/chip后置/右列对齐) ✓、方案C主餐成卡+新食材观察并入承载餐(引用一致/归属真实/兜底闸) ✓')
+    console.log('  6q 时段锚点与正/加餐分槽：餐次按月龄(6→1/7–11→2/12→3) ✓、各月龄列数与时刻轴 ✓、main槽=餐次 ✓、正餐位零加餐类 ✓、加餐行同构+计入类别 ✓、奶行不可打卡 ✓、冻结日加餐保留 ✓、timeline 接线与样式 ✓、时段头同行四点(无时段名/时刻前置/chip后置/右列对齐) ✓、主餐成卡 ✓、首页新食材渲染入口反向钉 ✓')
 }
 
 /* ---------- 6r. 6–7 月强化铁米粉固定口径（v2.9 · ③） ----------
@@ -2625,7 +2627,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
     // 2) 固定值必须经 {谷物} 占位符真的填进步骤（克数下沉链路对固定值同样成立）
     ;[[6, '5g+水50ml'], [7, '10g+水70ml']].forEach(([m, v]) => {
-      const t = plan.fillPortions(rice.steps, plan.amountForStage(rice, m)).join('\n')
+      const t = plan.fillPortions(rice.steps, plan.amountForStage(rice, m), m).join('\n')
       if (/[{}]/.test(t)) E(`${m} 月龄米粉步骤填数后残留花括号: ${t}`)
       if (t.indexOf(v) < 0) E(`${m} 月龄米粉固定用量「${v}」没填进步骤 —— 固定菜单口径没落到眼前`)
     })
@@ -2815,38 +2817,45 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     })
   }
 
-  // 窗口 C：新食材卡派生（今天 = 第 1 天 → 窗口 1–7）
+  // 窗口 C：6 月固定菜单用量（今天 = 第 1 天 → 窗口 1–7）
+  // v2.15 · 方案A：新食材卡已移除；菜单用量是主食的真信息，逐日钉死。
   const bC = birthOn(1)
   const pC = gen6s(bC)
   if (!pC) E('6s 窗口 C：plan.generate 返回 null')
   else pC.days.forEach((d) => {
     const md = plan.menuDayOf(bC, d.date)
-    if (md <= 3) {
-      if (!d.newFood || d.newFood.foodId !== 'rice_cereal')
-        E(`6s C ${d.date}（菜单第 ${md} 天）新食材卡应为强化铁米粉（第一口）—— 实际 ${d.newFood ? d.newFood.foodId : 'null'}`)
-      else if (d.newFood.amount !== '2.5g+水40ml')
-        E(`6s C ${d.date} 米粉卡用量「${d.newFood.amount}」≠ 菜单起步档「2.5g+水40ml」`)
-    } else if (md >= 4 && md <= 6) {
-      if (d.newFood) E(`6s C ${d.date}（菜单第 ${md} 天）不该出新食材卡 —— 菜单此段无新引入`)
-    } else if (md === 7) {
-      if (d.newFood) E(`6s C ${d.date} 油脂不该进新食材卡（foods.js：油不需单独观察）`)
+    const meC = plan.MENU_6[md]
+    if (meC) {
+      const wantC = meC.base + (meC.add || []).map((a) => '+' + a.label).join('')
+      const gotC = d.meals[0] ? d.meals[0].amount : ''
+      if (gotC !== wantC)
+        E(`6s C ${d.date}（菜单第 ${md} 天）用量「${gotC}」≠ 菜单「${wantC}」`)
+      if (md <= 3 && d.meals[0] && d.meals[0].recipeId !== 'r_rice_cereal')
+        E(`6s C ${d.date}（菜单第 ${md} 天）首口应是强化铁米粉，实际 ${d.meals[0].recipeId}`)
     }
+    if (d.newFood)
+      E(`6s C ${d.date}（菜单第 ${md} 天）仍产出 day.newFood —— 引入已改走档案页（方案A），引擎不该再排`)
   })
 
-  // 窗口 D：菜泥/肉泥卡片（今天 = 第 10 天 → 窗口 10–16，1→2→3 勺跟菜单走）
+  // 窗口 D：菜泥/肉泥逐日加量（今天 = 第 10 天 → 窗口 10–16，1→2→3 勺跟菜单走）
+  // 原来钉的是「新食材卡量」；卡没了，但 1→2→3 勺是菜单的真信息，继续钉。
   const bD = birthOn(10)
   const pD = gen6s(bD)
-  const cardPin = { 10: 'potato', 11: 'potato', 12: 'potato', 13: 'carrot', 14: 'carrot', 15: 'carrot', 16: 'pork' }
   const qtyOf = (md) => (md % 3 === 1 ? '1 勺' : md % 3 === 2 ? '2 勺' : '3 勺')
   if (!pD) E('6s 窗口 D：plan.generate 返回 null')
   else pD.days.forEach((d) => {
     const md = plan.menuDayOf(bD, d.date)
-    const want = cardPin[md]
-    if (!want) return
-    if (!d.newFood || d.newFood.foodId !== want)
-      E(`6s D ${d.date}（菜单第 ${md} 天）新食材卡应为「${want}」—— 实际 ${d.newFood ? d.newFood.foodId : 'null'}（1→2→3 勺跟菜单走）`)
-    else if (d.newFood.amount !== qtyOf(md))
-      E(`6s D ${d.date} 新食材卡量「${d.newFood.amount}」≠ 菜单「${qtyOf(md)}」`)
+    const meD = plan.MENU_6[md]
+    if (meD && (meD.add || []).length) {
+      const wantD = meD.base + '+' + meD.add[0].label
+      const gotD = d.meals[0] ? d.meals[0].amount : ''
+      if (gotD !== wantD)
+        E(`6s D ${d.date}（菜单第 ${md} 天）用量「${gotD}」≠ 菜单「${wantD}」`)
+      else if (md >= 10 && md <= 16 && meD.add[0].qty !== qtyOf(md))
+        E(`6s D 菜单第 ${md} 天的量「${meD.add[0].qty}」≠ 递增档「${qtyOf(md)}」—— 1→2→3 勺节奏丢了`)
+    }
+    if (d.newFood)
+      E(`6s D ${d.date}（菜单第 ${md} 天）仍产出 day.newFood —— 引入已改走档案页（方案A）`)
   })
 
   // 4) 安全语义优先：有反应剔加料；病中/观察中剔未记录加料且不出新食材卡
@@ -2938,7 +2947,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('plan.js 缺 menuAdd（冻结日加料采购补计）—— 隐式重排后采购清单会漏加料')
 
   if (errs.length === errsBefore)
-    console.log('  6s 6 月主食固定菜单锁定：MENU_6 三十天逐字钉 ✓、正餐恒米粉+当日菜单用量 ✓、15:00 加餐 6+19 前空白/后果实 ✓、加料类别与采购 ✓、有反应/病中/观察中剔加料 ✓、新食材卡菜单派生（1→2→3 勺、油脂不进卡、前 3 天米粉）✓、重新生成只改水果 ✓、生日进指纹 ✓')
+    console.log('  6s 6 月主食固定菜单锁定：MENU_6 三十天逐字钉 ✓、正餐恒米粉+当日菜单用量逐日核 ✓、15:00 加餐 6+19 前空白/后果实 ✓、加料类别与采购 ✓、有反应/病中/观察中剔加料 ✓、菜泥 1→2→3 勺递增 ✓、引擎零新食材卡（反向钉）✓、重新生成只改水果 ✓、生日进指纹 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

@@ -41,17 +41,15 @@ Page({
     stageLabel: '',
     stageHint: '',
     safeCount: 0,
-    observingCount: 0,
     // 「有反应、已排除」单独一行 —— 数据一直在（badFoodIds），卡上没有行
     // 就等于没入口（v2.1：上一轮把卡加到了档案页，「我的」tab 这边缺的就是它）
     badCount: 0,
     recordedCount: 0,
     issueLabel: '',
     version: '',
-    // 行内展开态：'' | 'safe' | 'obs' | 'bad' | 'all'
+    // 行内展开态：'' | 'safe' | 'bad' | 'all'
     openRow: '',
     safeList: [],
-    observingList: [],
     badList: [],
     recordedList: [],
     // 14 天喂养记录（自档案页移来：记录归「我的」，档案页只管编辑）
@@ -78,10 +76,10 @@ Page({
       stageHint = '已超过 2 岁，当前菜谱覆盖 6–24 月龄'
     }
 
-    // 行内展开的四组名单：与上面的计数同一数据源（bb_introduced），
+    // 行内展开的三组名单：与上面的计数同一数据源（bb_introduced），
     // 只是换成「带名字」的展示形态；点开哪行就渲哪组
+    // （观察中不再单列 —— 观察名单只在档案页观察卡管理，v2.15）
     const safeList = toItems('safe')
-    const observingList = toItems('observing')
     const badList = toItems('bad')
     const recordedList = toItems(null)
 
@@ -96,13 +94,11 @@ Page({
       stageLabel: stageLabel,
       stageHint: stageHint,
       safeCount: storage.safeFoodIds().length,
-      observingCount: storage.observingFoodIds().length,
       badCount: storage.badFoodIds().length,
       recordedCount: storage.recordedFoodIds().length,
       issueLabel: storage.statusLabels(storage.getStatuses()),
       version: app && app.globalData ? app.globalData.version : '',
       safeList: safeList,
-      observingList: observingList,
       badList: badList,
       recordedList: recordedList
     })
@@ -152,13 +148,5 @@ Page({
 
   goProfile() {
     wx.navigateTo({ url: '/pages/profile/profile' })
-  },
-
-  goFood() {
-    wx.switchTab({ url: '/pages/food/food' })
-  },
-
-  goPlan() {
-    wx.switchTab({ url: '/pages/index/index' })
   }
 })

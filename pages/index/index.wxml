@@ -138,21 +138,8 @@
           <!-- 展开层：今天恒创建；非今天只在 openDay 命中时创建（fx-in 只挂用户点开的，不算入场动画） -->
           <view class="day-body {{!day.isToday && openDay === day.date ? 'fx-in' : ''}}"
                 wx:if="{{day.isToday || openDay === day.date}}">
-          <!-- 顶部独立新食材卡：只兜底「挂不上承载餐」的首口（7 月+ 独立即食、
-               与菜谱无关）—— 挂上了就并进那餐的主餐卡（方案C · v2.10） -->
-          <view class="newfood" wx:if="{{day.newFood && !day.newFoodAttached}}">
-            <view class="newfood-title">
-              <view class="food-ic" style="background:{{day.newFood.iconBg}}">{{day.newFood.icon}}</view>
-              <text>新食材尝试 · {{day.newFood.name}}</text>
-            </view>
-            <!-- 观察进度（v2.7 · ④）：●○○ 是真信息 —— 引入日 + 3 天，markToday 现算 -->
-            <view class="newfood-prog">
-              <text class="newfood-dots">{{day.newFood.dots}}</text>
-              <text class="newfood-prog-text">{{day.newFood.progText}}</text>
-            </view>
-            <view class="newfood-body">{{day.newFood.amount}}；{{day.newFood.method}}</view>
-            <view class="newfood-note">连续观察 {{day.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
-          </view>
+          <!-- v2.15 · 方案A：顶部独立新食材卡已移除 —— 引入与观察都在档案页，
+               计划里没有 day.newFood，这里不再兜底渲染 -->
 
           <!-- 时段锚点（v2.9 · 方案A）：奶 = 参考行（只标时段，不排菜不打卡）；
                正餐/加餐 = 时段头（时刻+菜名+小标签+chip 同行，整行可点展开）+ 步骤/打卡
@@ -181,22 +168,7 @@
                 <text class="slot-withmilk" wx:if="{{row.withMilk}}">辅食 + 奶</text>
               </view>
               <view class="meal" data-key="{{row.meal.key}}" bindtap="toggleMeal">
-                <!-- 方案C · 新食材观察并入本餐（attachNewFood 挂载；●○○ 仍由 markToday 现算）：
-                     挂不上的首口不进这里，由顶部独立卡兜底 -->
-                <block wx:if="{{row.meal.newFood}}">
-                  <view class="nfstrip">
-                    <view class="newfood-title">
-                      <view class="food-ic" style="background:{{row.meal.newFood.iconBg}}">{{row.meal.newFood.icon}}</view>
-                      <text>新食材尝试 · {{row.meal.newFood.name}}</text>
-                    </view>
-                    <view class="newfood-prog">
-                      <text class="newfood-dots">{{row.meal.newFood.dots}}</text>
-                      <text class="newfood-prog-text">{{row.meal.newFood.progText}}</text>
-                    </view>
-                  </view>
-                  <view class="newfood-body">{{row.meal.newFood.amount}}；{{row.meal.newFood.method}}</view>
-                  <view class="newfood-note">连续观察 {{row.meal.newFood.observeDays}} 天。没异常就说明可以吃，有异常立刻停掉并咨询医生。</view>
-                </block>
+                <!-- v2.15 · 方案A：餐内新食材观察条（.nfstrip）已移除 —— 观察搬进档案页 -->
                 <!-- 步骤默认态：今天的餐展开（markToday 现算 meal.open），其余日子收起 -->
                 <view class="meal-steps fx-in" wx:if="{{row.meal.open}}">
                   <view class="step" wx:for="{{row.meal.steps}}" wx:key="*this" wx:for-item="s">{{s}}</view>

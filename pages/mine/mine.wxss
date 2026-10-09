@@ -29,20 +29,7 @@
   margin-top: 24rpx;
 }
 
-.link-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 26rpx 4rpx;
-  border-bottom: 1rpx solid var(--c-line);
-  font-size: var(--fs-lg);
-  color: var(--c-text);
-}
-
-.link-row:last-child {
-  border-bottom: none;
-}
-
+/* .link-row（「快捷入口」行）已随「食材查一查」入口移除删掉 —— 死样式 */
 .link-arrow {
   color: var(--c-text-3);
   font-size: var(--fs-title);

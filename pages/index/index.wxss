@@ -203,55 +203,8 @@
   flex-shrink: 0;
 }
 
-.newfood {
-  background: var(--c-amber-bg);
-  border-radius: var(--r-md);
-  padding: 18rpx 20rpx;
-  margin-bottom: 16rpx;
-}
-
-.newfood-title {
-  /* v2.0：标题里嵌了 emoji 徽标，flex 才能让徽标和文字同行居中 */
-  display: flex;
-  align-items: center;
-  font-size: var(--fs-base);
-  font-weight: 600;
-  color: var(--c-amber-ink);
-  margin-bottom: 8rpx;
-}
-
-.newfood-body {
-  font-size: var(--fs-md);
-  color: var(--c-amber-ink);
-  line-height: 1.6;
-}
-
-.newfood-note {
-  font-size: var(--fs-xs);
-  color: var(--c-amber-ink);
-  line-height: 1.6;
-  margin-top: 10rpx;
-}
-
-/* 观察进度（v2.7 · ④）：●●○ 是真信息（已观察几天 / 共 3 天，markToday 现算），
-   不是装饰点 */
-.newfood-prog {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  margin-bottom: 8rpx;
-}
-
-.newfood-dots {
-  font-size: var(--fs-sm);
-  letter-spacing: 4rpx;
-  color: var(--c-amber-ink);
-}
-
-.newfood-prog-text {
-  font-size: var(--fs-xs);
-  color: var(--c-amber-ink);
-}
+/* v2.15 · 方案A：.newfood* 观察卡样式已随「首页不再渲染新食材尝试」移除 ——
+   观察卡与观察态都在档案页（pages/profile/profile.wxss）。 */
 
 /* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 菜名 + 质地/类别小标签 + 正/加餐 chip
    + 右侧奶标注，一行基线对齐（样式修订：时段名不渲染，整行可点展开） */
@@ -330,17 +283,6 @@
 .meal-card .slot-withmilk {
   margin-right: 0; /* 卡内 24rpx 已接管（基础规则保持 24rpx —— §6q 5b 钉） */
 }
-/* 并入的观察条：琥珀底只留给「标题 + ●○○」，说明文字走白底 —— 别让琥珀再压过菜名 */
-.nfstrip {
-  background: var(--c-amber-bg);
-  border-radius: var(--r-md);
-  padding: 14rpx 20rpx;
-  margin-top: 12rpx;
-}
-.meal-card .newfood-body {
-  margin-top: 12rpx; /* 基础规则无上边距（顶部兜底卡靠标题撑开），白底上要留一截 */
-}
-
 /* 时段头后面的餐次行：顶部分隔线由时段头的留白接管，别叠双线 */
 .slot-head + .meal {
   border-top: none;
@@ -504,7 +446,7 @@
 }
 
 /* 卡头：emoji 徽标 + 标题同行。徽标是块级 view，
-   不 flex 会把标题挤到下一行（同 §6g 对 .newfood-title 的约束） */
+   不 flex 会把标题挤到下一行（同 §6g 对 .shop-label 的约束） */
 .guide-head {
   display: flex;
   align-items: center;

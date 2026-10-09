@@ -14,6 +14,9 @@ Page({
     today: '',
     minDate: '',
     ageText: '',
+    // 当前月龄（null = 没填生日）。v2.15 · 方案A 之后档案页是引入的唯一入口，
+    // 引擎不再按 minMonth 升序排引入，这道月龄门只能在这里挡。
+    months: null,
     // 状态多选：由 storage.STATUSES 逐项算出是否已勾选
     statuses: [],
     keyword: '',
@@ -40,7 +43,8 @@ Page({
     this.setData({
       name: baby && baby.name ? baby.name : '',
       birthday: birthday,
-      ageText: birthday ? age.describeAge(birthday) : ''
+      ageText: birthday ? age.describeAge(birthday) : '',
+      months: birthday ? age.monthsBetween(birthday) : null
     })
     this.rebuildStatus()
     this.rebuild()
@@ -55,13 +59,15 @@ Page({
   /** 重建食材勾选列表 */
   rebuild() {
     const safe = storage.safeFoodIds()
+    const months = this.data.months
     const kw = (this.data.keyword || '').trim()
     const map = {}
 
     for (let i = 0; i < FOODS.length; i++) {
       const f = FOODS[i]
-      // 蜂蜜只作为「禁食」提示存在，不作为可勾选食材
-      if (f.id === 'honey') continue
+      // introducible:false 的条目（蜂蜜等）只是「禁食提示」，不作为可勾选食材
+      // —— 按数据标记挡，而不是写死 id，将来再加禁食条目自动生效
+      if (f.introducible === false) continue
       if (kw) {
         const aliasHit = (f.alias || []).join(' ').indexOf(kw) >= 0
         if (f.name.indexOf(kw) < 0 && !aliasHit) continue
@@ -76,6 +82,10 @@ Page({
         // bad 必须单独标出来：它的 chip 也是「未勾选」的样子，
         // 但点击语义完全不同（见 toggleFood）
         status: intro ? intro.status : 'new',
+        // v2.15 · 方案A：引擎不再按 minMonth 升序排引入，这道门由档案页补上 ——
+        // 没到月龄的食材点了不许引入（toggleFood 里再拦一道并给提示）。
+        tooEarly: months !== null && !age.isFoodReady(f, months),
+        minMonth: f.minMonth,
         // v2.0 图标：未选中的 chip 用分类色做底，选中态由 .chip-on 覆盖
         icon: icons.iconFor(f),
         iconBg: icons.bgFor(f)
@@ -91,11 +101,20 @@ Page({
     const observing = storage.getIntroduced()
       .filter(function (it) { return it.status === 'observing' })
       .map(function (it) {
-        let name = it.foodId
+        let fo = null
         for (let i = 0; i < FOODS.length; i++) {
-          if (FOODS[i].id === it.foodId) { name = FOODS[i].name; break }
+          if (FOODS[i].id === it.foodId) { fo = FOODS[i]; break }
         }
-        return { foodId: it.foodId, name: name, date: it.date }
+        const fi = fo && fo.firstIntro ? fo.firstIntro : null
+        // v2.15 · 方案A：观察期 = 你自己喂、计划不排 —— 首次喂法必须就地给出，
+        // 否则用户只知道「在观察」，不知道喂多少、怎么喂。
+        return {
+          foodId: it.foodId,
+          name: fo ? fo.name : it.foodId,
+          date: it.date,
+          amount: fi ? fi.amount : '',
+          method: fi ? fi.method : ''
+        }
       })
 
     // 有反应的食材（bad）：date 就是反应当天（markIntroduced 落的日期）。
@@ -173,12 +192,12 @@ Page({
 
     // ⚠️ 「有反应」(bad) 是这个系统里唯一的硬排除机制，语义是永久排除。
     // bad 的 chip 在界面上也是未勾选的样子，如果直接走 removeIntroduced，
-    // 等于让用户「点一下就解除过敏排除」，食材会重新回到新食材推荐通道。
+    // 等于让用户「点一下就解除过敏排除」，食材会立刻重新排进菜单。
     // 所以这里必须拦下来，引导到食材详情页去处理。
     if (exist && exist.status === 'bad') {
       wx.showModal({
         title: '这种食材标记过「有反应」',
-        content: '为安全起见它不会被排进菜单。要重新引入，请到它的详情页清除记录，再走一次「新食材尝试」。',
+        content: '为安全起见它不会被排进菜单。要重新引入，请到它的详情页清除记录，再回下方食材列表重新勾选。',
         showCancel: false,
         confirmText: '知道了'
       })
@@ -188,8 +207,18 @@ Page({
     if (exist) {
       storage.removeIntroduced(id)
     } else {
+      // v2.15 · 方案A：档案页是引入的唯一入口（引擎不再自动排新食材）。
+      const f = FOODS.filter(function (x) { return x.id === id })[0] || null
+      if (f && this.data.months !== null && !age.isFoodReady(f, this.data.months)) {
+        wx.showToast({ title: f.minMonth + ' 月龄起再引入「' + f.name + '」', icon: 'none' })
+        return
+      }
+      // markIntroduced 落 status='observing'。**致敏食材就停在这一档** ——
+      // 3 天内由你自己喂、计划不排它（foodUsable 对不在 safeIds 的致敏食材
+      // 返回 false），到期由观察卡或首页到期提醒确认「没问题」才转 safe 进菜单。
+      // 非致敏食材没有这道观察期：勾选即「已吃过、确认没问题」。
       storage.markIntroduced(id)
-      storage.setIntroStatus(id, 'safe')
+      if (!f || !f.allergen) storage.setIntroStatus(id, 'safe')
     }
     storage.setPlan(null)
     this.rebuild()

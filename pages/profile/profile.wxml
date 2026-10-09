@@ -42,6 +42,8 @@
         <text class="obs-name">{{o.name}}</text>
         <text class="muted">{{o.date}} 开始</text>
       </view>
+      <!-- v2.15 · 方案A：观察期你自己喂、计划先不排 —— 首次喂法就地给出 -->
+      <view class="obs-feed" wx:if="{{o.amount}}">首次喂 {{o.amount}}，{{o.method}}。连续观察 3 天，没异常再点「没问题」。</view>
       <view class="obs-actions">
         <view class="mini-btn mini-ok" data-id="{{o.foodId}}" data-ok="1" bindtap="confirmObservation">没问题</view>
         <view class="mini-btn mini-bad" data-id="{{o.foodId}}" data-ok="0" bindtap="confirmObservation">有反应</view>
@@ -53,7 +55,7 @@
        日期 = 出现反应的当天（markIntroduced 写入），就医时可与下方喂养记录对照。 -->
   <view class="card" wx:if="{{badFoods.length > 0}}">
     <view class="card-title">有反应的食材</view>
-    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点进详情页清除记录，再走一次「新食材尝试」。</view>
+    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点进详情页清除记录，再回下方食材列表重新勾选。</view>
     <view class="obs-item" wx:for="{{badFoods}}" wx:key="foodId" wx:for-item="b">
       <view class="obs-head">
         <text class="obs-name">{{b.name}}</text>
@@ -68,7 +70,10 @@
   <!-- 已吃过的食材 -->
   <view class="card">
     <view class="card-title">已经吃过、没问题的食材</view>
-    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材，不用提前勾选 —— 它们会通过「新食材尝试」逐个引入。</view>
+    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材：勾选先进 3 天观察期（你来喂、计划先不排），确认没问题才排进菜单。</view>
+    <!-- v2.15 · 方案A：引入改由本页决定，必须给出「为什么不该回避」的理由 ——
+         口径出自《中国居民膳食指南(2022)》准则二，见 utils/plan.js foodUsable 注释 -->
+    <view class="card-sub">1 岁内适时引入各种食物（含蛋、鱼、小麦等常见致敏食物）可降低过敏风险，别因为怕过敏就一直回避 —— 一次一种，逐个来。</view>
 
     <view class="search">
       <input class="search-input" placeholder="搜食材，如 南瓜 / 蛋黄"
@@ -79,13 +84,15 @@
     <view class="group" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
       <view class="group-name">{{g.category}}</view>
       <view class="chips">
-        <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}}"
+        <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}} {{f.tooEarly ? 'chip-early' : ''}}"
               style="{{!f.checked && f.status !== 'bad' ? 'background:' + f.iconBg : ''}}"
               wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
               data-id="{{f.id}}" bindtap="toggleFood">
           <text class="chip-ic">{{f.icon}}</text>
           <text>{{f.name}}</text>
           <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
+          <!-- 引入的月龄门（v2.15 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
+          <text class="chip-flag" wx:if="{{f.tooEarly}}">{{f.minMonth}}月起</text>
           <text class="chip-flag chip-flag-bad" wx:if="{{f.status === 'bad'}}">有反应</text>
         </view>
       </view>

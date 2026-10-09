@@ -56,7 +56,7 @@ Page({
         monthText: r.monthRange[0] + '–' + r.monthRange[1] + ' 月龄',
         isMain: r.mainFoods.indexOf(food.id) >= 0,
         // 步骤里的 {分类} 占位符按宝宝月龄档填数（与计划页同一套 fillPortions，v2.7）
-        steps: plan.fillPortions(r.steps, plan.amountForStage(r, months))
+        steps: plan.fillPortions(r.steps, plan.amountForStage(r, months), months)
       }
     })
 

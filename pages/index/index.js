@@ -11,14 +11,11 @@ const RECIPES = require('../../data/recipes')
 // v2.1 顺手在这里装饰打卡状态（meal.log）与可打卡标记（day.checkable）：
 // 同样是派生态 —— setPlan 的序列化发生在 markToday 之前（wx 写入即快照），
 // 这里的改动不会污染 storage 里的计划对象。
-// v2.7 再加两组派生态：折叠摘要用的 done/total、观察进度点 dots/progText。
+// v2.7 加一组派生态：折叠摘要用的 done/total。
+// v2.15 · 方案A：观察进度点（dots/progText）与 plan.attachNewFood 一并移除 ——
+// 引入和观察都搬进档案页，计划里不再有 day.newFood 可挂、可算。
 function markToday(p) {
   if (!p || !p.days) return p
-  // 方案C（v2.10 · 合并重铸）：先把当天的新食材观察挂到承载它的餐次（同对象引用，
-  // dots/progText 仍是本函数后面现算的派生态）—— 页面据此把观察条并进主餐卡；
-  // 挂不上（首口不在任何菜里，如 7 月+独立即食）标 newFoodAttached=false，
-  // 顶部独立卡兜底。与 dots 同类：派生态，不写回 storage。
-  plan.attachNewFood(p)
   const todayKey = plan.dateKey(new Date())
   const LABEL = { full: '吃完了', some: '吃一些', refused: '没吃', reaction: '有反应' }
   const logMap = {}
@@ -79,24 +76,8 @@ function markToday(p) {
       rows.push({ key: 'x|main|' + meal.key, time: '', kind: 'main', label: '', meal: meal })
     }
     d.timeline = rows
-    // 观察进度点（v2.7 · ④）：引入日 = day.date，观察窗 = observeDays（3 天）。
-    // 还没到的日子 → ○○○ +「周几开始」；已发生的 → ● 按天数填充，封顶 3/3。
-    if (d.newFood) {
-      const obs = d.newFood.observeDays || 3
-      const diff = dayDiff(d.date, todayKey)
-      const n = diff < 0 ? 0 : Math.min(diff + 1, obs)
-      d.newFood.dots = '●'.repeat(n) + '○'.repeat(obs - n)
-      d.newFood.progText = diff < 0 ? d.weekday + '开始' : '已观察 ' + n + '/' + obs + ' 天'
-    }
   })
   return p
-}
-
-// 'YYYY-MM-DD' 日历差（to - from，单位天）—— 用 UTC 零点算，避开时区/夏令时
-function dayDiff(from, to) {
-  const f = Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10))
-  const t = Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10))
-  return Math.round((t - f) / 86400000)
 }
 
 // 缓存的计划是否覆盖今天（日期窗口内）

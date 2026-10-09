@@ -29,8 +29,8 @@ const RECIPES = require('../data/recipes')
 // v2.10 冻结语义修订（只有打卡的已过日子冻结，未打卡的按当前规则重排
 //        —— 旧引擎时代的错误行才能自愈成 6 月固定菜单内容）），
 // 缓存计划的 sv 对不上就失效重算 —— 否则升级后旧缓存一直渲染旧结构
-const STRUCT_V = 5
-// v2.0 图标：只喂给展示字段（newFood / shopping），不进指纹
+const STRUCT_V = 7 // v2.15 · 方案A + 倍粥阶梯按月龄填数：步骤文案变了，旧缓存必须失效重算
+// v2.0 图标：只喂给展示字段（shopping / 档案页与详情页的食材 chip），不进指纹
 const icons = require('../data/food-icons')
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
@@ -89,8 +89,20 @@ function portionMap(amountStr) {
   return map
 }
 
-function fillPortions(steps, amountStr) {
+// 倍粥阶梯（{倍粥} 占位符）：稠粥的米水比随月龄变，8 倍粥起 → 9 月 7 倍 → 10 月 6 倍
+// → 11 月龄起 4 倍。整段阶梯硬编码进步骤会把「别的月龄的倍数」也显示给眼前的宝宝，
+// 所以步骤只写 {倍粥}，渲染时按月龄只填当前那一档（9 月龄 → 「7 倍粥」）。
+function porridgeFor(months) {
+  const m = Number(months)
+  if (m >= 11) return '4 倍粥'
+  if (m >= 10) return '6 倍粥'
+  if (m >= 9) return '7 倍粥'
+  return '8 倍粥' // ≤8 月龄（含 8 倍粥起那一档）
+}
+
+function fillPortions(steps, amountStr, months) {
   const map = portionMap(amountStr)
+  map['倍粥'] = porridgeFor(months) // 月龄占位符与分类克数占位符同一条填数管线
   return (steps || []).map(function (s) {
     return String(s).replace(/\{([^{}]+)\}/g, function (_, key) {
       return Object.prototype.hasOwnProperty.call(map, key) ? map[key] : ''
@@ -118,8 +130,8 @@ function mealRow(recipe, key, months, amountOverride) {
     amount: amountStr,
     cats: catsFromAmount(amountStr), // 餐次行小标签（质地之外的类别名，v2.7）
     tags: recipe.tags || [],
-    // 步骤里的 {分类} 占位符按当期档位填成真克数（v2.7，见 fillPortions）
-    steps: fillPortions(recipe.steps, amountStr)
+    // 步骤里的 {分类}/{倍粥} 占位符按当期月龄填真克数与当档倍粥（v2.7 / v2.15）
+    steps: fillPortions(recipe.steps, amountStr, months)
   }
 }
 
@@ -151,31 +163,6 @@ function parseDateKey(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '')
   if (!m) return new Date(s)
   return new Date(+m[1], +m[2] - 1, +m[3])
-}
-
-/**
- * 本周的新食材引入日槽位：第 1 个可用工作日 + 与它间隔 ≥3 天的下一个工作日。
- *
- * 旧写法是固定 [0, 3] 遇周末直接跳过、不补位 —— 起始日是周三/周四/周六/周日时
- * 第 4 天落在周末，一周只剩 1 个引入名额，引入节奏凭空慢一半。
- * 间隔 ≥3 天是观察期要求（一次一种，观察 3 天），顺延也必须保住这个间距。
- *
- * 实测 7 个起始日全部拿到 2 个名额（周一/周二/周五起始与旧写法一致）。
- * @returns {number[]} 两个日期下标（0~6），理论恒为 2 个
- */
-function newFoodSlots(start) {
-  const idxAt = function (from) {
-    for (let i = from; i < 7; i++) {
-      const d = new Date(start.getTime())
-      d.setDate(d.getDate() + i)
-      if (!isWeekend(d)) return i
-    }
-    return -1
-  }
-  const a = idxAt(0)
-  if (a < 0) return []
-  const b = idxAt(a + 3)
-  return b < 0 ? [a] : [a, b]
 }
 
 /**
@@ -229,28 +216,6 @@ function isSnackRecipe(r) {
     if (allFruit) return true
   }
   return /糕|饼|馒头/.test(r.name)
-}
-
-/**
- * 把候选食材按「非致敏 / 致敏」交错排列。
- *
- * 目的：让易过敏食物在引入序列里均匀分布，而不是被排到最后。
- * 例：37 个非致敏 + 14 个致敏 → 前 28 位里就能覆盖全部 14 个致敏食材，
- *     按每周 2 种的速度，约 3.5 个月内全部引入完毕（而不是拖到 1 岁以后）。
- */
-function interleaveByAllergen(list) {
-  const low = []
-  const high = []
-  for (let i = 0; i < list.length; i++) {
-    (list[i].allergen ? high : low).push(list[i])
-  }
-  const out = []
-  const n = Math.max(low.length, high.length)
-  for (let k = 0; k < n; k++) {
-    if (k < low.length) out.push(low[k])
-    if (k < high.length) out.push(high[k])
-  }
-  return out
 }
 
 /**
@@ -546,49 +511,18 @@ function generate(opts) {
   // 原引擎 + monthAmount 稳态值，行为不变。
   const menuLock = months === 6 && !!opts.birth
 
-  // 2. 安排新食材引入日（只在工作日，最多 2 天，遇周末顺延不丢槽 —— newFoodSlots）
+  // 2. 新食材引入日：**引擎不再自动排**（v2.15 · 方案A，用户决策）
   //
-  // ⚠️ 排序规则：按月龄升序，同月龄内把「致敏」和「非致敏」交错开。
-  // 不要把所有致敏食材排到最后 —— 那等于系统性地推迟易过敏食物的引入，
-  // 而官方指南明确说「1岁内适时引入」可以降低过敏风险，「避免食用未见明显益处」。
-  const newFoodDays = {}
-  // WS/T 678—2020 3.8：患病期间暂停添加新的辅食
-  // v2.9 · ④：6 月菜单锁定日的新食材卡由菜单加料派生（见日循环 3.0），这里不排
-  if (!opts.observingCount && !sick && !menuLock) {
-    const pool2 = FOODS.filter(function (f) {
-      // introducible === false 是「禁食提示条目」（蜂蜜），不是待引入的辅食。
-      // 漏掉这一条，12 月龄时会把蜂蜜当成新食材排进计划，
-      // 展示成「新食材尝试 · 蜂蜜 / 一岁以内禁食 / 观察 3 天」。
-      if (f.introducible === false) return false
-      return f.minMonth <= months && recordedIds.indexOf(f.id) < 0 && blockedIds.indexOf(f.id) < 0
-    })
-    pool2.sort(function (a, b) {
-      if (a.minMonth !== b.minMonth) return a.minMonth - b.minMonth
-      return 0
-    })
-    const candidates = interleaveByAllergen(pool2)
-    const slots = newFoodSlots(start) // 第 1 个可用工作日 + 间隔 ≥3 天的下一个（遇周末顺延）
-    let assigned = 0
-    for (let s = 0; s < slots.length && assigned < candidates.length; s++) {
-      const idx = slots[s]
-      const d = new Date(start.getTime())
-      d.setDate(d.getDate() + idx)
-      if (isWeekend(d)) continue // 槽位本身已避开周末，这里只是兜底
-      const fz = frozenByDate[dateKey(d)]
-      if (fz) {
-        // 这天已经发生过：它自带 newFood，原样保留即可。
-        // 名额是否消耗看候选对不对得上：对得上（记录没变）就消耗，
-        // 保持「第 1 个候选给第 1 个槽位」的连续性；对不上
-        // （recordedIds 变了、候选列表整体前移）就不消耗，
-        // 让后面的候选顶上，别把整个引入序列跳掉一种。
-        const next = candidates[assigned]
-        if (fz.newFood && next && next.id === fz.newFood.foodId) assigned++
-        continue
-      }
-      newFoodDays[idx] = candidates[assigned]
-      assigned++
-    }
-  }
+  // 引入改由「档案页」主动勾选驱动：致敏食材勾选 = 进观察期（observing），
+  // 3 天后由用户确认 safe 才进菜谱；非致敏食材 foodUsable 本来就放行，勾选即入。
+  // 引擎这侧只保留两件事 —— 观察中的不排（observingCount，见日循环 3.0 的
+  // 加料过滤）、有反应的永不排（blockedIds，见 foodUsable）。
+  //
+  // ⚠️ 不要顺手删掉 foodUsable 的致敏分支，那正是「引入通道」的另一端：
+  // 《中国居民膳食指南(2022)》准则二 ——「不盲目回避易过敏食物，1岁内适时引入
+  // 各种食物」。53 种里 14 种致敏，未记录的致敏食材 foodUsable 返回 false，
+  // 唯一入口就是档案页的引入通道；一旦连通道也删掉，就等于系统性地把致敏食材
+  // 排除在计划外（官方明确说这叫「盲目回避」，且「避免食用未见明显益处」）。
 
   // 3. 逐天生成
   const usedCount = {}
@@ -626,9 +560,6 @@ function generate(opts) {
       continue
     }
 
-    let nf = newFoodDays[i] || null
-    let nfQty = null // v2.9 · ④：菜单锁定日新食材卡用量取菜单勺数（1/2/3 勺）
-
     // 3.0 6 月固定菜单锁定（v2.9 · ④ 用户决策「主食严格按固定食谱」）：
     // 正餐 = 米粉 + 当日菜单用量（定值，重新生成不变）；15:00 加餐 6+19 起
     // 才有水果 ——「重新生成计划只修改水果加餐」改的就是这里（水果加权随机）。
@@ -652,21 +583,8 @@ function generate(opts) {
       add.forEach(function (a) { foodUse[a.foodId] = (foodUse[a.foodId] || 0) + 1 })
       const rice = RECIPE_MAP['r_rice_cereal']
 
-      // 新食材卡由菜单加料派生：第一个未记录且非屏蔽的（油脂不进卡 ——
-      // foods.js 注明油不需单独观察）；菜单前 3 天的「新食材」就是米粉本身。
-      if (!sick && !opts.observingCount) {
-        for (let k = 0; k < add.length && !nf; k++) {
-          const f = FOOD_MAP[add[k].foodId]
-          if (!f || f.category === '油脂') continue
-          if (recordedIds.indexOf(f.id) >= 0 || blockedIds.indexOf(f.id) >= 0) continue
-          nf = f
-          nfQty = add[k].qty
-        }
-        if (!nf && menuDay <= 3 && recordedIds.indexOf('rice_cereal') < 0 && blockedIds.indexOf('rice_cereal') < 0) {
-          nf = FOOD_MAP['rice_cereal']
-          nfQty = entry.base.slice(3) // 卡片用量显示菜单起步档（2.5g+水40ml）
-        }
-      }
+      // 新食材卡已随方案A移除（v2.15）：菜单锁定日「今天试什么」改由档案页引入
+      // 通道决定，引擎只管加料本身 —— 有反应永远剔除、病中/观察中剔未记录（上方 add）。
 
       const menuMeals = []
       if (rice) {
@@ -695,9 +613,6 @@ function generate(opts) {
         const f = FOOD_MAP[a.foodId]
         if (f && COUNTED_CATS.indexOf(f.category) >= 0) dayCatsMenu[f.category] = true
       })
-      if (nf && FOOD_MAP[nf.id] && COUNTED_CATS.indexOf(FOOD_MAP[nf.id].category) >= 0) {
-        dayCatsMenu[FOOD_MAP[nf.id].category] = true
-      }
       let menuSnackRow = null
       if (menuSnack) {
         usedCount[menuSnack.id] = (usedCount[menuSnack.id] || 0) + 1
@@ -726,18 +641,9 @@ function generate(opts) {
         catApplicable: months >= 8, // 6 月恒 false（「逐渐达到」豁免语义与原引擎一致）
         catOk: catCountMenu >= DAY_MIN_CATS && missingMenu.length === 0,
         catMissing: missingMenu,
-        newFood: nf
-          ? {
-              foodId: nf.id,
-              name: nf.name,
-              amount: nfQty || nf.firstIntro.amount,
-              method: nf.firstIntro.method,
-              observeDays: 3,
-              note: nf.note || '',
-              icon: icons.iconFor(nf),
-              iconBg: icons.bgFor(nf)
-            }
-          : null,
+        // v2.15 · 方案A：引擎不再产出新食材观察（引入改走档案页）。
+        // 字段恒 null 但保留在结构里，冻结日照抄与 WXML 的 wx:if 仍同构。
+        newFood: null,
         menuDay: menuDay, // 调试与校验用（_validate §6s 按它断言菜单日）
         // 菜单加料清单：冻结日被复制重排时，采购清单靠它补上加料食材
         menuAdd: add.map(function (a) { return { foodId: a.foodId, label: a.label } })
@@ -761,18 +667,9 @@ function generate(opts) {
     // 3.2 加餐再选（v2.9 · 决策①）：从独立的加餐池出 —— 水果泥/糕饼不占正餐位；
     //     dayMainUse 已含正餐主料，加餐自动避开同主料（比如正餐有燕麦苹果粥就不再配苹果泥）；
     //     传 dayCats：正餐随机挑选若漏了必需类，加餐优先补位（再由修补循环保底）。
-    //     不排与当天新食材同源的菜：新食材那 3 天观察口是一两勺，
-    //     同一天再拿它当一整份加餐，排敏语义就乱了。
     let snack = null
     if (snackPool.length) {
-      let snackCands = snackPool
-      if (nf) {
-        const filtered = snackPool.filter(function (r) {
-          return r.mainFoods.concat(r.sideFoods || []).indexOf(nf.id) < 0
-        })
-        if (filtered.length) snackCands = filtered
-      }
-      snack = pickWeighted(snackCands, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
+      snack = pickWeighted(snackPool, usedCount, dayMainUse, issueTags, dayCats, opts.refusedRecipeIds)
     }
 
     // 3.3 确定性修补：把「每日不少于4类，且含动物性/蔬菜/谷薯」补到位。
@@ -781,7 +678,7 @@ function generate(opts) {
     //     6~7 月龄官方原文是「逐渐达到」，正餐 <2 时不做修补。
     if (mealsPerDay >= 2 && picked.length >= 2) {
       for (let pass = 0; pass < 4; pass++) {
-        const cur = coverageOf(picked, nf, snack)
+        const cur = coverageOf(picked, null, snack)
         const curMissing = REQUIRED_CATS.filter(function (c) { return !cur[c] })
         if (curMissing.length === 0 && Object.keys(cur).length >= DAY_MIN_CATS) break
 
@@ -791,7 +688,7 @@ function generate(opts) {
           for (let c = 0; c < mainPool.length; c++) {
             const cand = mainPool[c]
             if (picked.indexOf(cand) >= 0) continue
-            const cov = coverageOf(rest.concat([cand]), nf, snack)
+            const cov = coverageOf(rest.concat([cand]), null, snack)
             const sc = covScore(cov)
             // 覆盖度相同时，优先选「本周用得少」的那道。
             // 否则修补循环会退化成「取池子里第一个最优解」，让靠前的高覆盖菜
@@ -842,15 +739,11 @@ function generate(opts) {
       snackRow = mealRow(snack, 's' + i, months)
     }
 
-    const coveredSet = coverageOf(picked, nf, snack)
+    const coveredSet = coverageOf(picked, null, snack)
     const catKeys = Object.keys(coveredSet)
     const missingRequired = REQUIRED_CATS.filter(function (c) { return !coveredSet[c] })
     const catNames = []
     Object.keys(dayCatsFinal).forEach(function (c) { catNames.push(c) })
-    if (nf && FOOD_MAP[nf.id] && COUNTED_CATS.indexOf(FOOD_MAP[nf.id].category) >= 0) {
-      catNames.push(FOOD_MAP[nf.id].category)
-    }
-
     days.push({
       date: dateKey(d),
       dateLabel: (d.getMonth() + 1) + '/' + pad2(d.getDate()),
@@ -865,19 +758,8 @@ function generate(opts) {
       catApplicable: months >= 8,
       catOk: catKeys.length >= DAY_MIN_CATS && missingRequired.length === 0,
       catMissing: missingRequired,
-      newFood: nf
-        ? {
-            foodId: nf.id,
-            name: nf.name,
-            amount: nf.firstIntro.amount,
-            method: nf.firstIntro.method,
-            observeDays: 3,
-            note: nf.note || '',
-            // v2.0 图标：只作展示，不进指纹（见 planSignature）
-            icon: icons.iconFor(nf),
-            iconBg: icons.bgFor(nf)
-          }
-        : null
+      // v2.15 · 方案A：引擎不再产出新食材观察（引入改走档案页），字段恒 null
+      newFood: null
     })
   }
 
@@ -1054,46 +936,8 @@ function generateFromStorage(storage, opts) {
   return p
 }
 
-/**
- * 方案C · 合并重铸（v2.10）：把当天的新食材观察挂到「确实含有这个食材」的餐次上，
- * 页面据此把观察条（新食材尝试 + ●○○ + 用量/冲调方法/观察说明）并进那餐的主餐卡。
- *
- * 归属判定要讲真话，两条都算：
- *   1. 菜谱 foods 含该食材（7 月+ 首口落在某道菜里时）；
- *   2. 菜单锁定日的加料在 day.menuAdd 里（6 月加料进的是当天唯一那碗米粉 ——
- *      加料不在菜谱 foods 里，见日循环 3.0 的采购注记）。
- * 都挂不上（7 月+ 首口是独立的一两勺、与菜谱无关）就标 newFoodAttached=false，
- * 顶部独立的新食材卡照旧兜底渲染 —— 不许对用户说「这餐含它」而实际不含。
- *
- * 挂的是同一个对象引用（meal.newFood === day.newFood）：dots/progText 是
- * markToday 的现算派生态，引用可见；本函数同样只在渲染前跑、不写回 storage，
- * 所以不改计划结构、不用 bump STRUCT_V。幂等：重跑先清旧挂载再判。
- *
- * @param {object} p 计划（storage.getPlan() / generate 的结果）
- * @returns {object} p
- */
-function attachNewFood(p) {
-  if (!p || !p.days) return p
-  p.days.forEach(function (d) {
-    d.newFoodAttached = false
-    const rows = (d.meals || []).concat(d.snack ? [d.snack] : [])
-    rows.forEach(function (m) { delete m.newFood })
-    if (!d.newFood) return
-    const fid = d.newFood.foodId
-    const inMenuAdd = (d.menuAdd || []).some(function (a) { return a.foodId === fid })
-    for (let i = 0; i < rows.length; i++) {
-      const r = RECIPE_MAP[rows[i].recipeId]
-      if (!r) continue
-      const inRecipe = (r.mainFoods || []).concat(r.sideFoods || []).indexOf(fid) >= 0
-      if (inRecipe || inMenuAdd) {
-        rows[i].newFood = d.newFood
-        d.newFoodAttached = true
-        return
-      }
-    }
-  })
-  return p
-}
+// v2.15 · 方案A：attachNewFood（方案C 把观察挂到承载餐）已随「引擎不再自动排
+// 新食材」一并移除 —— 引入与观察都在档案页，计划里没有可挂载的 day.newFood。
 
 module.exports = {
   generate: generate,
@@ -1102,7 +946,6 @@ module.exports = {
   menuDayOf: menuDayOf,                   // 生日 + 日期 →「6+N」菜单日
   generateFromStorage: generateFromStorage,
   replanOpts: replanOpts,
-  attachNewFood: attachNewFood,           // 方案C：新食材观察挂到承载餐（渲染前现算，不入缓存）
   planInputs: planInputs,
   planSignature: planSignature,
   getFood: getFood,
