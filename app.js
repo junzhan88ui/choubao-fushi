@@ -8,6 +8,6 @@ App({
   },
 
   globalData: {
-    version: '2.25'
+    version: '2.30'
   }
 })

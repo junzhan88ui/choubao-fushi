@@ -1,9 +1,9 @@
 const FOODS = require('../../data/foods')
-const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
-
-const CATEGORY_ORDER = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋奶', '豆类', '油脂']
+// 清单、分类顺序、状态徽标、图标都由共享模块出（「查一查」同源，§6u 钉），
+// 本页不再自己分组 —— 改数据口径只改 utils/foodlist.js 一处，两页同步。
+const foodlist = require('../../utils/foodlist')
 
 Page({
   data: {
@@ -21,9 +21,8 @@ Page({
     statuses: [],
     keyword: '',
     groups: [],
-    observing: [],
     totalChecked: 0,
-    // 有反应的食材（status=bad）—— 计划页「有反应」/观察期标完的落点。
+    // 有反应的食材（status=bad）—— 计划页/详情页标完「有反应」的落点。
     // 没有专属卡的话，用户标完在档案页只会淹没在大列表的一个红标签里。
     badFoods: []
   },
@@ -56,69 +55,18 @@ Page({
     this.setData({ statuses: storage.statusOptions() })
   },
 
-  /** 重建食材勾选列表 */
+  /** 重建食材勾选列表 —— 取数走共享模块（与「查一查」同一份数据源）。
+   *  skipUnintroducible：禁食提示条目（蜂蜜等）不进可勾选清单 —— 按数据标记挡，
+   *  不写死 id，将来再加禁食条目自动生效。 */
   rebuild() {
-    const safe = storage.safeFoodIds()
-    const months = this.data.months
-    const kw = (this.data.keyword || '').trim()
-    const map = {}
-
-    for (let i = 0; i < FOODS.length; i++) {
-      const f = FOODS[i]
-      // introducible:false 的条目（蜂蜜等）只是「禁食提示」，不作为可勾选食材
-      // —— 按数据标记挡，而不是写死 id，将来再加禁食条目自动生效
-      if (f.introducible === false) continue
-      if (kw) {
-        const aliasHit = (f.alias || []).join(' ').indexOf(kw) >= 0
-        if (f.name.indexOf(kw) < 0 && !aliasHit) continue
-      }
-      if (!map[f.category]) map[f.category] = []
-      const intro = storage.findIntro(f.id)
-      map[f.category].push({
-        id: f.id,
-        name: f.name,
-        allergen: f.allergen,
-        checked: safe.indexOf(f.id) >= 0,
-        // bad 必须单独标出来：它的 chip 也是「未勾选」的样子，
-        // 但点击语义完全不同（见 toggleFood）
-        status: intro ? intro.status : 'new',
-        // v2.25 · 方案A：引擎不再按 minMonth 升序排引入，这道门由档案页补上 ——
-        // 没到月龄的食材点了不许引入（toggleFood 里再拦一道并给提示）。
-        tooEarly: months !== null && !age.isFoodReady(f, months),
-        minMonth: f.minMonth,
-        // v2.0 图标：未选中的 chip 用分类色做底，选中态由 .chip-on 覆盖
-        icon: icons.iconFor(f),
-        iconBg: icons.bgFor(f)
-      })
-    }
-
-    const groups = []
-    for (let i = 0; i < CATEGORY_ORDER.length; i++) {
-      const c = CATEGORY_ORDER[i]
-      if (map[c] && map[c].length) groups.push({ category: c, foods: map[c] })
-    }
-
-    const observing = storage.getIntroduced()
-      .filter(function (it) { return it.status === 'observing' })
-      .map(function (it) {
-        let fo = null
-        for (let i = 0; i < FOODS.length; i++) {
-          if (FOODS[i].id === it.foodId) { fo = FOODS[i]; break }
-        }
-        const fi = fo && fo.firstIntro ? fo.firstIntro : null
-        // v2.25 · 方案A：观察期 = 你自己喂、计划不排 —— 首次喂法必须就地给出，
-        // 否则用户只知道「在观察」，不知道喂多少、怎么喂。
-        return {
-          foodId: it.foodId,
-          name: fo ? fo.name : it.foodId,
-          date: it.date,
-          amount: fi ? fi.amount : '',
-          method: fi ? fi.method : ''
-        }
-      })
+    const groups = foodlist.buildGroups({
+      keyword: this.data.keyword,
+      months: this.data.months,
+      skipUnintroducible: true
+    })
 
     // 有反应的食材（bad）：date 就是反应当天（markIntroduced 落的日期）。
-    // 计划页「有反应」和观察期点「有反应」都会落到这里，专属卡是唯一落点。
+    // 计划页/详情页标「有反应」都会落到这里，专属卡是唯一落点。
     const badFoods = storage.getIntroduced()
       .filter(function (it) { return it.status === 'bad' })
       .map(function (it) {
@@ -132,9 +80,8 @@ Page({
 
     this.setData({
       groups: groups,
-      observing: observing,
       badFoods: badFoods,
-      totalChecked: safe.length
+      totalChecked: storage.safeFoodIds().length
     })
   },
 
@@ -145,7 +92,7 @@ Page({
   },
 
   /** 「清除记录」—— bad 的唯一解除通道（v2.25 自食材详情页移入本页）。
-   *  storage 层硬拒 bad→safe/observing（见 _validate §6j），
+   *  storage 层硬拒 bad→safe（见 _validate §6j），
    *  只有 removeIntroduced 能解除；先弹确认框，防一次误触洗掉过敏记录。 */
   clearBad(e) {
     const id = e.currentTarget.dataset.id
@@ -164,36 +111,9 @@ Page({
     })
   },
 
-  /** 「标记有反应」—— v2.25 自首页餐卡（原 reactionMeal）移入本页。
-   *  bad 是系统里唯一的硬排除机制：观察期内的食材由观察卡「有反应」落，
-   *  已确认安全的食材过敏后只能从这里补标，否则它会继续被排进菜单。
-   *  走 markIntroduced → setIntroStatus('bad') 正路（反应当天日期随记录写入，§6j）。 */
-  pickBadFood() {
-    const that = this
-    const list = []
-    FOODS.forEach(function (f) {
-      if (f.introducible === false) return // 禁食提示条目不参与引入
-      const it = storage.findIntro(f.id)
-      if (!it || it.status === 'bad') return // 只列已吃过/观察中的
-      list.push({ id: f.id, name: f.name })
-    })
-    if (!list.length) {
-      wx.showToast({ title: '还没有已吃过的食材', icon: 'none' })
-      return
-    }
-    // ActionSheet 最多 6 项
-    wx.showActionSheet({
-      itemList: list.slice(0, 6).map(function (x) { return x.name }),
-      success(res) {
-        const f = list[res.tapIndex]
-        storage.markIntroduced(f.id)
-        storage.setIntroStatus(f.id, 'bad')
-        storage.setPlan(null)
-        that.rebuild()
-        wx.showToast({ title: '已标为有反应，不再排进菜单', icon: 'none' })
-      }
-    })
-  },
+  /** 「标记有反应」入口已按用户决策删除（v2.30）：标记 bad 的按钮只剩
+   *  食材详情页「食物过敏」（markBad，走 markIntroduced → setIntroStatus('bad')
+   *  正路，§6j 钉）。本页保留「有反应的食材」卡（查看 + 清除记录）。 */
 
   /** 名称实时清洗后落库。
    *  名称是**必填**（缺了 isConfigured 和 planInputs 会双双挡住生成），
@@ -263,27 +183,13 @@ Page({
         wx.showToast({ title: f.minMonth + ' 月龄起再引入「' + f.name + '」', icon: 'none' })
         return
       }
-      // markIntroduced 落 status='observing'。**致敏食材就停在这一档** ——
-      // 3 天内由你自己喂、计划不排它（foodUsable 对不在 safeIds 的致敏食材
-      // 返回 false），到期由观察卡或首页到期提醒确认「没问题」才转 safe 进菜单。
-      // 非致敏食材没有这道观察期：勾选即「已吃过、确认没问题」。
+      // v2.30 · 3 天观察期已按用户决策删除：勾选 = 已经吃过、确认没问题，
+      // markIntroduced 直接落 safe 并排进菜单 —— **致敏食材同样当场落 safe**
+      // （foodUsable 仍只放行 safe 的致敏食材，月龄门也还在，见 _validate §5b/§6u）。
       storage.markIntroduced(id)
-      if (!f || !f.allergen) storage.setIntroStatus(id, 'safe')
     }
     storage.setPlan(null)
     this.rebuild()
-  },
-
-  confirmObservation(e) {
-    const id = e.currentTarget.dataset.id
-    const ok = e.currentTarget.dataset.ok === '1'
-    storage.setIntroStatus(id, ok ? 'safe' : 'bad')
-    storage.setPlan(null)
-    this.rebuild()
-    wx.showToast({
-      title: ok ? '已标记为没问题' : '已标记为有反应',
-      icon: 'none'
-    })
   },
 
   goBack() {

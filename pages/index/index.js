@@ -103,7 +103,8 @@ Page({
     emptyHint: '',
     months: 0,
     ageText: '',
-    stageLabel: '',
+    // v2.30：stageLabel（稠糊/带颗粒…）标签按用户要求从首页删除 —— 只删渲染
+    // 与数据装配（stageDesc 仍保留），反向钉在 _validate §6t
     stageDesc: '',
     issueLabel: '',
     issueNone: false,
@@ -112,7 +113,7 @@ Page({
     outOfRange: false,
     tab: 'plan',
     planData: null,
-    dueObs: [],
+    // 观察期到期提醒（dueObs）已随 3 天观察期规则整体删除（v2.30 用户决策，§6u 反向钉）
     // 当前展开的非今天日期（'' = 全折起）；今天恒展开，不进这个状态（v2.7 · ①）
     // 餐级步骤展开态不在这儿 —— 是行上的 meal.open（markToday 按 isToday 现算）
     openDay: ''
@@ -145,11 +146,6 @@ Page({
     const months = age.monthsBetween(baby.birthday)
     const st = age.getAgeStatus(months)
 
-    const dueObs = storage.dueObservations().map(function (it) {
-      const f = plan.getFood(it.foodId)
-      return { foodId: it.foodId, name: f ? f.name : it.foodId, date: it.date }
-    })
-
     // 状态是多选，这里取全部；一项都没勾 → statusLabels 兜底成「正常」
     const statuses = storage.getStatuses()
 
@@ -172,7 +168,6 @@ Page({
       issueLabel: storage.statusLabels(statuses),
       // 全空 = 没有任何待改善项 → 用灰色，别让「正常」看起来像告警
       issueNone: statuses.length === 0,
-      dueObs: dueObs,
       guideLater: guideLater,
       tooYoung: false,
       outOfRange: false
@@ -181,7 +176,6 @@ Page({
     // 还没到 6 月龄 —— 不给任何辅食建议
     if (st.status === 'too_young' || st.status === 'unknown') {
       base.tooYoung = true
-      base.stageLabel = ''
       base.stageDesc = ''
       base.planData = null
       this.setData(base)
@@ -191,7 +185,6 @@ Page({
     // 超过 24 月龄 —— 超出当前版本内容覆盖范围，别硬生成一份空计划
     if (st.status === 'out_of_range') {
       base.outOfRange = true
-      base.stageLabel = ''
       base.stageDesc = ''
       base.planData = null
       this.setData(base)
@@ -224,7 +217,6 @@ Page({
     }
     markToday(p)
 
-    base.stageLabel = stage.label
     base.stageDesc = stage.desc
     base.planData = p
     // 餐级展开态由 markToday 按「是不是今天」重算（今天的餐默认展开），这里只复位日期级折叠
@@ -284,15 +276,20 @@ Page({
     this.refresh()
   },
 
-  // v2.25：「有反应」打卡整体移到档案页「已经吃过、没问题的食材」卡
-  // （profile.pickBadFood：选食材 → markIntroduced → setIntroStatus('bad') 正路）——
-  // 首页餐卡只剩三态打卡。历史记录里的 reaction 状态仍由 LABEL 正常显示。
+  // v2.25：「有反应」打卡从首页餐卡移除；v2.30 档案页的「标记有反应」入口
+  // 也已删除 —— 标记 bad 的按钮只剩食材详情页「食物过敏」（markBad 正路）。
+  // 首页餐卡只有三态打卡。历史记录里的 reaction 状态仍由 LABEL 正常显示。
 
   // 指南卡（6 月龄 + 7–12 月龄 v2.8）：点卡头切换该卡的展开态
   // 默认全收起，sixOpen 里没有 key = 收起；卡 key 跨组唯一，展开态互不影响
   toggleGuide6(e) {
     const k = e.currentTarget.dataset.k
     this.setData({ ['sixOpen.' + k]: !this.data.sixOpen[k] })
+  },
+
+  // v2.30：首页状态行右侧「滑动查看各月龄注意事项」入口 → 月龄指南页
+  goMonths() {
+    wx.navigateTo({ url: '/pages/months/months' })
   },
 
   regenerate() {

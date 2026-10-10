@@ -53,9 +53,8 @@ const FOOD_MAP = (function () {
   return m
 })()
 
-function getFood(id) {
-  return FOOD_MAP[id] || null
-}
+// getFood 已删（v2.30）：唯一调用方是首页观察到期提醒（dueObs），随观察期规则
+// 整体删除后没有任何调用方 —— 再加回来就是死代码（_validate §6u 反向钉）。
 
 // 冻结日（见 replanOpts）只带 recipeId，结算用量时要反查主料/配料
 const RECIPE_MAP = (function () {
@@ -513,10 +512,11 @@ function generate(opts) {
 
   // 2. 新食材引入日：**引擎不再自动排**（v2.25 · 方案A，用户决策）
   //
-  // 引入改由「档案页」主动勾选驱动：致敏食材勾选 = 进观察期（observing），
-  // 3 天后由用户确认 safe 才进菜谱；非致敏食材 foodUsable 本来就放行，勾选即入。
-  // 引擎这侧只保留两件事 —— 观察中的不排（observingCount，见日循环 3.0 的
-  // 加料过滤）、有反应的永不排（blockedIds，见 foodUsable）。
+  // 引入只由「档案页」主动勾选驱动：勾选 = 已经吃过、确认没问题，markIntroduced
+  // 直接落 safe 进菜谱（v2.30 起致敏食材同样当场落 safe —— 3 天观察期已按用户
+  // 决策删除）。引擎这侧仍保留两件事 —— observingCount>0 时不排未记录加料
+  // （一次只引入一种的暂停语义，病中复用同一过滤；档案页不再产 observing，
+  // 经 planInputs 传入恒为 0，见 §6s G）、有反应的永不排（blockedIds，见 foodUsable）。
   //
   // ⚠️ 不要顺手删掉 foodUsable 的致敏分支，那正是「引入通道」的另一端：
   // 《中国居民膳食指南(2022)》准则二 ——「不盲目回避易过敏食物，1岁内适时引入
@@ -948,7 +948,6 @@ module.exports = {
   replanOpts: replanOpts,
   planInputs: planInputs,
   planSignature: planSignature,
-  getFood: getFood,
   foodName: foodName,
   dateKey: dateKey,
   amountForStage: amountForStage, // 食材详情页按月龄档取分量（步骤填数用）

@@ -78,11 +78,6 @@
   color: var(--c-red);
 }
 
-.chip-flag-bad {
-  color: var(--c-red);
-  border-color: #e8b8b8;
-}
-
 /* 「敏」= 常见致敏食材，中性描边，不做红色警示 */
 /* chip 内 emoji（v2.0）：托底由 chip 自己的分类色承担，emoji 不再套一层徽标 */
 /* v2.25 · 方案A：没到月龄的食材压淡 —— 提示「现在还不能引入」，
@@ -104,7 +99,7 @@
   margin-left: 8rpx;
 }
 
-/* 观察期 */
+/* 有反应的食材卡（行样式沿用 obs-* 类名；.obs-feed/.mini-ok 已随观察卡删除） */
 .obs-item {
   border-top: 1rpx solid var(--c-line);
   padding: 20rpx 0;
@@ -112,14 +107,6 @@
 
 .obs-item:first-of-type {
   border-top: none;
-}
-
-/* v2.25 · 方案A：观察期由用户自己喂 —— 首次喂法（用量 + 做法）必须看得见 */
-.obs-feed {
-  font-size: var(--fs-xs);
-  line-height: 1.7;
-  color: var(--c-text-3);
-  margin-bottom: 14rpx;
 }
 
 .obs-head {
@@ -146,19 +133,9 @@
   margin-right: 16rpx;
 }
 
-.mini-ok {
-  background: var(--c-green-bg);
-  color: var(--c-green-dark);
-}
-
 .mini-bad {
   background: var(--c-red-bg);
   color: var(--c-red);
-}
-
-/* 「标记有反应」入口行（v2.25 自首页餐卡移入本页） */
-.mark-bad-row {
-  margin: 6rpx 0 18rpx;
 }
 
 /* 「清除记录」（v2.25 自食材详情页移入本页：bad 的解除通道只此一处） */

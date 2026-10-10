@@ -4,7 +4,8 @@
     "pages/food/food",
     "pages/mine/mine",
     "pages/profile/profile",
-    "pages/food-detail/food-detail"
+    "pages/food-detail/food-detail",
+    "pages/months/months"
   ],
   "window": {
     "navigationBarBackgroundColor": "#ffffff",

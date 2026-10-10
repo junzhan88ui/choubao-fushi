@@ -101,9 +101,7 @@ page {
   font-size: var(--fs-sm);
 }
 
-.strong {
-  font-weight: 500;
-}
+/* .strong 已删除 —— 全仓零引用的死样式（§6l 反向钉） */
 
 .center {
   text-align: center;
@@ -134,12 +132,16 @@ page {
 }
 
 /* 标签 */
+/* 标签（评审提案②）：圆角 8rpx 直角 → 胶囊。
+   站内多数派本就是 999rpx（打卡/正餐·加餐/今天/mini 按钮全是胶囊），
+   语义相同的小标同屏两种几何是形状系统破绽 —— 向多数派收敛。
+   水平 padding 14→16rpx 配平胶囊观感；语义色/字号/边距一律不动 */
 .tag {
   display: inline-block;
   font-size: var(--fs-xs);
   line-height: 1.4;
-  padding: 4rpx 14rpx;
-  border-radius: var(--r-sm);
+  padding: 4rpx 16rpx;
+  border-radius: var(--r-pill);
   margin-right: 10rpx;
   margin-bottom: 8rpx;
 }
@@ -149,20 +151,8 @@ page {
   color: var(--c-green-dark);
 }
 
-.tag-amber {
-  background: var(--c-amber-bg);
-  color: var(--c-amber-ink);
-}
-
-.tag-red {
-  background: var(--c-red-bg);
-  color: var(--c-red);
-}
-
-.tag-blue {
-  background: var(--c-blue-bg);
-  color: var(--c-blue);
-}
+/* .tag-amber / .tag-red / .tag-blue 已删除 —— 全仓零引用的死样式（§6l 反向钉）。
+   在用的 .tag-green / .tag-grey / .tag-outline 一个没动。 */
 
 .tag-grey {
   background: var(--c-muted);
@@ -193,6 +183,30 @@ page {
   margin-right: 14rpx;
   /* 在白卡片上给浅底色一道边界；琥珀色新食材卡里也靠它不糊掉 */
   border: 1rpx solid var(--c-line);
+}
+
+/* 状态徽标（v2.30 收进全局）：「查一查」列表行与「档案页」chips 共用同一套
+   词与同一份样式 —— st-new=未引入 / st-safe=已吃过 / st-bad=有反应。
+   「st-observing」已随 3 天观察期规则删除（§6u 反向钉），别加回来。 */
+.food-status {
+  font-size: var(--fs-xs);
+  padding: 4rpx 14rpx;
+  border-radius: var(--r-sm);
+}
+
+.st-safe {
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+}
+
+.st-bad {
+  background: var(--c-red-bg);
+  color: var(--c-red);
+}
+
+.st-new {
+  background: var(--c-muted);
+  color: var(--c-text-3);
 }
 
 /* 按钮 */
@@ -268,12 +282,7 @@ page {
   padding: 24rpx 8rpx 0;
 }
 
-/* 分割 */
-.divider {
-  height: 1rpx;
-  background: var(--c-line);
-  margin: 20rpx 0;
-}
+/* .divider 已删除 —— 全仓零引用的死样式（§6l 反向钉） */
 
 /* ── 展开动效（v2.7 · ⑥）──
    wx:if 创建节点时播放一次：0.18s 淡入 + 8rpx 上移。收起是节点销毁，

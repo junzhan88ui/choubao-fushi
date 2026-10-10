@@ -1,9 +1,8 @@
-const FOODS = require('../../data/foods')
-const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
-
-const CATEGORY_ORDER = ['谷物', '蔬菜', '水果', '肉禽', '水产', '蛋奶', '豆类', '油脂', '其他']
+// 取数走共享模块（与「修改宝宝档案」同一份数据源：分组/顺序/状态徽标/图标，
+// utils/foodlist.js，_validate §6u 钉）—— 本页不再自己 require data/foods 分组
+const foodlist = require('../../utils/foodlist')
 
 Page({
   data: {
@@ -21,49 +20,11 @@ Page({
   },
 
   rebuild() {
-    const kw = (this.data.keyword || '').trim()
-    const months = this.data.months
-    const map = {}
-
-    for (let i = 0; i < FOODS.length; i++) {
-      const f = FOODS[i]
-      if (kw) {
-        const aliasHit = (f.alias || []).join(' ').indexOf(kw) >= 0
-        if (f.name.indexOf(kw) < 0 && !aliasHit) continue
-      }
-
-      const intro = storage.findIntro(f.id)
-      let status = 'new'
-      let statusText = '未引入'
-      if (intro) {
-        if (intro.status === 'safe') { status = 'safe'; statusText = '已吃过' }
-        else if (intro.status === 'observing') { status = 'observing'; statusText = '观察中' }
-        else { status = 'bad'; statusText = '有反应' }
-      }
-
-      const ready = months !== null && f.minMonth <= months
-
-      if (!map[f.category]) map[f.category] = []
-      map[f.category].push({
-        id: f.id,
-        name: f.name,
-        allergen: f.allergen,
-        minMonth: f.minMonth,
-        status: status,
-        statusText: statusText,
-        ready: ready,
-        // v2.0 图标：列表行徽标（emoji + 分类底色）
-        icon: icons.iconFor(f),
-        iconBg: icons.bgFor(f)
-      })
-    }
-
-    const groups = []
-    for (let i = 0; i < CATEGORY_ORDER.length; i++) {
-      const c = CATEGORY_ORDER[i]
-      if (map[c] && map[c].length) groups.push({ category: c, foods: map[c] })
-    }
-
+    // 禁食提示条目（蜂蜜）不传 skipUnintroducible —— 查一查照全量展示
+    const groups = foodlist.buildGroups({
+      keyword: this.data.keyword,
+      months: this.data.months
+    })
     this.setData({ groups: groups })
   },
 

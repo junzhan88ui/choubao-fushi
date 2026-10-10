@@ -1,0 +1,71 @@
+<!-- 各月龄滑动指南（v2.30）：6–24 月逐月滑动，每页 = 怎么喂 + 注意事项 + 一周食谱（参考）
+     只常渲染「当前 ±1」三页（months.js buildSlides 的 active 窗口），远页留骨架 -->
+<view class="mth-page">
+
+  <view class="mth-hint muted">左右滑动切换月龄 · 每月：怎么喂 / 注意事项 / 一周食谱（参考）</view>
+
+  <swiper class="mth-swiper" current="{{current}}" bindchange="onMonthChange"
+          indicator-dots="{{true}}" indicator-color="#dcdcd6" indicator-active-color="#3b6d11">
+    <swiper-item wx:for="{{slides}}" wx:key="month" wx:for-item="slide">
+
+      <scroll-view scroll-y class="mth-scroll" wx:if="{{slide.active}}">
+
+        <!-- 月头：月龄 + 当前阶段（性状/餐次一句话） -->
+        <view class="card card--brand mth-head">
+          <view class="mth-month">{{slide.month}} 月龄</view>
+          <view class="muted" wx:if="{{slide.stageDesc}}">{{slide.stageLabel}} · {{slide.stageDesc}}</view>
+        </view>
+
+        <!-- 怎么喂 / 注意事项（6 月两张原题卡、7–12 分月卡；13–24 占位） -->
+        <view class="card card-guide" wx:for="{{slide.cards}}" wx:key="key" wx:for-item="g">
+          <view class="guide-head">
+            <view class="food-ic" style="background:{{g.iconBg}}">{{g.icon}}</view>
+            <view class="card-title">{{g.title}}</view>
+          </view>
+          <block wx:if="{{g.placeholder}}">
+            <view class="mth-ph">内容整理中</view>
+            <view class="muted">这个月龄的详细口径还在整理，先看下面按 {{slide.month}} 月龄现算的一周食谱参考；宝宝当前月龄的知识卡在首页。</view>
+          </block>
+          <block wx:else>
+            <view class="guide-point" wx:for="{{g.points}}" wx:for-item="pt" wx:key="title">
+              <view class="guide-pt-title">{{pt.title}}</view>
+              <view class="guide-pt-text">{{pt.text}}</view>
+            </view>
+            <view class="guide-line" wx:for="{{g.lines}}" wx:for-item="line" wx:key="*this">{{line}}</view>
+          </block>
+        </view>
+
+        <!-- 一周食谱（参考）：通用样例，非宝宝个人计划 -->
+        <view class="card">
+          <view class="card-title">一周食谱（参考）</view>
+          <view class="muted mth-tip">按 {{slide.month}} 月龄现算的 7 天样例，不带宝宝个人的食材排除；个人计划在首页。</view>
+          <view class="mth-day" wx:for="{{slide.menu}}" wx:key="id" wx:for-item="day">
+            <view class="mth-day-h">
+              <text class="mth-day-w {{day.isWeekend ? 'mth-day-we' : ''}}">{{day.weekday}}</text>
+              <text class="mth-day-d">{{day.dateLabel}}</text>
+            </view>
+            <view class="mth-item {{it.kind === 'snack' ? 'mth-item--snack' : ''}}"
+                  wx:for="{{day.items}}" wx:key="id" wx:for-item="it">
+              <text class="mth-time">{{it.time}}</text>
+              <text class="mth-name">{{it.name}}</text>
+              <text class="tag tag-grey">{{it.texture}}</text>
+            </view>
+          </view>
+          <view class="muted" wx:if="{{!slide.menu.length}}">这个月龄暂时排不出样例食谱</view>
+        </view>
+
+        <view class="mth-gap"></view>
+      </scroll-view>
+
+      <!-- 远页骨架（当前 ±1 之外）：节点省着用，滑到再挂内容 -->
+      <view class="mth-skel" wx:else>
+        <text class="mth-skel-month">{{slide.month}} 月龄</text>
+      </view>
+
+    </swiper-item>
+  </swiper>
+
+  <view class="disclaimer">
+    本页内容参考公开喂养指南整理，仅供参考，不能替代医生或注册营养师的专业意见。宝宝出现过敏、疾病或生长发育异常，请及时就医。
+  </view>
+</view>

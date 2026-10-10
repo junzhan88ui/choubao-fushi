@@ -33,25 +33,7 @@
     </view>
   </view>
 
-  <!-- 观察期 -->
-  <view class="card" wx:if="{{observing.length > 0}}">
-    <view class="card-title">正在观察的食材</view>
-    <view class="card-sub">引入后观察 3 天，确认没问题再组合进菜单</view>
-    <view class="obs-item" wx:for="{{observing}}" wx:key="foodId" wx:for-item="o">
-      <view class="obs-head">
-        <text class="obs-name">{{o.name}}</text>
-        <text class="muted">{{o.date}} 开始</text>
-      </view>
-      <!-- v2.25 · 方案A：观察期你自己喂、计划先不排 —— 首次喂法就地给出 -->
-      <view class="obs-feed" wx:if="{{o.amount}}">首次喂 {{o.amount}}，{{o.method}}。连续观察 3 天，没异常再点「没问题」。</view>
-      <view class="obs-actions">
-        <view class="mini-btn mini-ok" data-id="{{o.foodId}}" data-ok="1" bindtap="confirmObservation">没问题</view>
-        <view class="mini-btn mini-bad" data-id="{{o.foodId}}" data-ok="0" bindtap="confirmObservation">有反应</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 有反应的食材：计划页/观察期标完 reaction 的落点（status=bad 永久排除）。
+  <!-- 有反应的食材：计划页/详情页标完 reaction 的落点（status=bad 永久排除）。
        日期 = 出现反应的当天（markIntroduced 写入），就医时可与下方喂养记录对照。 -->
   <view class="card" wx:if="{{badFoods.length > 0}}">
     <view class="card-title">有反应的食材</view>
@@ -71,15 +53,9 @@
   <!-- 已吃过的食材 -->
   <view class="card">
     <view class="card-title">已经吃过、没问题的食材</view>
-    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材：勾选先进 3 天观察期（你来喂、计划先不排），确认没问题才排进菜单。</view>
-    <!-- v2.25：「标记有反应」入口自首页餐卡移入 —— 观察期内的由观察卡「有反应」落，
-         已确认安全的食材过敏后从这里补标（bad 是唯一硬排除机制，见 §6j） -->
-    <view class="mark-bad-row">
-      <view class="mini-btn mini-bad" bindtap="pickBadFood">＋ 标记有反应</view>
-    </view>
-    <!-- v2.25 · 方案A：引入改由本页决定，必须给出「为什么不该回避」的理由 ——
-         口径出自《中国居民膳食指南(2022)》准则二，见 utils/plan.js foodUsable 注释 -->
-    <view class="card-sub">1 岁内适时引入各种食物（含蛋、鱼、小麦等常见致敏食物）可降低过敏风险，别因为怕过敏就一直回避 —— 一次一种，逐个来。</view>
+    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材，一次一种、逐个来。</view>
+    <!-- 「标记有反应」按钮与准则二引导文案已按用户决策删除（v2.30）：
+         标记 bad 的按钮入口只剩食材详情页「食物过敏」（§6j），别加回来（§6u 钉） -->
 
     <view class="search">
       <input class="search-input" placeholder="搜食材，如 南瓜 / 蛋黄"
@@ -99,7 +75,9 @@
           <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
           <!-- 引入的月龄门（v2.25 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
           <text class="chip-flag" wx:if="{{f.tooEarly}}">{{f.minMonth}}月起</text>
-          <text class="chip-flag chip-flag-bad" wx:if="{{f.status === 'bad'}}">有反应</text>
+          <!-- 状态徽标：与「查一查」同一套词、同一个样式（utils/foodlist.js 出数，§6u 钉）。
+               已吃过/有反应亮徽标；「未引入」是未勾选的常态，不铺一层灰标 -->
+          <text class="food-status st-{{f.status}}" wx:if="{{f.status !== 'new'}}">{{f.statusText}}</text>
         </view>
       </view>
     </view>

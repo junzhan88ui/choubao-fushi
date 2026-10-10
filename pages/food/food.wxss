@@ -56,28 +56,5 @@
   margin-right: 16rpx;
 }
 
-.food-status {
-  font-size: var(--fs-xs);
-  padding: 4rpx 14rpx;
-  border-radius: var(--r-sm);
-}
-
-.st-safe {
-  background: var(--c-green-bg);
-  color: var(--c-green-dark);
-}
-
-.st-observing {
-  background: var(--c-amber-bg);
-  color: var(--c-amber-ink);
-}
-
-.st-bad {
-  background: var(--c-red-bg);
-  color: var(--c-red);
-}
-
-.st-new {
-  background: var(--c-muted);
-  color: var(--c-text-3);
-}
+/* 状态徽标已上移到 app.wxss（v2.30：档案页 chips 与本页列表行共用同一套
+   状态徽标，utils/foodlist.js 出数，§6u）。.st-observing 随观察期规则删除。 */

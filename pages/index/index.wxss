@@ -7,7 +7,7 @@
 
 /* 名称与月龄同一行：基线对齐（baseline），字号都用 --fs-lg。
    原来月龄是 --fs-display 大字、名字单独占一行，两行两个字号 —— 用户要求
-   并到一行且字号一致。右侧阶段 tag 仍留在 .head-row，靠 space-between 靠右。 */
+   并到一行且字号一致。右上角阶段 tag 已按用户要求删除（v2.30，§6t 反向钉）。 */
 .head-line {
   display: flex;
   align-items: baseline;
@@ -26,17 +26,58 @@
   color: var(--c-text);
 }
 
+/* 当前状态行容器（v2.30）：状态文字与右侧「滑动查看各月龄」入口同一行、
+   两端对齐（用户定的位置：放【当前状态】行最右侧，跟它对齐）。
+   .head-issue 的 14rpx 上边距挪到这里 —— 子元素各带 margin-top 会把行撑开 */
+.head-issue-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-top: 14rpx;
+}
+
 /* 当前状态：一项都没勾（= 正常）时用中性灰色，真勾了问题项才用琥珀色，避免假警报。
    v2.7 · ③ 配套：文字色用 --c-amber-ink 而不是 --c-amber —— #b0761a 当正文
    白底只有 3.85:1（低于 AA 4.5），品牌浅绿面上更低；--c-amber 只留给图标/描边 */
 .head-issue {
-  margin-top: 14rpx;
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-md);
   color: var(--c-amber-ink);
 }
 
+/* 右侧入口（v2.30 · 用户决策）：状态行同行右对齐，fs-sm 不抢状态文字的视觉 */
+.head-more {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--c-green-dark);
+}
+
+.head-more:active {
+  opacity: 0.6;
+}
+
+/* 状态圆点（评审提案④）：状态位用「绿=放行 / 琥珀=待处理」两态说话。
+   background:currentColor —— 基类琥珀、--none 绿，一套伪元素两态自动生效。
+   只加装饰不改基础规则：§6q 钉的 .head-issue 基色 var(--c-amber-ink) 原样 */
+.head-issue::before {
+  content: '';
+  display: inline-block;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 10rpx;
+  vertical-align: 2rpx;
+}
+
+/* 正常态：辅助灰 → 品牌深绿（绿=放行）。
+   --c-text-3 与免责声明同级，状态位不该埋在说明文字里；
+   #3b6d11 on 品牌浅绿 #f2f8ea ≈ 7.6:1，AA 稳过 */
 .head-issue--none {
-  color: var(--c-text-3);
+  color: var(--c-green-dark);
 }
 
 /* 品牌面内的次级说明（stageDesc 的 .muted）：--c-text-3 在浅绿上只有 4.7:1
@@ -66,7 +107,7 @@
   padding-left: 20rpx;
 }
 
-/* 生病中提醒条 —— 用蓝色和「观察期」的琥珀色区分开 */
+/* 生病中提醒条 —— 用蓝色和状态行的琥珀色区分开 */
 .notice-sick {
   background: var(--c-blue-bg);
 }
@@ -203,8 +244,8 @@
   flex-shrink: 0;
 }
 
-/* v2.25 · 方案A：.newfood* 观察卡样式已随「首页不再渲染新食材尝试」移除 ——
-   观察卡与观察态都在档案页（pages/profile/profile.wxss）。 */
+/* v2.25 · 方案A：.newfood* 卡样式已随「首页不再渲染新食材尝试」移除；
+   v2.30 · 3 天观察期整体删除，档案页的观察卡也一并没了（§6u 反向钉）。 */
 
 /* 时段锚点（v2.9 · 方案A）：时段头 = 时刻 + 菜名 + 质地/类别小标签 + 正/加餐 chip
    + 右侧奶标注，一行基线对齐（样式修订：时段名不渲染，整行可点展开） */
@@ -367,6 +408,17 @@
 }
 
 /* .ml-btn-react（有反应）已随入口移到档案页 —— 死样式删掉 */
+
+/* 「吃完了」主操作（评审提案①）：三态同权重没有扫视落点 —— 主按钮绿化。
+   底色沿用 .btn-primary 的 var(--c-green) 白字（不是新语言）；
+   「吃一些 / 没吃」保持中性灰 —— 没吃不是错误，不做红。
+   高度/结构仍由 .ml-btn 提供：§6l 的 min-height/flex 钉不受影响 */
+.ml-btn-go {
+  background: var(--c-green);
+  color: #ffffff;
+  border-color: transparent;
+  font-weight: 500;
+}
 
 .ml-state {
   /* 与 .ml-btn 同高（96rpx）→ 打卡前后整行高度不跳。

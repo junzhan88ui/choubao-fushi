@@ -108,11 +108,6 @@
   background: var(--c-green-bg);
 }
 
-.rd-tag-observing {
-  color: var(--c-amber-ink);
-  background: var(--c-amber-bg);
-}
-
 .rd-tag-bad {
   color: var(--c-red);
   background: var(--c-red-bg);

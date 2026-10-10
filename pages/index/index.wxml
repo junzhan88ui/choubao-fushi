@@ -11,24 +11,25 @@
 
   <block wx:if="{{ready && configured}}">
 
-    <!-- 顶部信息（v2.7 · ③ 品牌面：与今天卡共用 --c-green-tint，全站唯一大色块） -->
+    <!-- 顶部信息（v2.7 · ③ 品牌面：与今天卡共用 --c-green-tint，全站唯一大色块）
+         v2.30：右上角阶段标签（稠糊/带颗粒…）已按用户要求删除 —— 阶段信息
+         下一行 stageDesc 已说清，不重复；反向钉在 _validate §6t -->
     <view class="card card--brand">
       <view class="head-row">
         <view class="head-line">
           <text class="head-name">{{name}}</text>
           <text class="head-age">{{ageText}}</text>
         </view>
-        <text class="tag tag-green" wx:if="{{stageLabel}}">{{stageLabel}}</text>
       </view>
       <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>
-      <view class="head-issue {{issueNone ? 'head-issue--none' : ''}}">当前状态：{{issueLabel}}</view>
+      <!-- 状态行 + 右侧「滑动查看各月龄」入口：同一行对齐（v2.30 · 用户定位置） -->
+      <view class="head-issue-row">
+        <view class="head-issue {{issueNone ? 'head-issue--none' : ''}}">当前状态：{{issueLabel}}</view>
+        <text class="head-more" bindtap="goMonths">滑动查看各月龄注意事项</text>
+      </view>
     </view>
 
-    <!-- 观察期提醒 -->
-    <view class="card card-tight notice" wx:if="{{dueObs.length > 0}}">
-      <view class="notice-text">有 {{dueObs.length}} 种食材观察期已满，去确认一下结果</view>
-      <view class="notice-btn" bindtap="goProfile">去确认</view>
-    </view>
+    <!-- 到期提醒条已删（v2.30 · 3 天观察规则整体删除）—— 别加回来，§6u 反向钉 -->
 
     <!-- 生病中提醒 -->
     <view class="card card-tight notice notice-sick" wx:if="{{planData.sick}}">
@@ -138,7 +139,7 @@
           <!-- 展开层：今天恒创建；非今天只在 openDay 命中时创建（fx-in 只挂用户点开的，不算入场动画） -->
           <view class="day-body {{!day.isToday && openDay === day.date ? 'fx-in' : ''}}"
                 wx:if="{{day.isToday || openDay === day.date}}">
-          <!-- v2.25 · 方案A：顶部独立新食材卡已移除 —— 引入与观察都在档案页，
+          <!-- v2.25 · 方案A：顶部独立新食材卡已移除 —— 引入都在档案页，
                计划里没有 day.newFood，这里不再兜底渲染 -->
 
           <!-- 时段锚点（v2.9 · 方案A）：奶 = 参考行（只标时段，不排菜不打卡）；
@@ -182,14 +183,15 @@
                           data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}">撤销</text>
                   </block>
                   <block wx:else>
-                    <view class="ml-btn" catchtap="logMeal"
+                    <view class="ml-btn ml-btn-go" catchtap="logMeal"
                           data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="full">吃完了</view>
                     <view class="ml-btn" catchtap="logMeal"
                           data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="some">吃一些</view>
                     <view class="ml-btn" catchtap="logMeal"
                           data-date="{{day.date}}" data-rid="{{row.meal.recipeId}}" data-status="refused">没吃</view>
                   </block>
-                  <!-- v2.25：「有反应」按钮移到档案页「已经吃过」卡 —— 标记通道在那边（pickBadFood） -->
+                  <!-- v2.25：「有反应」按钮已从首页餐卡删除；v2.30 档案页入口也删 ——
+                       标记通道在食材详情页「食物过敏」 -->
                 </view>
               </view>
               </view><!-- /meal-card（方案C：主餐成卡） -->

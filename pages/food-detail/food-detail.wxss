@@ -57,10 +57,12 @@
   margin-bottom: 20rpx;
 }
 
+/* 状态胶囊（评审提案②）：随全局 .tag 一并入胶囊系统 ——
+   本类不挂 .tag，圆角要自己改，否则这张卡里胶囊掉队 */
 .fd-status-val {
   font-weight: 500;
-  padding: 4rpx 14rpx;
-  border-radius: var(--r-sm);
+  padding: 4rpx 16rpx;
+  border-radius: var(--r-pill);
   margin-left: 8rpx;
 }
 
@@ -154,10 +156,7 @@
   color: var(--c-green-dark);
 }
 
-.st-observing {
-  background: var(--c-amber-bg);
-  color: var(--c-amber-ink);
-}
+/* st-observing 已随 3 天观察期规则删除（v2.30）—— 别加回来 */
 
 .st-bad {
   background: var(--c-red-bg);

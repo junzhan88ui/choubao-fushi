@@ -39,7 +39,7 @@
         <text class="rd-name">{{item.name}}</text>
         <text class="muted">{{item.date}} 起可吃</text>
       </view>
-      <view class="muted rd-empty" wx:if="{{!safeList.length}}">还没有确认过的食材 —— 去档案页勾选，或观察期确认没问题后会自动记进来</view>
+      <view class="muted rd-empty" wx:if="{{!safeList.length}}">还没有确认过的食材 —— 去档案页勾选（勾选 = 已经吃过、没问题），会自动记进来</view>
     </view>
 
     <view class="row row-tap {{openRow === 'bad' ? 'row-open' : ''}}"

@@ -8,7 +8,7 @@ const RECIPES = require('../../data/recipes')
 const app = getApp()
 
 // 引入记录的状态标签（bb_introduced.status → 展示文案）
-const INTRO_LABEL = { safe: '已吃过', observing: '观察中', bad: '有反应' }
+const INTRO_LABEL = { safe: '已吃过', bad: '有反应' } // v2.30：观察期已删，observing 绝版
 
 /** 引入记录 → 行内展开用的条目（id 换成名字；bad 的 date 就是反应当天）。
  *  status=null 表示取全部；按日期倒序，最近的排前面。 */
@@ -78,7 +78,7 @@ Page({
 
     // 行内展开的三组名单：与上面的计数同一数据源（bb_introduced），
     // 只是换成「带名字」的展示形态；点开哪行就渲哪组
-    // （观察中不再单列 —— 观察名单只在档案页观察卡管理，v2.25）
+    // （观察名单行 v2.25 已删；3 天观察期整体删除后 observing 绝版，v2.30）
     const safeList = toItems('safe')
     const badList = toItems('bad')
     const recordedList = toItems(null)

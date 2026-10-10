@@ -7,7 +7,6 @@ const plan = require('../../utils/plan')
 
 const STATUS_TEXT = {
   safe: '已经吃过，没问题',
-  observing: '观察中',
   bad: '有反应',
   new: '还没引入'
 }
@@ -44,7 +43,9 @@ Page({
     const baby = storage.getBaby()
     const months = baby && baby.birthday ? age.monthsBetween(baby.birthday) : null
     const intro = storage.findIntro(food.id)
-    const status = intro ? intro.status : 'new'
+    // 状态口径与两处清单同源（utils/foodlist.js statusOf）：
+    // 只有 safe|bad|new —— observing 已随观察期删除，读取时迁移为 safe（v2.30）
+    const status = intro ? (intro.status === 'bad' ? 'bad' : 'safe') : 'new'
 
     const recipes = RECIPES.filter(function (r) {
       return r.mainFoods.indexOf(food.id) >= 0 || (r.sideFoods || []).indexOf(food.id) >= 0
@@ -110,7 +111,8 @@ Page({
   },
 
   /** 「食物过敏」（v2.25 新增）：把当前食材标成 bad —— 永久排除，不再排进食谱。
-   *  与档案页「＋ 标记有反应」同一正路：markIntroduced → setIntroStatus('bad')，
+   *  档案页「＋ 标记有反应」入口已删（v2.30）—— 本页这颗是标 bad 的唯一按钮入口：
+   *  markIntroduced → setIntroStatus('bad')，
    *  反应当天日期随记录写入（§6j）。重新加入走上面 markSafe 的确认弹窗。 */
   markBad() {
     const that = this
@@ -131,8 +133,8 @@ Page({
 
   // v2.25：详情页标记按钮就这两颗 ——「已经吃过，没问题」(markSafe，bad 态下带确认弹窗
   // 充当重新加入入口) 与「食物过敏」(markBad)。「清除记录」(clearRecord)、「今天第一次试」
-  // (markObserving) 都在档案页：解除 bad 的另一条通道是「有反应的食材」卡，
-  // 观察中只由档案页勾选致敏食材产生。
+  // (markObserving) 都在档案页：解除 bad 的通道是「有反应的食材」卡。
+  // v2.30：3 天观察期已删 —— 引入只有「勾选 = 已经吃过、确认没问题」一条正路。
 
   toggleSteps(e) {
     const id = e.currentTarget.dataset.id

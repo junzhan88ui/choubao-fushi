@@ -7,7 +7,7 @@
 
 const KEYS = {
   BABY: 'bb_baby',        // { birthday }
-  INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: observing | safe | bad
+  INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: safe | bad（v2.30 起 observing 绝版，读取时迁移为 safe）
   STATUS: 'bb_status',    // [keys] 当前状态，可多选（合法 key 见 STATUSES）
   PLAN: 'bb_plan',        // { generatedAt, months, stageKey, days, shopping }
   MEALS: 'bb_meals',      // [{ date, recipeId, status, reaction, at }] 每餐打卡（v2.1）
@@ -16,9 +16,6 @@ const KEYS = {
   LEGACY_ISSUE: 'bb_issue',
   LEGACY_SICK: 'bb_sick'
 }
-
-// 新食材观察天数
-const OBSERVE_DAYS = 3
 
 // 宝宝当前状态（**多选**）
 //
@@ -220,7 +217,19 @@ function isConfigured() {
 
 function getIntroduced() {
   const list = wx.getStorageSync(KEYS.INTRO)
-  return Array.isArray(list) ? list : []
+  const arr = Array.isArray(list) ? list : []
+  // v2.30 · 3 天观察期规则整体删除（用户决策）：存量 observing 记录读到时
+  // 一次性升为 safe（＝已经吃过、确认没问题）。此后 markIntroduced 只写
+  // safe，observing 从这里开始绝版（_validate §6u 反向钉 + 迁移实跑）。
+  let changed = false
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] && arr[i].status === 'observing') {
+      arr[i].status = 'safe'
+      changed = true
+    }
+  }
+  if (changed) setIntroduced(arr)
+  return arr
 }
 
 function setIntroduced(list) {
@@ -235,32 +244,33 @@ function findIntro(foodId) {
   return null
 }
 
-/** 标记「今天给宝宝吃了这个」→ 进入观察期 */
+/** 标记「今天给宝宝吃了这个」→ 已吃过、确认没问题（safe）。
+ *  v2.30：3 天观察期已删 —— 致敏食材同样勾选即 safe（用户决策），观察分支绝版。 */
 function markIntroduced(foodId, dateStr) {
   const list = getIntroduced()
   const exist = findIntro(foodId)
   // ⚠️ 「有反应」(bad) 是唯一的永久排除机制，任何路径都不得覆写它（H-2）。
   // 详情页已藏掉 bad 状态下的按钮，这里是最后一道防线：bad 记录只能经
   // removeIntroduced（用户显式「清除记录」）解除，否则一次点按就能把
-  // 过敏食材洗白回「观察中」，连反应日期都会被覆写丢失。
+  // 过敏食材洗白成「已吃过」，连反应日期都会被覆写丢失。
   if (exist && exist.status === 'bad') return false
   const today = dateStr || todayStr()
   if (exist) {
     exist.date = today
-    exist.status = 'observing'
+    exist.status = 'safe'
   } else {
-    list.push({ foodId: foodId, date: today, status: 'observing' })
+    list.push({ foodId: foodId, date: today, status: 'safe' })
   }
   setIntroduced(list)
   return true
 }
 
-/** 观察期结束后由用户确认结果 */
+/** 由用户确认结果（bad 只进不出：解除只能走 removeIntroduced） */
 function setIntroStatus(foodId, status) {
   const list = getIntroduced()
   for (let i = 0; i < list.length; i++) {
     if (list[i].foodId !== foodId) continue
-    // bad 只进不出：观察中→bad（确认过敏）放行；bad→safe/observing 拒绝，
+    // bad 只进不出：safe→bad（标记过敏）放行；bad→safe 拒绝，
     // 解除只走 removeIntroduced（见 _validate.js §6j）
     if (list[i].status === 'bad' && status !== 'bad') return false
     list[i].status = status
@@ -283,7 +293,11 @@ function safeFoodIds() {
     .map(function (it) { return it.foodId })
 }
 
-/** 正在观察中 */
+/**
+ * 「观察中」名单 —— v2.30 观察期规则删除后恒为空（observing 绝版）。
+ * 保留只为 planInputs 的指纹契约：planSignature 对它必须敏感（_validate §6b 钉），
+ * 引擎侧 observingCount 的「一次只引入一种」暂停语义也照旧（§6s G）。
+ */
 function observingFoodIds() {
   return getIntroduced()
     .filter(function (it) { return it.status === 'observing' })
@@ -300,21 +314,13 @@ function badFoodIds() {
     .map(function (it) { return it.foodId })
 }
 
-/** 所有记录过的食材（含观察中和异常） */
+/** 所有记录过的食材（含已吃过和有反应） */
 function recordedFoodIds() {
   return getIntroduced().map(function (it) { return it.foodId })
 }
 
-/** 观察期已满、等用户确认结果的记录 */
-function dueObservations(now) {
-  const n = now || new Date()
-  return getIntroduced().filter(function (it) {
-    if (it.status !== 'observing') return false
-    const d = new Date(it.date)
-    if (isNaN(d.getTime())) return false
-    return (n - d) / 86400000 >= OBSERVE_DAYS
-  })
-}
+// dueObservations（观察期到期名单）已随 3 天观察期规则整体删除（v2.30 用户决策）：
+// 观察卡、首页到期提醒一并移除，这个函数没有调用方了 —— 别加回来（§6u 反向钉）。
 
 /* ---------- 当前计划 ---------- */
 
@@ -414,7 +420,6 @@ function resetAll() {
 
 module.exports = {
   KEYS: KEYS,
-  OBSERVE_DAYS: OBSERVE_DAYS,
   STATUSES: STATUSES,
   OK_KEY: OK_KEY,
   OK_LABEL: OK_LABEL,
@@ -439,7 +444,6 @@ module.exports = {
   observingFoodIds: observingFoodIds,
   badFoodIds: badFoodIds,
   recordedFoodIds: recordedFoodIds,
-  dueObservations: dueObservations,
   getStatuses: getStatuses,
   setStatuses: setStatuses,
   getIssues: getIssues,
