@@ -41,7 +41,8 @@ Page({
     }
 
     const baby = storage.getBaby()
-    const months = baby && baby.birthday ? age.monthsBetween(baby.birthday) : null
+    // v2.32 双时钟：食材详情的月龄门（minMonth / 分档填数）走辅食月龄
+    const months = baby && baby.birthday ? age.foodMonthsOf(baby) : null
     const intro = storage.findIntro(food.id)
     // 状态口径与两处清单同源（utils/foodlist.js statusOf）：
     // 只有 safe|bad|new —— observing 已随观察期删除，读取时迁移为 safe（v2.30）

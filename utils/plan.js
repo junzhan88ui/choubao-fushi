@@ -401,17 +401,34 @@ const MENU_6 = {
   30: { base: '谷物 5g+水50ml', add: [{ foodId: 'broccoli', label: '西兰花泥3勺', qty: '3 勺' }, { foodId: 'beef', label: '牛肉泥3勺', qty: '3 勺' }] }
 }
 
-/** 生日 + 日期 →「6+N」菜单日。anchor = 生日 + 6 个日历月；anchor 当天记作
- *  菜单第 1 天（与菜单起步档一致）。越界（非 6 月龄窗口）返回值交给调用方
- *  按 1..30 夹取，夹不住就落回原引擎。 */
+/** 日期串 + N 个日历月 → 日期串。月末溢出交给 Date 自然滚动 —— 与原 menuDayOf
+ *  同一构造，别换成「月末夹取」算法，两种在 1/31 这类日期上结果不同。 */
+function plusMonthsKey(dstr, n) {
+  const b = parseDateKey(dstr)
+  if (isNaN(b.getTime())) return ''
+  return dateKey(new Date(b.getFullYear(), b.getMonth() + n, b.getDate()))
+}
+
+/** 6 月龄第 1 天（MENU_6 锚点）+ 日期 → 菜单日。anchor6 当天记作菜单第 1 天
+ *  （与菜单起步档一致）。越界（非 6 月龄窗口）返回值交给调用方按 1..30 夹取，
+ *  夹不住就落回原引擎。
+ *  v2.32 双时钟 · 修正（用户实测抓出）：填了「首次辅食日期」时 anchor6 =
+ *  辅食开始日**本身** —— 它就是辅食 6 月龄第 1 天；绝不能再对它 +6 个月
+ *  （会错位到未来，菜单锁整个失效 —— 晚开始宝宝首日排不出强化铁米粉）。 */
+function menuDayFrom(anchor6, d) {
+  if (!anchor6) return 0
+  const a = parseDateKey(anchor6)
+  if (isNaN(a.getTime())) return 0
+  const day = parseDateKey(d)
+  const diff = Math.round((new Date(day.getFullYear(), day.getMonth(), day.getDate()) - a) / 86400000)
+  return diff + 1
+}
+
+/** 生日 + 日期 →「6+N」菜单日（没填辅食日期的路径）：锚 = 生日 + 6 个日历月。
+ *  = menuDayFrom(plusMonthsKey(birth, 6), d)，语义与 v2.31 及以前逐字一致。 */
 function menuDayOf(birth, d) {
   if (!birth) return 0
-  const b = parseDateKey(birth)
-  if (isNaN(b.getTime())) return 0
-  const day = parseDateKey(d)
-  const anchor = new Date(b.getFullYear(), b.getMonth() + 6, b.getDate())
-  const diff = Math.round((new Date(day.getFullYear(), day.getMonth(), day.getDate()) - anchor) / 86400000)
-  return diff + 1
+  return menuDayFrom(plusMonthsKey(birth, 6), d)
 }
 
 /* ---------- 主流程 ---------- */
@@ -505,10 +522,11 @@ function generate(opts) {
   const mealsPerDay = age.mealsForMonth(months)
   const slots = age.slotsForMonth(months)
 
-  // 6 月固定菜单锁定（v2.9 · ④）：生日进指纹后每天各自算「6+N」菜单日
-  // （窗口可跨月龄边界）。没有 birth 的直接调用（旧测试路径/详情页）走
-  // 原引擎 + monthAmount 稳态值，行为不变。
-  const menuLock = months === 6 && !!opts.birth
+  // 6 月固定菜单锁定（v2.9 · ④；v2.32 双时钟 · 修正）：锚 = **6 月龄第 1 天** ——
+  // 没填辅食日期 = 生日 + 6 个日历月（menuDayOf 原语义）；填了 = 辅食开始日
+  // 本身（menuDayFrom 直接锚，别再 +6）。没有 birth 的直接调用（旧测试路径/
+  // 详情页）走原引擎 + monthAmount 稳态值，行为不变。
+  const menuLock = months === 6 && !!(opts.foodStart || opts.birth)
 
   // 2. 新食材引入日：**引擎不再自动排**（v2.25 · 方案A，用户决策）
   //
@@ -566,7 +584,9 @@ function generate(opts) {
     // 拿不到菜单日（越界/缺生日）就落回原引擎，7 月+ 与旧测试路径不受影响。
     let menuDay = 0
     if (menuLock) {
-      const md0 = menuDayOf(opts.birth, d)
+      // v2.32 双时钟 · 修正：辅食开始日本身 = 6 月龄第 1 天，直锚；
+      // 没填时锚 = 生日 + 6 个月（menuDayOf 原路径）
+      const md0 = opts.foodStart ? menuDayFrom(opts.foodStart, d) : menuDayOf(opts.birth, d)
       if (md0 >= 1 && md0 <= 30) menuDay = md0
     }
     if (menuDay) {
@@ -828,14 +848,20 @@ function planInputs(storage) {
   // 自己的闸门 —— 免得哪条调用路径绕过去，生成一份「没名字」的计划。
   // 只判**有没有**名字：名称的取值不进返回值，改名不该重排计划。
   if (!baby || !baby.name || !baby.birthday) return null
-  const months = age.monthsBetween(baby.birthday)
+  // v2.32 双时钟：排菜节奏走辅食月龄（foodMonthsOf 唯一分流入口，
+  // 没填辅食日期回退生理月龄 = v2.31 及以前行为，指纹不变零打扰）
+  const months = age.foodMonthsOf(baby)
   if (months === null) return null
 
   return {
     months: months,
-    // 6 月固定菜单按生日锚定「6+N」菜单日（v2.9 · ④）；进指纹 —— 生日改了
-    // 菜单日整体错位，必须触发重算（名称取值仍不进指纹，见 planSignature 注释）
+    // 6 月固定菜单的锚（v2.32 双时钟 · 修正）：birth 仍是**生日** —— menuDayOf
+    // 内部 +6 个月找 6 月龄第 1 天（语义与 v2.31 一致）；foodStart 是首次辅食
+    // 日期，有它时它**本身**就是 6 月龄第 1 天，generate 用 menuDayFrom 直锚
+    // （别把 foodStart 当生日传 menuDayOf，那会 +6 个月错位 —— 用户实测抓过）。
+    // 两者都进指纹 —— 锚变了菜单日整体错位，必须触发重算。
     birth: baby.birthday,
+    foodStart: baby.foodStart || '',
     issues: storage.getIssues(),
     sick: storage.getSick(),
     safeFoodIds: storage.safeFoodIds(),
@@ -861,6 +887,9 @@ function planSignature(storage) {
     'm' + inputs.months,
     // 6 月固定菜单锚定日（v2.9 · ④）：生日变了菜单日错位，必须重算
     'd' + inputs.birth,
+    // 首次辅食日期（v2.32 双时钟）：菜单锚点与辅食月龄都可能因它变，
+    // 补填/修改必须触发重算（没填是空串，公式同构、签名稳定）
+    'fs' + inputs.foodStart,
     // 排序后再拼：多选项的勾选顺序不该影响指纹，
     // 否则同一组状态换个顺序就会白重算一次
     'i' + list(inputs.issues),
@@ -943,7 +972,8 @@ module.exports = {
   generate: generate,
   MENU_6: MENU_6,                         // 6 月固定菜单逐日表（v2.9 · ④，§6s 逐字钉）
   MENU_6_SNACK_START: MENU_6_SNACK_START, // 水果加餐起始菜单日（菜单：6+19 起 15:00）
-  menuDayOf: menuDayOf,                   // 生日 + 日期 →「6+N」菜单日
+  menuDayOf: menuDayOf,                   // 生日 + 日期 →「6+N」菜单日（锚 = 生日 + 6 月）
+  menuDayFrom: menuDayFrom,               // 6 月龄第 1 天 + 日期 → 菜单日（v2.32 双时钟直锚）
   generateFromStorage: generateFromStorage,
   replanOpts: replanOpts,
   planInputs: planInputs,

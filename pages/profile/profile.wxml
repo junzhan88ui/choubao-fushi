@@ -20,6 +20,18 @@
         <text class="row-value">{{birthday || '点击选择'}}</text>
       </view>
     </picker>
+    <!-- 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天 ——
+         计划/性状/餐次/引入门改按辅食月龄排；不填 = 按出生日期推算（现状）。
+         下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」，§6w 钉） -->
+    <picker mode="date" value="{{foodStart}}" start="{{foodMinDate}}" end="{{today}}"
+            wx:if="{{birthday}}" bindchange="onFoodStartChange">
+      <view class="row">
+        <text class="row-label">首次辅食日期</text>
+        <text class="row-value">{{foodStart || '选填，点击选择'}}</text>
+      </view>
+    </picker>
+    <view class="food-start-hint" wx:if="{{!birthday}}">填好出生日期后，可选填「首次辅食日期」——计划会按宝宝实际开始吃辅食的时间安排。</view>
+    <view class="food-start-clear" wx:if="{{foodStart}}" bindtap="onClearFoodStart">清除，改回按出生日期推算月龄</view>
   </view>
 
   <!-- 宝宝状态 -->
@@ -85,6 +97,18 @@
     <view class="muted empty-hit" wx:if="{{groups.length === 0}}">没找到这个食材，换个词试试</view>
 
     <view class="count-line">已勾选 {{totalChecked}} 种</view>
+  </view>
+
+  <!-- 数据备份（v2.31 · 方案A 零后端）：换机/换账号/重装微信不丢数据。
+       程序只做复制/粘贴两个动作，备份文本经用户自己的手转存，不联网（§6v 钉）。
+       导入是整包覆盖，js 侧导入前必须弹确认框（onImport） -->
+  <view class="card">
+    <view class="card-title">数据备份</view>
+    <view class="card-sub">导出 = 把档案、状态、食材记录和喂养打卡打成一段文本，自动复制到剪贴板。换手机前先把这段文本发到微信「文件传输助手」或存进收藏，到了新手机，在这里粘贴导入即可找回。</view>
+    <view class="obs-actions">
+      <view class="mini-btn mini-clear" bindtap="onExport">导出备份</view>
+      <view class="mini-btn mini-clear" bindtap="onImport">导入备份</view>
+    </view>
   </view>
 
   <button class="btn btn-primary" bindtap="goBack">完成</button>

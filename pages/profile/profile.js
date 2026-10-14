@@ -13,6 +13,10 @@ Page({
     birthday: '',
     today: '',
     minDate: '',
+    // 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天。
+    // foodMinDate = picker 下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」）
+    foodStart: '',
+    foodMinDate: '',
     ageText: '',
     // 当前月龄（null = 没填生日）。v2.25 · 方案A 之后档案页是引入的唯一入口，
     // 引擎不再按 minMonth 升序排引入，这道月龄门只能在这里挡。
@@ -43,10 +47,22 @@ Page({
       name: baby && baby.name ? baby.name : '',
       birthday: birthday,
       ageText: birthday ? age.describeAge(birthday) : '',
-      months: birthday ? age.monthsBetween(birthday) : null
+      // v2.32 双时钟：档案页的引入月龄门走辅食月龄（没填回退生理月龄）
+      months: birthday ? age.foodMonthsOf(baby) : null,
+      foodStart: (baby && baby.foodStart) || '',
+      foodMinDate: this.foodMinOf(birthday)
     })
     this.rebuildStatus()
     this.rebuild()
+  },
+
+  /** 辅食日期 picker 的下限：出生 + 4 个月（公开指南「最早不早于 4 月龄」）。
+   *  没填生日返回 ''（无下限；handler 会先提示补生日再选） */
+  foodMinOf(birthday) {
+    if (!birthday) return ''
+    const b = new Date(birthday)
+    if (isNaN(b.getTime())) return ''
+    return storage.todayStr(new Date(b.getFullYear(), b.getMonth() + 4, b.getDate()))
   },
 
   /** 重建状态卡选项（列表由 storage 提供，「状态正常」恒在第一位）
@@ -128,13 +144,50 @@ Page({
   onDateChange(e) {
     const birthday = e.detail.value
     storage.setBaby({ birthday: birthday })
+    const baby = storage.getBaby()
     this.setData({
       birthday: birthday,
-      ageText: age.describeAge(birthday)
+      ageText: age.describeAge(birthday),
+      // 生日变了：辅食日期下限跟着挪，月龄门同步重算（不等下次 onShow）
+      foodMinDate: this.foodMinOf(birthday),
+      months: age.foodMonthsOf(baby)
     })
     // 月龄变了，旧计划作废
     storage.setPlan(null)
     wx.showToast({ title: '已保存', icon: 'success' })
+  },
+
+  /** 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天 ——
+   *  计划/性状/餐次/引入门改按辅食月龄排（age.foodMonthsOf 唯一分流入口）。
+   *  没填 = 按出生日期推算（现状）。下限 = 出生 + 4 个月；改/清都作废旧计划。 */
+  onFoodStartChange(e) {
+    const v = e.detail.value
+    if (!this.data.birthday) {
+      wx.showToast({ title: '先填出生日期', icon: 'none' })
+      return
+    }
+    if (this.data.foodMinDate && v < this.data.foodMinDate) {
+      wx.showToast({ title: '最早 ' + this.data.foodMinDate + '（出生满 4 个月）', icon: 'none' })
+      return
+    }
+    this._applyFoodStart(v, '已保存，计划将按辅食开始日安排')
+  },
+
+  /** 清除辅食日期 = 回到「按出生日期推算月龄」的现状口径。
+   *  选填字段必须可回退：误填/想改回老口径都靠这条通道。 */
+  onClearFoodStart() {
+    this._applyFoodStart('', '已改回按出生日期推算月龄')
+  },
+
+  _applyFoodStart(v, msg) {
+    storage.setBaby({ foodStart: v })
+    storage.setPlan(null) // 辅食月龄与菜单锚定日变了，旧计划作废
+    this.setData({
+      foodStart: v,
+      months: this.data.birthday ? age.foodMonthsOf(storage.getBaby()) : null
+    })
+    this.rebuild()
+    wx.showToast({ title: msg, icon: 'none' })
   },
 
   /** 状态多选：点「状态正常」清空全部，点真状态则 toggle，互不影响其它已选项 */
@@ -199,5 +252,44 @@ Page({
     } else {
       wx.switchTab({ url: '/pages/index/index' })
     }
+  },
+
+  /** 导出备份（v2.31）：整段 JSON 复制到剪贴板。用户自己转存到微信聊天/收藏，
+   *  程序不上传不联网 —— 隐私口径「未采集」靠这条维持（§6v 钉无网络调用） */
+  onExport() {
+    wx.setClipboardData({
+      data: storage.exportUserData(),
+      success() {
+        wx.showToast({ title: '已复制，去微信里存好', icon: 'none' })
+      }
+    })
+  },
+
+  /** 导入备份（v2.31）：剪贴板文本 → 信封预检（isBackupText，垃圾文本直接拒）
+   *  → 确认框（导入 = 整包覆盖，必须先确认，§6v 钉 showModal）→ 落库 → 整页重建 */
+  onImport() {
+    const that = this
+    wx.getClipboardData({
+      success(res) {
+        const text = res.data || ''
+        if (!storage.isBackupText(text)) {
+          wx.showToast({ title: '剪贴板里不是备份文本', icon: 'none' })
+          return
+        }
+        wx.showModal({
+          title: '导入备份',
+          content: '会用备份里的内容整体覆盖当前档案、食材记录和喂养打卡，导入后本周计划会重新生成。确定导入吗？',
+          success(r) {
+            if (!r.confirm) return
+            if (storage.importUserData(text)) {
+              that.onShow() // 重建档案/状态/食材清单
+              wx.showToast({ title: '导入完成', icon: 'success' })
+            } else {
+              wx.showToast({ title: '备份格式不支持', icon: 'none' })
+            }
+          }
+        })
+      }
+    })
   }
 })

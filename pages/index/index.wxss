@@ -26,14 +26,9 @@
   color: var(--c-text);
 }
 
-/* 当前状态行容器（v2.30）：状态文字与右侧「滑动查看各月龄」入口同一行、
-   两端对齐（用户定的位置：放【当前状态】行最右侧，跟它对齐）。
-   .head-issue 的 14rpx 上边距挪到这里 —— 子元素各带 margin-top 会把行撑开 */
+/* 当前状态行（v2.31 · 提案A）：入口移出后独占一行 —— flex/两端对齐随入口
+   迁到 .head-more-row，这里只剩状态文字。.head-issue 的 14rpx 上边距仍由本行带 */
 .head-issue-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
   margin-top: 14rpx;
 }
 
@@ -47,16 +42,45 @@
   color: var(--c-amber-ink);
 }
 
-/* 右侧入口（v2.30 · 用户决策）：状态行同行右对齐，fs-sm 不抢状态文字的视觉 */
-.head-more {
-  flex-shrink: 0;
+/* v2.32 双时钟副文案：「辅食第 N 个月 · 自 X 起」—— 解释生理月龄（ageText）
+   与计划的辅食月龄的关系；只在选填了「首次辅食日期」时出现（foodAgeText） */
+.head-food-age {
+  margin-top: 8rpx;
   font-size: var(--fs-sm);
-  font-weight: 500;
+}
+
+/* 独立入口行（v2.31 · 提案A，用户选定）：状态行下方右对齐的胶囊按钮 ——
+   --r-pill 全站胶囊语言（与日历 chip 同系）、绿底浅色 .st-safe 同系不抢主操作
+   权重、无描边（全站零硬编码描边色，token 纪律）；min-height 88rpx = 44pt 触达 */
+.head-more-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12rpx;
+}
+
+.head-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  min-height: 88rpx;
+  padding: 0 28rpx;
+  background: var(--c-green-bg);
   color: var(--c-green-dark);
+  border-radius: var(--r-pill);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1;
 }
 
 .head-more:active {
-  opacity: 0.6;
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* 箭头 ▸：与知识卡 guide-arrow 同一字符族，绿色降一档只做方向提示 */
+.head-more-ic {
+  font-size: var(--fs-xs);
+  color: var(--c-green);
 }
 
 /* 状态圆点（评审提案④）：状态位用「绿=放行 / 琥珀=待处理」两态说话。

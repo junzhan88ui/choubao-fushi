@@ -2295,13 +2295,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     })
   })
 
-  // 2) 首页接线：按月龄选组（六档闸门）→ 挂进 data → WXML 渲染并复用展开交互
-  ;['months >= 7 && months < 8', 'months >= 8 && months < 9', 'months >= 9 && months < 10',
-    'months >= 10 && months < 11', 'months >= 11 && months < 12', 'months === 12'].forEach((gt) => {
+  // 2) 首页接线：按**辅食月龄**选组（六档闸门，v2.32 双时钟 fm）→ 挂进 data
+  //    → WXML 渲染并复用展开交互；「1 岁以上」进卡看生理 ≥13（§6w 分流表）
+  ;['fm >= 7 && fm < 8', 'fm >= 8 && fm < 9', 'fm >= 9 && fm < 10',
+    'fm >= 10 && fm < 11', 'fm >= 11 && fm < 12', 'fm === 12'].forEach((gt) => {
     if (ij.indexOf(gt) < 0) E(`index.js 缺「${gt}」的选组闸门 —— 这个年龄段挂不到知识卡`)
   })
-  if (!/guideLater\s*=\s*months\s*>=\s*7/.test(ij))
-    E('index.js 没按月龄挑组赋给 guideLater —— 卡数据没有来源（死数据）')
+  if (!/guideLater\s*=\s*phys\s*>=\s*13\s*\?\s*guides\.onePlus/.test(ij))
+    E('index.js 没按「生理月龄 ≥13 → 1 岁以上卡」挑组赋给 guideLater —— 幼儿期分流丢了（§6w）')
   if (!/guideLater:\s*guideLater/.test(ij))
     E('index.js 选好的组没挂进 data.guideLater —— WXML 的 wx:for 拿不到卡')
   if (iw.indexOf('wx:for="{{guideLater}}"') < 0)
@@ -3009,8 +3010,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const pj6s = fs.readFileSync('./utils/plan.js', 'utf8')
   if (pj6s.indexOf('const MENU_6') < 0 || pj6s.indexOf('function menuDayOf') < 0)
     E('plan.js 缺 MENU_6 / menuDayOf —— 6 月固定菜单锁定没有实现')
-  if (pj6s.indexOf('birth: baby.birthday') < 0)
-    E('planInputs 没带 birth —— 菜单日锚定拿不到生日')
+  // v2.32 双时钟 · 修正：birth 仍是**生日**（menuDayOf 内部 +6 月找 6 月龄第 1 天
+  // 的原语义），辅食开始日单独走 foodStart 字段、由 menuDayFrom 直锚 ——
+  // 别再把 foodStart 塞进 birth（+6 个月错位到未来，菜单锁整个失效，用户实测抓过）
+  if (pj6s.indexOf('birth: baby.birthday') < 0 || pj6s.indexOf('foodStart: baby.foodStart') < 0)
+    E('planInputs 锚定字段错了 —— 必须是 birth=生日 + foodStart=辅食开始日两个字段（v2.32 修正）')
   if (pj6s.indexOf("'d' + inputs.birth") < 0)
     E('planSignature 没把 birth 计入指纹 —— 换生日不重算')
   if (pj6s.indexOf('MENU_6_SNACK_START') < 0)
@@ -3030,11 +3034,13 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  * 钉子：1) 首页反向钉（别加回来）：wxml 不渲染 stageLabel、js 不再装配；
  *        mine 页必须还在（别顺手删过头）
  *      2) 入口接线：wxml 文案+bindtap → index.goMonths → /pages/months/months
- *        → app.json 注册；.head-issue-row/.head-more 样式在位
- *      3) 月龄页数据实跑：19 页(6–24) 每页 7 天食谱、正餐数 = mealsForMonth、
- *        6 月恒「强化铁米粉糊」（MENU_6 第 1–7 天）、7–12 分月卡、13–24 占位卡
+ *        → app.json 注册；v2.31 提案A：独立胶囊按钮（.head-more-row 右对齐、
+ *        --r-pill、88rpx 触达，不再与状态行同行，text 链接形态反向钉）
+ *      3) 月龄页数据实跑：8 页（6–12 逐月 + 「1 岁以上」统一页）每页 7 天食谱、
+ *        正餐数 = mealsForMonth、6 月恒「强化铁米粉糊」（MENU_6 第 1–7 天）、
+ *        7–12 分月卡、1 岁上 = guides.onePlus（13 月龄起点现算样例）
  *      4) 节点上限护栏：buildSlides 只挂「当前 ±1」的 active 窗口，
- *        onMonthChange 滑动时窗口跟着挪（19 页全渲染会顶到单页节点上限）
+ *        onMonthChange 滑动时窗口跟着挪（全渲染会顶到单页节点上限）
  *      5) 一周食谱是**通用样例**：safeFoodIds 全量、blocked 空 —— 不带个人排除
  */
 {
@@ -3046,6 +3052,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const mw6t = fs.readFileSync('./pages/months/months.wxml', 'utf8')
   const mj6t = fs.readFileSync('./pages/months/months.js', 'utf8')
   const mqq6t = fs.readFileSync('./pages/months/months.json', 'utf8')
+  const gd6t = fs.readFileSync('./data/guides.js', 'utf8')
   const app6t = fs.readFileSync('./app.json', 'utf8')
 
   // 1) 首页阶段标签删除（反向钉：别加回来）
@@ -3057,6 +3064,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('mine.wxml 的 stageLabel 被误删 —— 用户只让删首页，「我的」页要保留')
 
   // 2) 入口接线：文案 → goMonths → months 页 → app.json 注册 → 样式在位
+  //    v2.31 · 提案A：入口 = 状态行下方右对齐的独立胶囊按钮（.head-more-row 包着），
+  //    不再与状态行同行 —— 位置钉与形态钉都在下面
   const BTN6t = '滑动查看各月龄注意事项'
   if (iw6t.indexOf(BTN6t) < 0)
     E('index.wxml 缺入口按钮文案「' + BTN6t + '」—— 按钮文案是用户定的，别改')
@@ -3065,42 +3074,71 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   const rowAt6t = iw6t.indexOf('head-issue-row')
   const btnAt6t = iw6t.indexOf('head-more')
   if (rowAt6t < 0 || btnAt6t < 0 || btnAt6t < rowAt6t)
-    E('入口按钮不在 .head-issue-row 里 —— 用户要求放【当前状态】行最右侧同行对齐')
+    E('入口按钮不在状态行之后 —— v2.31 提案A：入口是状态行下方的独立胶囊按钮（.head-more-row）')
+  if (/<text[^>]*class="head-more"/.test(iw6t))
+    E('入口又退回纯文字链接（text.head-more）—— v2.31 提案A 已改独立胶囊按钮，别加回来')
   if (ij6t.indexOf('goMonths()') < 0 || ij6t.indexOf('/pages/months/months') < 0)
     E('index.js 没有 goMonths → navigateTo(/pages/months/months) —— 入口是死的')
   if (iq6t.indexOf('.head-issue-row') < 0 || iq6t.indexOf('.head-more') < 0)
     E('index.wxss 缺 .head-issue-row / .head-more —— 入口没有样式（裸文本挤在状态行里）')
+  // 提案A 形态钉：--r-pill 胶囊 + 88rpx(44pt) 触达 + 独立行右对齐（无描边是
+  // token 纪律：全站零硬编码描边色，别「补」一条）
+  if (!/\.head-more\s*\{[^}]*--r-pill/.test(iq6t))
+    E('.head-more 不是 --r-pill 胶囊 —— v2.31 提案A 形态口径（胶囊=全站标签语言）')
+  if (!/\.head-more\s*\{[^}]*min-height:\s*88rpx/.test(iq6t))
+    E('.head-more 缺 min-height 88rpx —— 触达不到 44pt，手指点不中')
+  if (!/\.head-more-row\s*\{[^}]*justify-content:\s*flex-end/.test(iq6t.replace(/\n\s*/g, ' ')))
+    E('.head-more-row 不是右对齐（justify-content: flex-end）—— 提案A 定的位置：状态行下方右对齐')
   if (app6t.indexOf('"pages/months/months"') < 0)
     E('app.json 没注册 pages/months/months —— navigateTo 直接失败')
   if (mqq6t.indexOf('各月龄喂养指南') < 0)
     E('months.json 缺 navigationBarTitleText「各月龄喂养指南」')
 
-  // 3) 月龄页源码接线
+  // 3) 月龄页源码接线（v2.31：8 页 = 6–12 逐月 + 1 岁以上统一页）
   if (mw6t.indexOf('<swiper') < 0 || mw6t.indexOf('bindchange="onMonthChange"') < 0)
     E('months.wxml 没有 swiper/bindchange —— 「向右滑动查看各月龄」的核心交互没了')
   if (mw6t.indexOf('wx:for="{{slides}}"') < 0)
     E('months.wxml 没渲染 slides —— 数据配了页面不显示（死数据）')
   if (mw6t.indexOf('wx:if="{{slide.active}}"') < 0)
-    E('months.wxml 没按 slide.active 控制渲染 —— 19 页全渲染会顶到单页节点上限')
-  if (mw6t.indexOf('内容整理中') < 0)
-    E('months.wxml 缺占位文案「内容整理中」—— 13–24 月龄占位是用户决策')
+    E('months.wxml 没按 slide.active 控制渲染 —— 全渲染会顶到单页节点上限')
+  if (mw6t.indexOf('内容整理中') >= 0)
+    E('months.wxml 又出现占位文案「内容整理中」—— 13–24 已统一为「1 岁以上」页（v2.31），别加回来')
+  if (mw6t.indexOf('g.placeholder') >= 0 || /placeholder:\s*true/.test(mj6t))
+    E('月龄页还留着占位卡分支（placeholder）—— 内容已落地，占位整套删除，别加回来')
   if (mw6t.indexOf('一周食谱（参考）') < 0)
-    E('months.wxml 缺「一周食谱（参考）」区块 —— 每月三块内容缺一块')
-  if (mj6t.indexOf('m = 6; m <= 24') < 0)
-    E('months.js 月龄循环不是 6–24 —— 用户要求 6-24 个月逐月可滑')
+    E('months.wxml 缺「一周食谱（参考）」区块 —— 每页三块内容缺一块')
+  if (mj6t.indexOf('m = 6; m <= 12') < 0)
+    E('months.js 逐月循环不是 6–12 —— v2.31 起 13–24 统一为「1 岁以上」页')
   if (mj6t.indexOf('guides.sixMonth') < 0)
     E('months.js 没接 6 月龄卡（guides.sixMonth）')
-  if (mj6t.indexOf('LATER[m] || PLACEHOLDER') < 0)
-    E('months.js 知识卡选择不是「7–12 分月卡、其余占位」的结构')
-  if (mj6t.indexOf("title: '怎么喂'") < 0 || mj6t.indexOf("title: '注意事项'") < 0)
-    E('months.js 占位卡标题不是「怎么喂 / 注意事项」')
+  if (mj6t.indexOf('LATER[m]') < 0)
+    E('months.js 没接 7–12 分月卡映射（LATER）')
+  if (mj6t.indexOf('guides.onePlus') < 0 || mj6t.indexOf("title: '1 岁以上'") < 0)
+    E('months.js 缺「1 岁以上」统一页（guides.onePlus + 标题）—— 13–24 没页可落')
+  if (mj6t.indexOf('phys >= 13') < 0 || mj6t.indexOf('idx = 7') < 0
+    || mj6t.indexOf('foodMonthsOf') < 0)
+    E('onLoad 落页分流丢了 —— 「1 岁以上」页看生理 ≥13、6–12 页看辅食月龄（v2.32 双时钟，§6w）')
+  if (mj6t.indexOf('months: 13') < 0)
+    E('「1 岁以上」页的样例食谱没按 13 月龄起点现算')
+  // 1 岁以上卡内容口径钉（v2.31 用户给定文案 —— 核心口径别删改/稀释）
+  if (gd6t.indexOf("title: '怎么喂'") < 0 || gd6t.indexOf("title: '注意事项'") < 0)
+    E('guides.onePlus 卡标题不是「怎么喂 / 注意事项」')
+  const op6t = gd6t.slice(gd6t.indexOf('ONE_PLUS'))
+  ;['软着陆', '最好不加盐', '不超过 2 克', '400–500ml', '350–500ml',
+    '整粒坚果', '果冻', '整颗葡萄', '年糕', '汤圆', '3 岁前', '3 岁以后',
+    '先单独盛出宝宝那份', '营养密度'].forEach((k) => {
+    if (op6t.indexOf(k) < 0)
+      E(`guides.onePlus 丢了「${k}」—— 1 岁以上卡是用户给定文案，核心口径别删改`)
+  })
+  if (ij6t.indexOf('phys >= 13') < 0 || ij6t.indexOf('guides.onePlus') < 0)
+    E('index.js 没给生理月龄 ≥13 挂「1 岁以上」卡（phys >= 13 → guides.onePlus，v2.32 双时钟看生理）—— 首页大月龄宝宝没知识卡')
   if (mj6t.indexOf('plan.generate(') < 0 || mj6t.indexOf('safeFoodIds: ALL_IDS') < 0 ||
       mj6t.indexOf('blockedFoodIds: []') < 0)
     E('months.js 一周食谱没走 plan.generate 通用样例（全量 safe、blocked 空）—— 个人排除不该进「各月龄参考」')
   if (mj6t.indexOf('slotsForMonth') < 0)
     E('months.js 没用 age.slotsForMonth 对齐时刻 —— 食谱行的时刻会跟月龄餐次脱节')
 
-  // 4) 数据实跑：buildSlides 全量 19 页 + active 窗口 + onMonthChange
+  // 4) 数据实跑：buildSlides 8 页（6–12 逐月 + 1 岁以上）+ active 窗口 + onMonthChange
   let pg6t = null
   const hadPg6t = typeof global.Page !== 'undefined'
   const savedPg6t = global.Page
@@ -3114,20 +3152,18 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (!pg6t || typeof pg6t.buildSlides !== 'function' || typeof pg6t.onMonthChange !== 'function')
     E('months.js 没注册成 Page / 缺 buildSlides、onMonthChange —— 页面是死的')
   else {
-    const allM6t = []
-    for (let m = 6; m <= 24; m++) allM6t.push(m)
-    const slides6t = pg6t.buildSlides.call(pg6t, allM6t, 0)
-    if (!Array.isArray(slides6t) || slides6t.length !== 19)
-      E(`buildSlides 产 ${slides6t ? slides6t.length : '?'} 页，期望 19（6–24 月龄）`)
+    const slides6t = pg6t.buildSlides.call(pg6t, 0)
+    if (!Array.isArray(slides6t) || slides6t.length !== 8)
+      E(`buildSlides 产 ${slides6t ? slides6t.length : '?'} 页，期望 8（6–12 月 + 1 岁以上）`)
     else {
       slides6t.forEach((s) => {
         if (!s.menu || s.menu.length !== 7)
-          E(`${s.month} 月龄样例食谱只有 ${s.menu ? s.menu.length : 0} 天，期望 7`)
+          E(`${s.title}样例食谱只有 ${s.menu ? s.menu.length : 0} 天，期望 7`)
         const want = age.mealsForMonth(s.month)
         ;(s.menu || []).forEach((d) => {
           const mains = d.items.filter((i) => i.kind === 'main')
           if (mains.length !== want)
-            E(`${s.month} 月龄 ${d.weekday} 正餐 ${mains.length} 餐 ≠ mealsForMonth ${want} —— 食谱样例跟月龄餐次脱节`)
+            E(`${s.title} ${d.weekday} 正餐 ${mains.length} 餐 ≠ mealsForMonth ${want} —— 食谱样例跟月龄餐次脱节`)
         })
       })
       // 6 月龄：MENU_6 第 1–7 天恒强化铁米粉糊；卡 = 两张原题卡
@@ -3142,7 +3178,7 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
             E(`6 月龄 ${d.weekday} 正餐是「${m0.name}」—— MENU_6 锁定日应恒为${rice6t.name}`)
         })
       }
-      // 7–12：分月数据卡；13–24：占位（别硬编内容）
+      // 7–12：分月数据卡
       ;[7, 8, 9, 10, 11, 12].forEach((m) => {
         const s = slides6t[m - 6]
         const titles = s.cards.map((c) => c.title).join('/')
@@ -3151,16 +3187,20 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
         if (s.cards.some((c) => c.placeholder))
           E(`${m} 月龄有现成数据却挂了占位卡 —— 死数据`)
       })
-      for (let m = 13; m <= 24; m++) {
-        const s = slides6t[m - 6]
-        const titles = s.cards.map((c) => c.title).join('/')
-        if (titles !== '怎么喂/注意事项' || !s.cards.every((c) => c.placeholder))
-          E(`${m} 月龄卡不是「怎么喂 / 注意事项」占位 —— 13–24 暂无数据，别硬编内容（用户决策）`)
-      }
+      // 1 岁以上页（v2.31 取代原 13–24 占位）：统一内容卡 + 13 月龄起点样例
+      const sp6t = slides6t[7]
+      if (sp6t.title !== '1 岁以上' || sp6t.month !== 13)
+        E('第 8 页不是「1 岁以上」统一页（month=13 现算样例）')
+      if (sp6t.cards.map((c) => c.title).join('/') !== '怎么喂/注意事项')
+        E('「1 岁以上」卡不是「怎么喂 / 注意事项」两张（guides.onePlus）')
+      if (slides6t.some((s) => (s.cards || []).some((c) => c.placeholder)))
+        E('还有占位卡（placeholder）—— v2.31 内容已落地，占位整套删除')
+      if (JSON.stringify(sp6t.cards).indexOf('软着陆') < 0)
+        E('「1 岁以上」卡数据里没有「软着陆」口径 —— 挂错数据源（应为 guides.onePlus）')
       // active 窗口：curIdx=0 → 2 页；居中 → 3 页
       if (slides6t.filter((s) => s.active).length !== 2)
         E('curIdx=0 的 active 窗口不是 2 页（0 与 1）')
-      const mid6t = pg6t.buildSlides.call(pg6t, allM6t, 5)
+      const mid6t = pg6t.buildSlides.call(pg6t, 5)
       if (mid6t.filter((s) => s.active).length !== 3)
         E('居中 curIdx 的 active 窗口不是「当前 ±1」三页 —— 要么多渲染顶节点上限，要么滑过去是空页')
       // onMonthChange：滑到下标 6 → current 跟着走、窗口挪到 6/7/8
@@ -3177,14 +3217,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
       pg6t.onMonthChange.call(fake6t, { detail: { current: 6 } })
       if (fake6t.data.current !== 6)
         E('onMonthChange 没把 current 跟着 swiper 更新')
-      const act6t = fake6t.data.slides.filter((s) => s.active).map((s) => s.month)
-      if (act6t.join(',') !== '11,12,13')
-        E(`滑动后 active 窗口 = [${act6t}]，期望 11/12/13 月龄 —— 窗口没跟着挪，滑到的页会是空骨架`)
+      const act6t = fake6t.data.slides.filter((s) => s.active).map((s) => s.title)
+      if (act6t.join(',') !== '11 月龄,12 月龄,1 岁以上')
+        E(`滑动后 active 窗口 = [${act6t}]，期望「11 月龄 / 12 月龄 / 1 岁以上」—— 窗口没跟着挪，滑到的页会是空骨架`)
     }
   }
 
   if (errs.length === errsBefore)
-    console.log('  6t 各月龄滑动指南：首页阶段标签反向钉(仅删首页/mine保留) ✓、入口文案+goMonths+注册+样式接线 ✓、6–24 共19页每页7天 ✓、6月恒米粉(MENU_6) ✓、正餐数=mealsForMonth ✓、7–12分月卡/13–24占位(别硬编) ✓、通用样例(全量safe) ✓、active窗口当前±1+滑动跟随 ✓')
+    console.log('  6t 各月龄滑动指南：首页阶段标签反向钉(仅删首页/mine保留) ✓、入口胶囊按钮接线(提案A：文案+goMonths+注册+形态钉/text链接反向钉) ✓、8页(6–12逐月+1岁以上统一页)每页7天 ✓、6月恒米粉(MENU_6) ✓、正餐数=mealsForMonth ✓、7–12分月卡 ✓、1岁以上=guides.onePlus(口径钉/占位反向钉/默认落页/首页13+挂卡) ✓、通用样例(全量safe) ✓、active窗口当前±1+滑动跟随 ✓')
 }
 
 /* ---------- 6u. 观察期规则整体删除 + 档案页↔查一查数据源打通（v2.30 · 用户决策） ----------
@@ -3343,6 +3383,255 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 
   if (errs.length === errsBefore)
     console.log('  6u 观察期整体删除：档案页/首页/徽标/机制四层反向钉 ✓、存量 observing→safe 迁移实跑 ✓、markIntroduced 只写 safe ✓、toggleFood 勾致敏当场 safe ✓、共享模块 foodlist 双页接线+三态词表+徽标同款 ✓')
+}
+
+/* ---------- 6v. 数据备份：导出 / 导入（v2.31 · 方案A 零后端） ----------
+ * 三条决策（用户拍板）：
+ *   ① 换机/换账号/重装微信不丢数据 —— 平台层无解（微信官方换机迁移不带
+ *      小程序数据），采用手动导出/导入，备份文本经用户自己的手转存；
+ *   ② 零后端原则不变：只做剪贴板复制/粘贴，无任何网络调用
+ *      （隐私口径「未采集」不变）；
+ *   ③ bb_plan 派生缓存不进备份：导入后清空强制重算。
+ * 源码钉：storage 导出 exportUserData/importUserData/isBackupText；
+ *   信封 app 标记 + fmt 版本；清洗口径 observing→safe（与 v2.30 读取迁移
+ *   一致）；档案页两个按钮接线 + 导入前 showModal（整包覆盖必须先确认）。
+ * 实跑：往返一致（baby/statuses/introduced/mealLogs 四段）+ 拒收三连
+ *   （垃圾文本/错标记/错版本）+ 导入后 bb_plan 被清空 + observing 升 safe。
+ */
+{
+  const errsBefore = errs.length
+  const sj6v = fs.readFileSync('./utils/storage.js', 'utf8')
+  const pj6v = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const pw6v = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+
+  // 1) 源码接线
+  ;['function exportUserData', 'function importUserData', 'function isBackupText'].forEach((fn) => {
+    if (sj6v.indexOf(fn) < 0) E('storage.js 缺 ' + fn + ' —— 备份方案A（v2.31）没落地')
+  })
+  const exp6v = sj6v.slice(sj6v.indexOf('function exportUserData'), sj6v.indexOf('function importUserData'))
+  const imp6v = sj6v.slice(sj6v.indexOf('function importUserData'))
+  if (exp6v.indexOf('BACKUP_MARK') < 0 || exp6v.indexOf('BACKUP_FMT') < 0)
+    E('导出信封缺 app 标记或 fmt 版本 —— 导入无法辨认「是不是本小程序的备份」')
+  if (/plan/i.test(exp6v))
+    E('exportUserData 把派生缓存（bb_plan）也导出了 —— 备份只带用户数据，计划缓存导入后重算')
+  if (imp6v.indexOf('KEYS.PLAN, null') < 0)
+    E('importUserData 没清 bb_plan —— 旧计划是按旧数据生成的，导入后必须重算')
+  if (imp6v.indexOf("it.status === 'bad' ? 'bad' : 'safe'") < 0)
+    E('importUserData 清洗口径丢了「observing/未知状态 → safe」—— 与 v2.30 读取迁移口径不一致')
+  // 隐私钉：备份链路无任何网络调用（「未采集」口径靠这条维持）
+  const bak6v = sj6v.slice(sj6v.indexOf('数据备份：导出 / 导入'))
+  if (bak6v.indexOf('数据备份') < 0)
+    E('storage.js 找不到「数据备份」段注释 —— 导出/导入实现被挪走或删了？')
+  if (/wx\.(request|uploadFile|downloadFile)|wx\.cloud/.test(bak6v))
+    E('storage.js 备份段出现网络调用 —— 隐私口径「未采集」会失守')
+  // 档案页接线 + 导入前确认
+  if (pw6v.indexOf('bindtap="onExport"') < 0 || pw6v.indexOf('bindtap="onImport"') < 0)
+    E('档案页缺导出/导入按钮（onExport/onImport 接线）')
+  if (pj6v.indexOf('storage.exportUserData()') < 0 || pj6v.indexOf('storage.importUserData(') < 0 ||
+      pj6v.indexOf('storage.isBackupText(') < 0)
+    E('profile.js 备份按钮没接 storage 的导出/导入/预检')
+  if (pj6v.slice(pj6v.indexOf('onImport()')).indexOf('showModal') < 0)
+    E('onImport 没弹确认框 —— 导入是整包覆盖，必须先确认（§6v）')
+
+  // 2) 实跑：往返一致 + 拒收三连 + 计划清空
+  const mem6v = {}
+  const hadWx6v = typeof global.wx !== 'undefined'
+  const savedWx6v = global.wx
+  global.wx = {
+    getStorageSync: (k) => mem6v[k],
+    setStorageSync: (k, v) => { mem6v[k] = v },
+    removeStorageSync: (k) => { delete mem6v[k] }
+  }
+  try {
+    const st6v = require('./utils/storage.js')
+    ;['exportUserData', 'importUserData', 'isBackupText'].forEach((fn) => {
+      if (typeof st6v[fn] !== 'function') E('storage 没导出 ' + fn)
+    })
+    if (typeof st6v.exportUserData === 'function' && typeof st6v.importUserData === 'function') {
+      // 源机数据：含 bad（安全底线）、observing（应升 safe）、非法状态（应滤掉）、
+      // foodStart（v2.32 双时钟：首次辅食日期必须随档案整包走）
+      mem6v[st6v.KEYS.BABY] = { name: '臭宝', birthday: '2025-01-01', foodStart: '2025-06-15' }
+      mem6v[st6v.KEYS.STATUS] = ['constipation', '不存在的key']
+      mem6v[st6v.KEYS.INTRO] = [
+        { foodId: 'pumpkin', date: '2025-07-01', status: 'safe' },
+        { foodId: 'egg_yolk', date: '2025-07-02', status: 'bad' },
+        { foodId: 'apple', date: '2025-07-03', status: 'observing' }
+      ]
+      mem6v[st6v.KEYS.MEALS] = [{ date: '2025-07-01', recipeId: 'r_pumpkin_puree', status: 'full', reaction: '', at: 1 }]
+      mem6v[st6v.KEYS.PLAN] = { generatedAt: 1, days: [] }
+
+      const text6v = st6v.exportUserData()
+      if (typeof text6v !== 'string' || !st6v.isBackupText(text6v))
+        E('exportUserData 产出的文本过不了 isBackupText —— 导出与辨认口径不一致')
+
+      // 换机模拟：清空本机 → 导入
+      ;[st6v.KEYS.BABY, st6v.KEYS.STATUS, st6v.KEYS.INTRO, st6v.KEYS.MEALS, st6v.KEYS.PLAN]
+        .forEach((k) => { delete mem6v[k] })
+      if (st6v.importUserData(text6v) !== true)
+        E('importUserData 导入自己的导出文本失败 —— 往返不一致，换机会丢数据')
+      const b6v = mem6v[st6v.KEYS.BABY] || {}
+      if (b6v.name !== '臭宝' || b6v.birthday !== '2025-01-01')
+        E('导入后档案（名称/生日）没还原')
+      if (b6v.foodStart !== '2025-06-15')
+        E('导入后首次辅食日期（foodStart）没还原 —— v2.32 双时钟字段在导入侧丢了')
+      if ((mem6v[st6v.KEYS.STATUS] || []).join(',') !== 'constipation')
+        E('导入后状态没还原成合法 key 集合')
+      const in6v = mem6v[st6v.KEYS.INTRO] || []
+      const egg6v = in6v.filter((x) => x.foodId === 'egg_yolk')[0]
+      if (!egg6v || egg6v.status !== 'bad' || egg6v.date !== '2025-07-02')
+        E('导入后 bad（有反应）记录没还原 —— 过敏排除是安全底线，备份必须带上')
+      const ap6v = in6v.filter((x) => x.foodId === 'apple')[0]
+      if (!ap6v || ap6v.status !== 'safe')
+        E('导入没把 observing 升成 safe —— 与 v2.30「observing 绝版」口径不一致')
+      if ((mem6v[st6v.KEYS.MEALS] || []).length !== 1)
+        E('导入后喂养打卡没还原')
+      if (mem6v[st6v.KEYS.PLAN])
+        E('导入后 bb_plan 没被清空 —— 旧计划是按旧数据生成的，导入后必须重算')
+
+      // 拒收三连：垃圾文本 / 别家标记 / 不支持的版本
+      ;['随便一段文本', '{"app":"other","fmt":1}', '{"app":"choubao-fushi","fmt":99}'].forEach((t, i) => {
+        if (st6v.isBackupText(t)) E(`isBackupText 误收了第 ${i + 1} 段非备份文本`)
+        if (st6v.importUserData(t) !== false)
+          E(`importUserData 没拒收第 ${i + 1} 段非备份/错版本文本 —— 会把脏数据写进存储`)
+      })
+    }
+  } finally {
+    if (hadWx6v) global.wx = savedWx6v
+    else delete global.wx
+  }
+
+  if (errs.length === errsBefore)
+    console.log('  6v 数据备份（方案A 零后端）：storage 导出/导入/预检接线 ✓、信封标记+版本+派生缓存不进备份 ✓、导入清 bb_plan ✓、observing→safe 清洗口径 ✓、档案页按钮+导入前确认框 ✓、无网络调用(隐私未采集) ✓、往返一致+拒收三连实跑 ✓、foodStart 随档案走 ✓')
+}
+
+/* ---------- 6w. 首次辅食日期 · 双时钟（v2.32 · 用户四项拍板） ----------
+ * 四条决策（2026-10 用户拍板）：
+ *   ① 选填：没填 foodStart = 按生日推算（= v2.31 及以前行为，存量用户
+ *      零打扰、指纹不变、不触发重算）；
+ *   ② 分流：辅食钟排节奏（计划 months / MENU_6 锚定日 / 6–12 月知识卡 /
+ *      滑动页 6–12 页落页 / 引入门 minMonth），生理钟管安全与事实
+ *      （年龄文案 ageText、「1 岁以上」卡与落页 = phys ≥13）；
+ *   ③ picker 下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」），
+ *      且有清除通道能回退到现状口径；
+ *   ④ 首页加「辅食第 N 个月」副文案，解释两个数字的关系。
+ * 源码钉：age.foodMonthsOf 唯一分流入口；白名单三处（setBaby / 导入清洗 /
+ *   档案页接线）；纯节奏类页不留「按生日直算月龄」旧写法；index 缓存比对
+ *   用 fm（与引擎 p.months 同口径）。
+ * 实跑：回退=现状、晚开始不跳级、4 月龄边界推算、缺生日 null、
+ *   填 foodStart 改变指纹（自动重算一次）、planInputs 锚字段拆分
+ *   （birth 仍是生日 / foodStart 单独带出）、menuDayFrom 直锚的用户实测场景
+ *   （5 月龄宝宝 10/13 开荤 → 10/13 = 菜单第 1 天、10/14 = 第 2 天 ——
+ *   修正前把 foodStart 当生日 +6 个月错位，菜单锁失效首日排出山药泥）、
+ *   menuDayOf 兼容路径（生日 + 6 月）逐字不变。
+ */
+{
+  const errsBefore = errs.length
+  const aj6w = fs.readFileSync('./utils/age.js', 'utf8')
+  const sj6w = fs.readFileSync('./utils/storage.js', 'utf8')
+  const pj6w = fs.readFileSync('./utils/plan.js', 'utf8')
+  const ij6w = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const iw6w = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const mj6w = fs.readFileSync('./pages/months/months.js', 'utf8')
+  const fj6w = fs.readFileSync('./pages/food/food.js', 'utf8')
+  const fdj6w = fs.readFileSync('./pages/food-detail/food-detail.js', 'utf8')
+  const pjw6w = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const pww6w = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+
+  // 1) 唯一分流入口 + 节奏类页面接线
+  if (aj6w.indexOf('function foodMonthsOf') < 0 || aj6w.indexOf('foodMonthsOf,') < 0)
+    E('age.js 缺 foodMonthsOf / 没导出 —— 双时钟没有唯一分流入口')
+  ;[['./pages/food/food.js', fj6w], ['./pages/food-detail/food-detail.js', fdj6w],
+    ['./pages/index/index.js', ij6w], ['./pages/months/months.js', mj6w],
+    ['./pages/profile/profile.js', pjw6w]].forEach((t) => {
+      if (t[1].indexOf('age.foodMonthsOf') < 0)
+        E(t[0] + ' 没走 age.foodMonthsOf —— 节奏类逻辑必须用辅食月龄（v2.32 双时钟）')
+    })
+  // 纯节奏类页（食材清单/详情）不得再留「按生日直算月龄」旧写法
+  ;[['food.js', fj6w], ['food-detail.js', fdj6w]].forEach((t) => {
+    if (t[1].indexOf('monthsBetween(baby.birthday)') >= 0)
+      E(t[0] + ' 还在按生日直算月龄 —— 月龄门要用辅食月龄（v2.32 双时钟）')
+  })
+
+  // 2) 白名单三处
+  if (sj6w.indexOf("hasOwnProperty.call(patch, 'foodStart')") < 0)
+    E('storage.setBaby 没放行 foodStart —— 档案页存不下首次辅食日期')
+  if (sj6w.indexOf('foodStart: typeof pack.baby.foodStart') < 0)
+    E('importUserData 没清洗 foodStart —— 导入会丢首次辅食日期（换机丢数据）')
+  if (pjw6w.indexOf('onFoodStartChange') < 0 || pjw6w.indexOf('onClearFoodStart') < 0 ||
+      pww6w.indexOf('bindchange="onFoodStartChange"') < 0 ||
+      pww6w.indexOf('bindtap="onClearFoodStart"') < 0)
+    E('档案页缺首次辅食日期的选择/清除接线 —— 选填字段必须能填也能回退')
+  if (pjw6w.indexOf('foodMinOf') < 0 || pjw6w.indexOf('getMonth() + 4') < 0)
+    E('档案页 picker 下限不是「出生 + 4 个月」（公开指南最早不早于 4 月龄）')
+
+  // 3) 分流接线
+  if (mj6w.indexOf('phys >= 13') < 0)
+    E('months.js 落页没按生理 ≥13 分流 —— 晚开始宝宝的 1 岁+页会判错')
+  if (ij6w.indexOf('phys >= 13 ? guides.onePlus') < 0)
+    E('index.js 「1 岁以上」卡没按生理月龄分流 —— 幼儿期口径必须看生理钟（§6w）')
+  if (ij6w.indexOf('foodAgeText') < 0 || iw6w.indexOf('head-food-age') < 0)
+    E('首页缺「辅食第 N 个月」副文案接线 —— 双时钟并存会让家长困惑（用户拍板要加）')
+  if (ij6w.indexOf('p.months !== fm') < 0)
+    E('index.js 缓存比对没用辅食月龄（fm）—— 与引擎 p.months 口径不一致会反复重算')
+  if (pj6w.indexOf('age.foodMonthsOf(baby)') < 0)
+    E('planInputs 没切到辅食钟 —— 计划节奏没跟辅食月龄（v2.32 双时钟）')
+  // MENU_6 锚修正（用户实测抓出）：辅食开始日**直锚**（menuDayFrom，别 +6 个月）；
+  // 没填时锚 = 生日 + 6 个月（menuDayOf 原语义，兼容路径逐字不变）
+  if (pj6w.indexOf('menuDayFrom') < 0 || pj6w.indexOf('plusMonthsKey') < 0)
+    E('plan.js 缺 menuDayFrom / plusMonthsKey —— MENU_6 双时钟直锚没有实现')
+  if (pj6w.indexOf('opts.foodStart ? menuDayFrom(opts.foodStart, d) : menuDayOf(opts.birth, d)') < 0)
+    E('generate 菜单日没按「有辅食日期直锚 / 没填按生日+6月」分流 —— 晚开始宝宝菜单锁失效（用户实测抓过）')
+  if (pj6w.indexOf("'fs' + inputs.foodStart") < 0)
+    E('foodStart 没进计划指纹 —— 补填/修改辅食日期不触发重算')
+
+  // 4) 实跑：分流语义（固定 now，跑哪天都一样）
+  const ag6w = require('./utils/age.js')
+  const now6w = new Date('2026-10-14T12:00:00')
+  const phys6w = ag6w.monthsBetween('2026-01-01', now6w) // = 9
+  if (ag6w.foodMonthsOf({ birthday: '2026-01-01' }, now6w) !== phys6w)
+    E('foodMonthsOf 没填辅食日期时没回退生理月龄 —— 存量用户行为会变（必须零打扰）')
+  const late6w = ag6w.foodMonthsOf({ birthday: '2026-01-01', foodStart: '2026-09-01' }, now6w)
+  if (late6w !== 7)
+    E(`晚开始场景辅食月龄 = ${late6w}，期望 7（辅食 6 月龄起 + 满 1 个月）`)
+  if (!(late6w < phys6w))
+    E('晚开始场景辅食月龄没有落后生理月龄 ——「不跳级」的核心价值丢了')
+  const early6w = ag6w.foodMonthsOf({ birthday: '2026-01-01', foodStart: '2026-05-01' }, now6w)
+  if (early6w !== 11)
+    E(`4 月龄边界场景辅食月龄 = ${early6w}，期望 11（出生+4 月开始，辅食钟超前生理）`)
+  if (ag6w.foodMonthsOf({ foodStart: '2026-05-01' }, now6w) !== null)
+    E('foodMonthsOf 缺生日时应返回 null（两钟都无从谈起）')
+
+  // 指纹自愈：填 foodStart → 锚定日变 → 签名变（自动重算一次）；
+  // 没填 → birth = 生日、签名与 v2.31 完全一致（零重算零打扰）
+  const mkS6w = (baby) => ({
+    getBaby: () => baby,
+    getIssues: () => [], getSick: () => false,
+    safeFoodIds: () => [], badFoodIds: () => [],
+    recordedFoodIds: () => [], observingFoodIds: () => [],
+    refusedRecipeIds: () => []
+  })
+  const noFS6w = plan.planSignature(mkS6w({ name: '测试', birthday: '2026-01-01' }))
+  const withFS6w = plan.planSignature(mkS6w({ name: '测试', birthday: '2026-01-01', foodStart: '2026-09-01' }))
+  if (!noFS6w || !withFS6w || noFS6w === withFS6w)
+    E('foodStart 没进计划指纹 —— 补填辅食日期不触发重算，计划还按旧月龄排')
+  const inp6w = plan.planInputs(mkS6w({ name: '测试', birthday: '2026-01-01', foodStart: '2026-09-01' }))
+  if (!inp6w || inp6w.birth !== '2026-01-01' || inp6w.foodStart !== '2026-09-01')
+    E('planInputs 锚定字段错了 —— birth 应仍是生日、foodStart 单独带出（v2.32 修正）')
+  if (!inp6w || inp6w.months !== 6 + ag6w.monthsBetween('2026-09-01'))
+    E('planInputs 的 months 没按辅食月龄算 —— 计划节奏没切到辅食钟')
+
+  // 用户实测场景（v2.32 修正回归钉）：宝宝 2026-05-06 生、2026-10-13 开始吃辅食
+  // —— 10/13 = MENU_6 第 1 天（强化铁米粉糊）、10/14 = 第 2 天；对 foodStart
+  // +6 个月会错位到 2027-04-13、菜单锁失效（当时首日排出山药泥，就是这个 bug）
+  if (plan.menuDayFrom('2026-10-13', '2026-10-13') !== 1)
+    E('menuDayFrom：辅食开始日当天不是菜单第 1 天 —— 双时钟直锚错了')
+  if (plan.menuDayFrom('2026-10-13', '2026-10-14') !== 2)
+    E('menuDayFrom：开始次日不是菜单第 2 天 —— 用户实测场景没过（菜单锁仍错位）')
+  if (plan.menuDayOf('2026-05-06', '2026-11-06') !== 1)
+    E('menuDayOf 兼容路径变了 —— 没填辅食日期时「锚 = 生日 + 6 个月」的原语义必须逐字保持')
+
+  if (errs.length === errsBefore)
+    console.log('  6w 首次辅食日期·双时钟(v2.32)：foodMonthsOf 唯一分流入口 ✓、没填回退=现状 ✓、白名单三处(setBaby/导入/档案页) ✓、picker 下限出生+4月+清除通道 ✓、节奏=辅食钟/1岁+=生理≥13 ✓、MENU_6 锚=辅食开始日直锚(+6错位修正+用户场景实跑) ✓、首页辅食副文案 ✓、指纹自愈(含 fs 分量)实跑 ✓')
 }
 
 /* ---------- 7. 统计 ---------- */

@@ -100,6 +100,33 @@ function monthsBetween(birthday, now) {
 }
 
 /**
+ * 辅食月龄（v2.32 · 双时钟）—— 全 App 的唯一分流入口，别在页面里自己算。
+ *
+ * 档案可选填「首次辅食日期」（baby.foodStart），当天视为辅食 6 月龄第 1 天：
+ *   填了 → 辅食月龄 = 6 + monthsBetween(foodStart)
+ *   没填 → 回退生理月龄 monthsBetween(birthday)（= v2.31 及以前的行为，
+ *          存量用户零打扰、指纹不变、不触发重算）
+ *
+ * 分流原则（_validate §6w 钉整表）：
+ *   节奏类（排菜/性状/餐次/引入门/6–12 月知识卡/滑动页 6–12 页落页）
+ *     → 辅食月龄（晚开始的宝宝不再被跳级）
+ *   安全与事实类（年龄文案「现在 X 个月」、1 岁以上幼儿期盐控卡、
+ *   「1 岁以上」滑动页落页）→ 生理月龄（幼儿期 1–3 岁、盐控/奶量口径都是生理的）
+ *
+ * @param {object} baby { birthday, foodStart? }
+ * @param {Date} [now]
+ * @returns {number|null} 辅食月龄；生日没填/非法时 null
+ */
+function foodMonthsOf(baby, now) {
+  if (!baby || !baby.birthday) return null
+  if (baby.foodStart) {
+    const f = monthsBetween(baby.foodStart, now)
+    if (f !== null) return 6 + f
+  }
+  return monthsBetween(baby.birthday, now)
+}
+
+/**
  * 根据月龄取阶段信息
  *
  * 注意：月龄 < 6 或 > 24 时都会返回 null。调用方**不要**把 null 直接
@@ -180,6 +207,7 @@ module.exports = {
   CONTENT_MAX,
   STAGES,
   monthsBetween,
+  foodMonthsOf,
   getStage,
   getAgeStatus,
   describeAge,

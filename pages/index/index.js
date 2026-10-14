@@ -101,8 +101,13 @@ Page({
     sixOpen: {},
     name: '',
     emptyHint: '',
+    // v2.32 双时钟：months = 辅食月龄（节奏类闸门：6 月卡等）；生理月龄只
+    // 用于年龄文案（ageText）与「1 岁以上」分流，不进 data（§6w 分流表）
     months: 0,
     ageText: '',
+    // 辅食月龄副文案（选填了首次辅食日期才显示）：解释「现在 X 个月」与
+    // 「计划按辅食 N 月龄排」两个数字的关系
+    foodAgeText: '',
     // v2.30：stageLabel（稠糊/带颗粒…）标签按用户要求从首页删除 —— 只删渲染
     // 与数据装配（stageDesc 仍保留），反向钉在 _validate §6t
     stageDesc: '',
@@ -143,27 +148,36 @@ Page({
     }
 
     const baby = storage.getBaby()
-    const months = age.monthsBetween(baby.birthday)
-    const st = age.getAgeStatus(months)
+    const phys = age.monthsBetween(baby.birthday) // 生理月龄：年龄文案、「1 岁+」分流
+    // 辅食月龄（v2.32 双时钟，age.foodMonthsOf 唯一分流入口）：没填辅食
+    // 日期时 = 生理月龄 —— 存量用户行为与指纹完全不变，零打扰
+    const fm = age.foodMonthsOf(baby)
+    // 阶段/超范围判断走辅食月龄；填了辅食日期 = 家长已决定开始，
+    // 不会再判 too_young（辅食钟恒 ≥6，§6w）
+    const st = age.getAgeStatus(fm)
 
     // 状态是多选，这里取全部；一项都没勾 → statusLabels 兜底成「正常」
     const statuses = storage.getStatuses()
 
-    // 7–12 月龄的分月知识卡（v2.8 · 公开月龄资料融入）：每月龄挑一组，
-    // 与 6 月龄卡互斥（不同月龄只挂一组）；展开态共用 sixOpen/toggleGuide6
-    const guideLater = months >= 7 && months < 8 ? guides.sevenMonth
-      : (months >= 8 && months < 9 ? guides.eightMonth
-        : (months >= 9 && months < 10 ? guides.nineMonth
-          : (months >= 10 && months < 11 ? guides.tenMonth
-            : (months >= 11 && months < 12 ? guides.elevenMonth
-              : (months === 12 ? guides.twelveMonth : [])))))
+    // 7–12 月龄的分月知识卡（v2.8 · 公开月龄资料融入）：按**辅食月龄**挑一组
+    // （v2.32 双时钟），与 6 月龄卡互斥；展开态共用 sixOpen/toggleGuide6。
+    // 「1 岁以上」统一卡（v2.31）：进卡看**生理月龄 ≥13** —— 幼儿期（1–3 岁）
+    // 的盐控/奶量口径都是生理的，晚开始辅食的宝宝不能滞后（§6w 分流表）
+    const guideLater = phys >= 13 ? guides.onePlus
+      : (fm >= 7 && fm < 8 ? guides.sevenMonth
+        : (fm >= 8 && fm < 9 ? guides.eightMonth
+          : (fm >= 9 && fm < 10 ? guides.nineMonth
+            : (fm >= 10 && fm < 11 ? guides.tenMonth
+              : (fm >= 11 && fm < 12 ? guides.elevenMonth
+                : (fm === 12 ? guides.twelveMonth : []))))))
 
     const base = {
       ready: true,
       configured: true,
       name: baby.name || '',
-      months: months,
+      months: fm,
       ageText: age.describeAge(baby.birthday),
+      foodAgeText: baby.foodStart ? ('辅食第 ' + (fm - 5) + ' 个月 · 自 ' + baby.foodStart + ' 起') : '',
       ageStatus: st.status,
       issueLabel: storage.statusLabels(statuses),
       // 全空 = 没有任何待改善项 → 用灰色，别让「正常」看起来像告警
@@ -206,7 +220,8 @@ Page({
     //      没打卡的已过日子按当前规则重排 —— 旧计划里的非菜单行才能自愈。
     let p = storage.getPlan()
     const sig = plan.planSignature(storage)
-    if (!p || p.months !== months || !coversToday(p) || p.signature !== sig || p.sv !== plan.STRUCT_V) {
+    // months 比的是**辅食月龄**（v2.32）：p.months 是引擎按 foodMonthsOf 算的
+    if (!p || p.months !== fm || !coversToday(p) || p.signature !== sig || p.sv !== plan.STRUCT_V) {
       // 隐式重算（输入变了 / 窗口过期）：旧计划还盖住今天时，沿用它的起始日
       // （窗口不前移），并冻结「≤今天 且有打卡」的整天 —— 整段从今天重排
       // 会把窗口前移（周一生成、周三重排变成周三~下周二），已打卡的行也会
@@ -287,7 +302,7 @@ Page({
     this.setData({ ['sixOpen.' + k]: !this.data.sixOpen[k] })
   },
 
-  // v2.30：首页状态行右侧「滑动查看各月龄注意事项」入口 → 月龄指南页
+  // v2.31 · 提案A：入口是状态行下方的右对齐胶囊按钮（.head-more）→ 月龄指南页
   goMonths() {
     wx.navigateTo({ url: '/pages/months/months' })
   },

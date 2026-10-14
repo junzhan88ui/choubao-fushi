@@ -22,10 +22,19 @@
         </view>
       </view>
       <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>
-      <!-- 状态行 + 右侧「滑动查看各月龄」入口：同一行对齐（v2.30 · 用户定位置） -->
+      <!-- v2.32 双时钟副文案（用户选定）：选填了「首次辅食日期」才显示 ——
+           生理月龄（上方 ageText）与计划的辅食月龄并存时，用一行小字说明关系，
+           防止「现在 9 个月」与「按辅食 7 月龄排」的困惑 -->
+      <view class="muted head-food-age" wx:if="{{foodAgeText}}">{{foodAgeText}}</view>
+      <!-- v2.31 · 提案A（用户选定）：入口从状态行右端的纯文字链接改为状态行下方
+           右对齐的独立胶囊按钮 —— 状态行独占一行，长状态不再被挤折行；胶囊用
+           --r-pill 全站胶囊语言、绿底浅色（.st-safe 同系，无描边 —— 全站无硬编码
+           描边色）。文案与 goMonths 接线不变（§6t 钉），别退回纯文字链接 -->
       <view class="head-issue-row">
         <view class="head-issue {{issueNone ? 'head-issue--none' : ''}}">当前状态：{{issueLabel}}</view>
-        <text class="head-more" bindtap="goMonths">滑动查看各月龄注意事项</text>
+      </view>
+      <view class="head-more-row">
+        <view class="head-more" bindtap="goMonths">滑动查看各月龄注意事项<text class="head-more-ic">▸</text></view>
       </view>
     </view>
 
@@ -57,7 +66,8 @@
     </block>
 
     <!-- 7–12 月龄（v2.8 · 儿保海报融入）：分月知识卡。refresh 按月龄挑一组挂 guideLater，
-         与 6 月龄卡互斥；展开态复用 toggleGuide6/sixOpen（key 跨组唯一），默认收起点头部展开 -->
+         与 6 月龄卡互斥；13 月龄起挂「1 岁以上」统一卡（v2.31，guides.onePlus）；
+         展开态复用 toggleGuide6/sixOpen（key 跨组唯一），默认收起点头部展开 -->
     <block wx:if="{{guideLater.length}}">
       <view class="card card-guide card-guide6" wx:for="{{guideLater}}" wx:key="key" wx:for-item="g">
         <view class="guide-head guide-head--tap" bindtap="toggleGuide6" data-k="{{g.key}}">

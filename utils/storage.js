@@ -3,10 +3,14 @@
  *
  * MVP 阶段不依赖云开发，所有数据存在本机。
  * 后续要接虚拟支付时，只需要把这里的实现换成云函数调用，页面层不用改。
+ *
+ * 换机不丢数据（v2.31）：不做云同步，靠「导出/导入」手动备份 ——
+ * 备份文本经用户自己的手转存（微信聊天/收藏），本模块只负责打包与校验，
+ * 不联网（隐私口径「未采集」不变，见文件末尾 数据备份 一节）。
  */
 
 const KEYS = {
-  BABY: 'bb_baby',        // { birthday }
+  BABY: 'bb_baby',        // { name, birthday, foodStart? }  foodStart = 首次辅食日期（v2.32 双时钟，选填）
   INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: safe | bad（v2.30 起 observing 绝版，读取时迁移为 safe）
   STATUS: 'bb_status',    // [keys] 当前状态，可多选（合法 key 见 STATUSES）
   PLAN: 'bb_plan',        // { generatedAt, months, stageKey, days, shopping }
@@ -188,12 +192,17 @@ function setBaby(patch) {
     return
   }
   const cur = wx.getStorageSync(KEYS.BABY) || {}
-  const next = { name: cur.name, birthday: cur.birthday }
+  const next = { name: cur.name, birthday: cur.birthday, foodStart: cur.foodStart }
   if (Object.prototype.hasOwnProperty.call(patch, 'name')) {
     next.name = sanitizeBabyName(patch.name)
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'birthday')) {
     next.birthday = patch.birthday
+  }
+  // 首次辅食日期（v2.32 双时钟）：选填；空串 = 没填/清除，
+  // foodMonthsOf 对空值自动回退生理月龄（= 现状）
+  if (Object.prototype.hasOwnProperty.call(patch, 'foodStart')) {
+    next.foodStart = patch.foodStart || ''
   }
   wx.setStorageSync(KEYS.BABY, next)
 }
@@ -418,6 +427,95 @@ function resetAll() {
   wx.removeStorageSync(KEYS.LEGACY_SICK)
 }
 
+/* ---------- 数据备份：导出 / 导入（v2.31 · 方案A 零后端） ----------
+ * 换机/换账号/重装微信都不丢数据 —— 平台层救不了（微信官方换机迁移
+ * 不带小程序数据），所以让备份文本跟着人走：
+ *   换机流程：老手机导出（复制到剪贴板）→ 自己粘到微信聊天/收藏存好
+ *             → 新手机打开小程序 → 粘贴导入。
+ *
+ * 隐私口径不变（问卷仍填「未采集」）：程序只提供复制/粘贴两个动作，
+ * 不上传、不联网 —— 备份文本经用户自己的手转存（§6v 钉无网络调用）。
+ *
+ * 导出 = 4 个用户数据 key 打成一段带信封的 JSON 文本：
+ *   baby / statuses / introduced / mealLogs
+ * bb_plan 是派生缓存，**不进备份**：导入后清空强制重算（§6v 钉）。
+ *
+ * 导入 = 粘贴文本 → 信封校验（app 标记 + fmt 版本，防误粘贴别的 JSON）
+ *   → 逐字段清洗（脏条目丢弃）→ 整包覆盖写入。导入前页面必须弹确认框
+ *   （导入 = 整包替换，§6v 钉 showModal）。
+ */
+const BACKUP_MARK = 'choubao-fushi'
+const BACKUP_FMT = 1
+
+/** 是不是本小程序的备份文本（导入前的预检，页面拿它决定弹不弹确认框） */
+function isBackupText(text) {
+  try {
+    const pack = JSON.parse(String(text || ''))
+    return !!(pack && pack.app === BACKUP_MARK && pack.fmt === BACKUP_FMT)
+  } catch (e) { return false }
+}
+
+function exportUserData() {
+  ensureInit()
+  return JSON.stringify({
+    app: BACKUP_MARK,
+    fmt: BACKUP_FMT,
+    at: Date.now(),
+    baby: getBaby(),
+    // getStatuses 自带合法 key 过滤，导出侧就干净
+    statuses: getStatuses(),
+    introduced: getIntroduced(),
+    mealLogs: getMealLogs()
+  })
+}
+
+function importUserData(text) {
+  if (!isBackupText(text)) return false
+  const pack = JSON.parse(String(text))
+
+  // 逐字段清洗：档案只认 name/birthday/foodStart（与 setBaby 同一套白名单）；
+  // 状态只认合法 key；引入记录只认 {foodId, date, status∈safe|bad}
+  // （observing 一并升 safe —— 与 v2.30 读取迁移同口径，observing 绝版）；
+  // 打卡只认 {date, recipeId, status, reaction, at}。脏条目直接丢弃。
+  const baby = (pack.baby && typeof pack.baby === 'object')
+    ? {
+        name: sanitizeBabyName(pack.baby.name),
+        birthday: typeof pack.baby.birthday === 'string' ? pack.baby.birthday : '',
+        foodStart: typeof pack.baby.foodStart === 'string' ? pack.baby.foodStart : ''
+      }
+    : null
+  const statuses = (Array.isArray(pack.statuses) ? pack.statuses : []).filter(isStatusKey)
+  const introduced = (Array.isArray(pack.introduced) ? pack.introduced : [])
+    .filter(function (it) { return it && it.foodId && it.date })
+    .map(function (it) {
+      return {
+        foodId: String(it.foodId),
+        date: String(it.date),
+        status: it.status === 'bad' ? 'bad' : 'safe'
+      }
+    })
+  const meals = (Array.isArray(pack.mealLogs) ? pack.mealLogs : [])
+    .filter(function (it) { return it && it.date && it.recipeId })
+    .map(function (it) {
+      return {
+        date: String(it.date),
+        recipeId: String(it.recipeId),
+        status: it.status || 'full',
+        reaction: it.reaction || '',
+        at: typeof it.at === 'number' ? it.at : 0
+      }
+    })
+
+  // 整包覆盖（导入语义 = 替换，不是合并）；派生缓存一并清掉，
+  // 旧计划是按旧数据生成的，必须重算。
+  wx.setStorageSync(KEYS.BABY, baby)
+  wx.setStorageSync(KEYS.STATUS, statuses)
+  wx.setStorageSync(KEYS.INTRO, introduced)
+  wx.setStorageSync(KEYS.MEALS, meals)
+  wx.setStorageSync(KEYS.PLAN, null)
+  return true
+}
+
 module.exports = {
   KEYS: KEYS,
   STATUSES: STATUSES,
@@ -454,5 +552,8 @@ module.exports = {
   logMeal: logMeal,
   refusedRecipeIds: refusedRecipeIds,
   todayStr: todayStr,
-  resetAll: resetAll
+  resetAll: resetAll,
+  isBackupText: isBackupText,
+  exportUserData: exportUserData,
+  importUserData: importUserData
 }

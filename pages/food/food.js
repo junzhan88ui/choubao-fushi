@@ -14,7 +14,8 @@ Page({
 
   onShow() {
     const baby = storage.getBaby()
-    const months = baby && baby.birthday ? age.monthsBetween(baby.birthday) : null
+    // v2.32 双时钟：引入月龄门（minMonth）走辅食月龄（没填回退生理月龄）
+    const months = baby && baby.birthday ? age.foodMonthsOf(baby) : null
     this.setData({ months: months, hasBaby: !!months })
     this.rebuild()
   },

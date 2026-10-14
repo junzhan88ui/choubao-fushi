@@ -144,6 +144,21 @@
   color: var(--c-text-2);
 }
 
+/* 首次辅食日期（v2.32 双时钟）：选填引导（没填生日时）与清除通道 */
+.food-start-hint {
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+  line-height: 1.6;
+  margin-top: 8rpx;
+}
+
+.food-start-clear {
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+  text-align: right;
+  margin-top: 10rpx;
+}
+
 /* 搜索框沿用 app.wxss 的全局 .search（默认即卡片内嵌样式） */
 
 /* 分组 */

@@ -63,8 +63,9 @@ Page({
     // 缺哪项由 storage 算，和首页共用同一处判断
     const miss = storage.missingFields()
     const emptyHint = miss.length ? `还差${miss.join('和')}，填一下就能生成计划` : ''
-    const months = birthday ? age.monthsBetween(birthday) : null
-    const st = age.getAgeStatus(months)
+    // v2.32 双时钟：阶段/超范围判断走辅食月龄（没填辅食日期时 = 生理月龄，
+    // 行为不变）；年龄文案 ageText 仍是生理月龄（事实陈述）
+    const st = age.getAgeStatus(age.foodMonthsOf(baby))
 
     let stageLabel = ''
     let stageHint = ''
