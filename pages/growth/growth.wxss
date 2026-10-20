@@ -1,0 +1,186 @@
+/* 生长曲线页（v3.0 · pages/growth）
+   约定：不加 box-shadow（阴影只在 app.wxss .card 一处）、不用 --fs-display（A1 计划页唯一）、
+   字重只用 400/500/600 三档、大面积色块不碰 card--brand。 */
+
+/* 头卡：名字 + 生理月龄 */
+.gr-head {
+  display: flex;
+  align-items: baseline;
+}
+
+.gr-head-name {
+  font-size: var(--fs-title);
+  font-weight: 600;
+}
+
+.gr-head-age {
+  margin-left: 16rpx;
+  font-size: var(--fs-md);
+}
+
+/* 缺项闸门（没出生日期 / 没性别） */
+.gr-gate {
+  margin-top: 20rpx;
+}
+
+.gr-gate-text {
+  font-size: var(--fs-sm);
+  color: var(--c-text-2);
+  line-height: 1.7;
+}
+
+.gr-gate-btn {
+  margin-top: 16rpx;
+}
+
+/* 指标分段切换 */
+.gr-seg {
+  display: flex;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
+  padding: 6rpx;
+  margin-bottom: 24rpx;
+}
+
+.gr-seg-item {
+  flex: 1;
+  text-align: center;
+  font-size: var(--fs-base);
+  color: var(--c-text-2);
+  padding: 16rpx 0;
+  border-radius: var(--r-sm);
+}
+
+.gr-seg-item--on {
+  background: var(--c-card);
+  color: var(--c-text);
+  font-weight: 500;
+}
+
+/* 画布
+   v3.5：440rpx → 392rpx —— 当前位置压成上面一行后，这 48rpx 用来把「测量记录」
+   顶进首屏末尾。曲线仍是卡片主体，不缩成缩略图。 */
+.gr-canvas {
+  display: block;
+  width: 100%;
+  height: 392rpx;
+  margin-top: 8rpx;
+}
+
+.gr-legend {
+  margin-top: 12rpx;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  line-height: 1.6;
+}
+
+/* 当前位置（v3.5：从独立卡压成曲线卡里的一行 —— 值 + 区间 chip 靠左，
+   「较上次 / 几天前」靠右。右值可能长，nowrap + 省略兜底，绝不换行把卡片顶高） */
+.gr-cur {
+  display: flex;
+  align-items: baseline;
+  margin-top: 4rpx;
+}
+
+.gr-cur-val {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  margin-right: 14rpx;
+}
+
+.gr-cur-meta {
+  flex: 1;
+  min-width: 0;
+  margin-left: 14rpx;
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 缺性别 / 超 60 月时曲线卡不出，当前值单独一张小卡 —— 说明句跟着它 */
+.gr-cur-note {
+  margin-top: 8rpx;
+  font-size: var(--fs-xs);
+}
+
+/* 记录列表 */
+.gr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--c-line);
+}
+
+.gr-row:last-child {
+  border-bottom: none;
+}
+
+.gr-row--on {
+  background: var(--c-muted);
+  border-radius: var(--r-md);
+  padding-left: 16rpx;
+  padding-right: 16rpx;
+}
+
+.gr-row-l {
+  flex: 1;
+  min-width: 0;
+}
+
+.gr-row-date {
+  font-size: var(--fs-base);
+  font-weight: 500;
+}
+
+.gr-row-vals {
+  margin-top: 4rpx;
+  font-size: var(--fs-sm);
+  color: var(--c-text-3);
+}
+
+.gr-row-r {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  text-align: right;
+}
+
+.gr-row-r .tag {
+  margin-right: 0;
+  margin-bottom: 6rpx;
+}
+
+.gr-row-p {
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+/* 录入 */
+.gr-input {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.gr-input-ph {
+  color: var(--c-text-3);
+}
+
+.gr-actions {
+  display: flex;
+  margin-top: 20rpx;
+}
+
+.gr-actions-btn {
+  flex: 1;
+  width: auto;
+}
+
+.gr-actions-btn--gap {
+  margin-left: 16rpx;
+}

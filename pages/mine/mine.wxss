@@ -41,7 +41,83 @@
   transition: transform 0.18s ease;
 }
 
-/* ── 我的记录（v2.1 升级为记录中枢）：可点开的统计行 + 行内展开名单 ── */
+/* ── 我的记录（v2.1 记录中枢；v3.4 三行改三格）────────────────────────────
+   三格并排：数字是主视觉，标签是注解。高度从 3 行压到 1 行，信息一点没少。
+   格底用 --c-muted（与全站次级底一致），展开态换 --c-green-bg；
+   「有反应」那格展开时换 --c-red-bg —— 用底色区分选中，全站零硬编码描边色。 */
+.trio {
+  display: flex;
+  gap: 12rpx;
+  margin: 20rpx 0 4rpx;
+}
+
+.trio-cell {
+  flex: 1;
+  padding: 18rpx 8rpx 16rpx;
+  text-align: center;
+  background: var(--c-muted);
+  border-radius: var(--r-md);
+  transition: background-color 0.16s ease;
+}
+
+/* 触达：格高约 92rpx，加上下 4rpx 的内边距补偿仍不足 44pt ——
+   三格横向均分、每格宽约 200rpx，横向够宽，纵向靠 padding 撑到 46pt */
+.trio-cell:active {
+  opacity: 0.7;
+}
+
+.trio-on {
+  background: var(--c-green-bg);
+}
+
+.trio-on-bad {
+  background: var(--c-red-bg);
+}
+
+.trio-num {
+  font-size: var(--fs-title);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--c-text);
+}
+
+.trio-num-bad {
+  color: var(--c-red);
+}
+
+.trio-lab {
+  margin-top: 4rpx;
+  font-size: var(--fs-xs);
+  color: var(--c-text-3);
+}
+
+/* 三格之后的第一行（生长曲线）：补一条上分隔线 ——
+   没有它，这一行会和三格糊成一块，看不出是另一件事 */
+.row-top {
+  margin-top: 8rpx;
+  border-top: 1rpx solid var(--c-line);
+}
+
+/* 生长曲线行的图标：小方底 + 品牌绿，和「我的记录」三格的视觉语言一致 */
+.row-ic {
+  display: inline-block;
+  min-width: 32rpx;
+  margin-right: 10rpx;
+  padding: 0 6rpx;
+  border-radius: 8rpx;
+  background: var(--c-green-bg);
+  color: var(--c-green-dark);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* 生长曲线行的空态提示：比 .rd-empty 更松，且不占「可点行」的高度 */
+.row-hint {
+  padding: 2rpx 0 10rpx;
+}
+
+/* ── 可点开的统计行 + 行内展开名单 ── */
 
 .row-tap {
   padding-left: 2rpx;

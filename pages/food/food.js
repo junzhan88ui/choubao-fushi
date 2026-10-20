@@ -3,6 +3,7 @@ const storage = require('../../utils/storage')
 // 取数走共享模块（与「修改宝宝档案」同一份数据源：分组/顺序/状态徽标/图标，
 // utils/foodlist.js，_validate §6u 钉）—— 本页不再自己 require data/foods 分组
 const foodlist = require('../../utils/foodlist')
+const share = require('../../utils/share')
 
 Page({
   data: {
@@ -46,5 +47,14 @@ Page({
 
   goProfile() {
     wx.navigateTo({ url: '/pages/profile/profile' })
+  },
+
+  // 分享（批⑧）：查一查内容型标题，微信自动截当前页，path 落回本页
+  onShareAppMessage() {
+    return share.card(share.TITLES.food, '/pages/food/food')
+  },
+
+  onShareTimeline() {
+    return share.card(share.TITLES.food, '/pages/food/food')
   }
 })

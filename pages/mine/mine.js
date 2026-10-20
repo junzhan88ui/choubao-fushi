@@ -52,6 +52,9 @@ Page({
     safeList: [],
     badList: [],
     recordedList: [],
+    // 生长曲线（v3.5 · 用户 2026-10-20 拍板方案 C）：本页只留计数 + 跳转入口，
+    // 记录清单与增删改全部交给曲线页（同一份 bb_growth，那边能改能删）。
+    growthCount: 0,
     // 14 天喂养记录（自档案页移来：记录归「我的」，档案页只管编辑）
     mealHistory: []
   },
@@ -84,6 +87,10 @@ Page({
     const badList = toItems('bad')
     const recordedList = toItems(null)
 
+    // 生长曲线：只取条数（getGrowth 是升序，条数与顺序无关）。
+    // 清单、数值文案、增删改都在曲线页 —— 这里不再复制一份
+    const growthCount = storage.getGrowth().length
+
     this.setData({
       // 和首页共用 storage.isConfigured()：名称和生日都是必填，
       // 两页各判各的会对「填没填完」给出不同答案
@@ -101,7 +108,8 @@ Page({
       version: app && app.globalData ? app.globalData.version : '',
       safeList: safeList,
       badList: badList,
-      recordedList: recordedList
+      recordedList: recordedList,
+      growthCount: growthCount
     })
     this.rebuildHistory()
   },
@@ -116,6 +124,13 @@ Page({
   goFoodDetail(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({ url: '/pages/food-detail/food-detail?id=' + id })
+  },
+
+  /** 生长曲线（v3.5 · 用户 2026-10-20 拍板方案 C）：整行跳曲线页。
+   *  曲线页的「测量记录」卡就是本页原来那份清单的完整版（能改能删 + 区间/P 值），
+   *  所以本页不再自己做行内展开与删除 —— 同一件事只留一个入口。 */
+  goGrowth() {
+    wx.navigateTo({ url: '/pages/growth/growth' })
   },
 
   /** 最近 14 天喂养记录 —— 每餐打卡的证据列表（自档案页移入）。
@@ -149,5 +164,49 @@ Page({
 
   goProfile() {
     wx.navigateTo({ url: '/pages/profile/profile' })
+  },
+
+  /* ── 数据备份（v3.2 从档案页搬来，用户 2026-10-19）──────────────────────
+   *  档案页第 5 步删除后，导出/导入落在这里。「我的」是低频操作的家，
+   *  备份正是一年用一两次的事 —— 放在这里比放在编辑页更合理。
+   *  红线不变：只走剪贴板，不联网（§6v 钉）。 */
+
+  /** 导出备份：整段 JSON 复制到剪贴板。用户自己转存到微信聊天/收藏，
+   *  程序不上传不联网 —— 隐私口径「未采集」靠这条维持 */
+  onExport() {
+    wx.setClipboardData({
+      data: storage.exportUserData(),
+      success() {
+        wx.showToast({ title: '已复制，去微信里存好', icon: 'none' })
+      }
+    })
+  },
+
+  /** 导入备份：剪贴板文本 → 信封预检（isBackupText，垃圾文本直接拒）
+   *  → 确认框（导入 = 整包覆盖，必须先确认，§6v 钉 showModal）→ 落库 → 整页重建 */
+  onImport() {
+    const that = this
+    wx.getClipboardData({
+      success(res) {
+        const text = res.data || ''
+        if (!storage.isBackupText(text)) {
+          wx.showToast({ title: '剪贴板里不是备份文本', icon: 'none' })
+          return
+        }
+        wx.showModal({
+          title: '导入备份',
+          content: '会用备份里的内容整体覆盖当前档案、食材记录和喂养打卡，导入后本周计划会重新生成。确定导入吗？',
+          success(r) {
+            if (!r.confirm) return
+            if (storage.importUserData(text)) {
+              that.onShow() // 计数与清单一起重建
+              wx.showToast({ title: '导入完成', icon: 'success' })
+            } else {
+              wx.showToast({ title: '备份格式不支持', icon: 'none' })
+            }
+          }
+        })
+      }
+    })
   }
 })

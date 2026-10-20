@@ -784,8 +784,10 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('profile.wxml 的必填星号少于 2 个 —— 名称和出生日期都必须标 *')
   if (!/\.req\s*\{/.test(px))
     E('profile.wxml 引用了 .req，但 profile.wxss 没定义 —— 星号会裸渲染')
-  if (pw.indexOf('都是必填') < 0)
-    E('profile.wxml 缺必填说明文案 —— 用户不知道为什么填完生日还生成不了')
+  // 用户 2026-10-15 拍板删除卡内必填说明文案（星号 + placeholder 已足够说明）——
+  // 反向钉：别再加回来；必填标记本身仍由上面的 .req 星号钉住
+  if (pw.indexOf('都是必填') >= 0)
+    E('profile.wxml 又出现「都是必填」说明文案 —— 用户已拍板删除（2026-10-15），别加回来')
 
   // 展示端：首页 + 我的都得回显（用户明确要求首页也要映射）
   if (ij.indexOf('baby.name') < 0 || iw.indexOf('{{name}}') < 0)
@@ -884,12 +886,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     console.log('  宝宝名称：必填（存储+引擎双闸门）✓、首页与「我的」回显 ✓、清洗/截断 ✓、取值不进指纹 ✓')
 }
 
-/* ---------- 6f. 首页与「我的」：名称与月龄必须同行、同字号 ----------
- * 用户明确要求：把「4 个月 1 天」和宝宝名称对齐、字号保持一致，
- * 且两页一起改。锁三件事 ——
- *   1. 同行：.head-line 容器存在（名字和月龄都塞在它里面）
- *   2. 同字号：两个 class 的 font-size 都必须是 --fs-lg（用户选定
- *      用名字那档；月龄原来是 --fs-display 大字，缩小后才放得下一行）
+/* ---------- 6f. 首页与「我的」：名称与月龄必须同容器、同字号 ----------
+ * 用户要求：把月龄和宝宝名称对齐、字号保持一致，且两页一起改。锁三件事 ——
+ *   1. 同容器：.head-line 容器存在（名字和月龄都塞在它里面，顺序 名称 → 月龄）
+ *   2. 同字号：两个 class 的 font-size 必须**彼此相同**（各页一档）。
+ *      2026-10-15 批⑨（用户对标参考图）把首页档位从 --fs-lg 提到 --fs-display，
+ *      并改成两行大标题；「我的」仍是并排一行、--fs-lg 不变。用户当初选 --fs-lg
+ *      的理由是「缩小后才放得下一行」，改两行后该约束不再成立，但「两者同字号」
+ *      的诉求原样保留。
  *   3. 引用的类必须在本页 wxss 里定义过，否则标签裸渲染成无样式黑字
  *      （§1c 抓过同类问题：.day-today 引用了却没定义）
  */
@@ -899,32 +903,35 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     const m = css.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*font-size:\\s*([^;}]+)'))
     return m ? m[1].trim() : null
   }
+  const EXPECT6f = { index: 'var(--fs-display)', mine: 'var(--fs-lg)' }
   ;['index', 'mine'].forEach((which) => {
     const wxml = fs.readFileSync(`./pages/${which}/${which}.wxml`, 'utf8')
     const wxss = fs.readFileSync(`./pages/${which}/${which}.wxss`, 'utf8')
 
     const li = wxml.indexOf('class="head-line"')
-    if (li < 0) E(`${which} 页：名称和月龄没并到同一行（缺 .head-line 容器）`)
+    if (li < 0) E(`${which} 页：名称和月龄没并到同一容器（缺 .head-line）`)
     if (!/\.head-line\s*\{/.test(wxss))
-      E(`${which}.wxss 没定义 .head-line —— 引用了没定义的类，行内布局会散`)
+      E(`${which}.wxss 没定义 .head-line —— 引用了没定义的类，布局会散`)
 
     if (li >= 0) {
       const rest = wxml.slice(li, li + 300)
       const atName = rest.indexOf('head-name')
       const atAge = rest.indexOf('head-age')
       if (atName < 0 || atAge < 0)
-        E(`${which} 页的 .head-line 里没同时放名称和月龄 —— 同行没实现`)
+        E(`${which} 页的 .head-line 里没同时放名称和月龄 —— 同容器没实现`)
       else if (atName > atAge)
-        E(`${which} 页同行内月龄排在名称前面 —— 顺序应为 名称 → 月龄`)
+        E(`${which} 页月龄排在名称前面 —— 顺序应为 名称 → 月龄`)
     }
 
     const fn = fontSizeOf(wxss, 'head-name')
     const fa = fontSizeOf(wxss, 'head-age')
-    if (fn !== 'var(--fs-lg)' || fa !== 'var(--fs-lg)')
-      E(`${which} 页 名称(${fn}) / 月龄(${fa}) 应同为 var(--fs-lg) —— 用户选定用名字那档字号（月龄原为 --fs-display）`)
+    if (!fn || !fa || fn !== fa)
+      E(`${which} 页 名称(${fn}) / 月龄(${fa}) 字号不一致 —— 名称与月龄必须同字号（§6f）`)
+    else if (fn !== EXPECT6f[which])
+      E(`${which} 页 名称/月龄字号 ${fn} 不是约定的 ${EXPECT6f[which]}（首页批⑨ 两行大标题 / 「我的」并排一行，§6f）`)
   })
   if (errs.length === errsBefore)
-    console.log('  首页与「我的」：名称与月龄同行 ✓、字号同为 --fs-lg ✓、两页一致 ✓')
+    console.log('  首页与「我的」：名称与月龄同容器 ✓、同字号 ✓（首页 --fs-display / 「我的」--fs-lg）✓')
 }
 
 /* ---------- 6g. v2.0 食材图标：emoji + 分类底色，53/53 全覆盖 ----------
@@ -2032,7 +2039,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   if (brandRule && /box-shadow/.test(brandRule[0]))
     E('.card--brand 自带 box-shadow —— 阴影必须仍由 .card 一处提供（§6l）')
   // 琥珀文字 AA 修复（③ 配套）：--c-amber 当正文白底只有 3.85:1
-  ;['head-issue', 'cat-warn'].forEach((cls) => {
+  // 批⑬（2026-10-16）：.head-issue 随状态行一并删除 —— 这条 AA 钉只剩 .cat-warn
+  // （删掉的琥珀状态行见 §6x-22 反向钉）
+  ;['cat-warn'].forEach((cls) => {
     const m = ix.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*color:\\s*([^;}]+)'))
     if (!m || m[1].trim() !== 'var(--c-amber-ink)')
       E(`index.wxss 的 .${cls} 文字色不是 var(--c-amber-ink) —— --c-amber 当正文 AA 不达标（3.85:1）`)
@@ -2108,8 +2117,8 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     if (!m || !/transition:\s*transform/.test(m[0]))
       E(`${sel} 没有 transition: transform —— 箭头旋转（⑥）没有过渡，等于瞬间跳变`)
   })
-  if (app.indexOf('.link-arrow-open {') < 0 || ix.indexOf('link-arrow-open') < 0 || mIW.indexOf('link-arrow-open') < 0)
-    E('link-arrow-open 共享修饰类断链（app.wxss 必须定义，index/mine 必须使用）')
+  if (app.indexOf('.link-arrow-open {') < 0 || ix.indexOf('link-arrow-open') < 0)
+    E('link-arrow-open 共享修饰类断链（app.wxss 必须定义，index 必须使用）')
 
   if (errs.length === errsBefore)
     console.log('  6n 视觉层级与品牌面：品牌浅绿对比度现算 AA ✓、顶卡/今天卡双向接线 ✓、openDay 折叠闭环（今天 guard + 双复位）✓、观察进度已移出首页（反向钉）✓、字重三档 600 ✓、展开动效与箭头过渡 ✓')
@@ -3062,6 +3071,14 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.js 又在装配 stageLabel —— 首页标签删了，这就是死数据')
   if (miw6t.indexOf('{{stageLabel}}') < 0)
     E('mine.wxml 的 stageLabel 被误删 —— 用户只让删首页，「我的」页要保留')
+  // 批⑬（用户 2026-10-16 拍板）：阶段说明行（stageDesc）也从首页删了 ——
+  // months 页的 slide.stageDesc 是别处的，不受这条影响；剥注释后再扫，
+  // 免得我们自己写的说明注释被当成装配
+  const noC6t = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  if (iw6t.indexOf('{{stageDesc}}') >= 0)
+    E('index.wxml 又渲染了 stageDesc —— 阶段说明行按用户 2026-10-16 要求从首页删除（§6t/§6x-22）')
+  if (/stageDesc\s*:/.test(noC6t(ij6t)) || /base\.stageDesc/.test(noC6t(ij6t)))
+    E('index.js 又在装配 stageDesc —— 首页不显示它，装配就是死数据（§6t/§6x-22）')
 
   // 2) 入口接线：文案 → goMonths → months 页 → app.json 注册 → 样式在位
   //    v2.31 · 提案A：入口 = 状态行下方右对齐的独立胶囊按钮（.head-more-row 包着），
@@ -3071,16 +3088,18 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('index.wxml 缺入口按钮文案「' + BTN6t + '」—— 按钮文案是用户定的，别改')
   if (iw6t.indexOf('bindtap="goMonths"') < 0)
     E('index.wxml 入口按钮没绑 goMonths —— 按钮点了没反应（死入口）')
-  const rowAt6t = iw6t.indexOf('head-issue-row')
+  // 批⑬（2026-10-16）：状态行删了 —— 位置钉改钉「在 2×2 指标格之后」，
+  // 形态钉（独立胶囊 / 右对齐 / 88rpx 触达 / 不退回 text 链接）一字不变
+  const rowAt6t = iw6t.indexOf('stat-grid')
   const btnAt6t = iw6t.indexOf('head-more')
   if (rowAt6t < 0 || btnAt6t < 0 || btnAt6t < rowAt6t)
-    E('入口按钮不在状态行之后 —— v2.31 提案A：入口是状态行下方的独立胶囊按钮（.head-more-row）')
+    E('入口按钮不在 2×2 指标格之后 —— 头卡顺序应为 小标/标题 → 照片 → 指标格 → 入口胶囊（§6t/§6x-22）')
   if (/<text[^>]*class="head-more"/.test(iw6t))
     E('入口又退回纯文字链接（text.head-more）—— v2.31 提案A 已改独立胶囊按钮，别加回来')
   if (ij6t.indexOf('goMonths()') < 0 || ij6t.indexOf('/pages/months/months') < 0)
     E('index.js 没有 goMonths → navigateTo(/pages/months/months) —— 入口是死的')
-  if (iq6t.indexOf('.head-issue-row') < 0 || iq6t.indexOf('.head-more') < 0)
-    E('index.wxss 缺 .head-issue-row / .head-more —— 入口没有样式（裸文本挤在状态行里）')
+  if (iq6t.indexOf('.stat-grid') < 0 || iq6t.indexOf('.head-more') < 0)
+    E('index.wxss 缺 .stat-grid / .head-more —— 入口没有样式（裸文本挤在卡里）')
   // 提案A 形态钉：--r-pill 胶囊 + 88rpx(44pt) 触达 + 独立行右对齐（无描边是
   // token 纪律：全站零硬编码描边色，别「补」一条）
   if (!/\.head-more\s*\{[^}]*--r-pill/.test(iq6t))
@@ -3401,8 +3420,9 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
 {
   const errsBefore = errs.length
   const sj6v = fs.readFileSync('./utils/storage.js', 'utf8')
-  const pj6v = fs.readFileSync('./pages/profile/profile.js', 'utf8')
-  const pw6v = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+  // v3.2：备份入口从档案页第 5 步搬到「我的」页（用户 2026-10-19 拍板）
+  const pj6v = fs.readFileSync('./pages/mine/mine.js', 'utf8')
+  const pw6v = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
 
   // 1) 源码接线
   ;['function exportUserData', 'function importUserData', 'function isBackupText'].forEach((fn) => {
@@ -3424,12 +3444,12 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('storage.js 找不到「数据备份」段注释 —— 导出/导入实现被挪走或删了？')
   if (/wx\.(request|uploadFile|downloadFile)|wx\.cloud/.test(bak6v))
     E('storage.js 备份段出现网络调用 —— 隐私口径「未采集」会失守')
-  // 档案页接线 + 导入前确认
+  // 我的页接线 + 导入前确认（v3.2：从档案页第 5 步搬来）
   if (pw6v.indexOf('bindtap="onExport"') < 0 || pw6v.indexOf('bindtap="onImport"') < 0)
-    E('档案页缺导出/导入按钮（onExport/onImport 接线）')
+    E('「我的」页缺导出/导入按钮（onExport/onImport 接线）—— 档案页第 5 步已删，备份没家了')
   if (pj6v.indexOf('storage.exportUserData()') < 0 || pj6v.indexOf('storage.importUserData(') < 0 ||
       pj6v.indexOf('storage.isBackupText(') < 0)
-    E('profile.js 备份按钮没接 storage 的导出/导入/预检')
+    E('mine.js 备份按钮没接 storage 的导出/导入/预检')
   if (pj6v.slice(pj6v.indexOf('onImport()')).indexOf('showModal') < 0)
     E('onImport 没弹确认框 —— 导入是整包覆盖，必须先确认（§6v）')
 
@@ -3511,8 +3531,11 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
  *   ② 分流：辅食钟排节奏（计划 months / MENU_6 锚定日 / 6–12 月知识卡 /
  *      滑动页 6–12 页落页 / 引入门 minMonth），生理钟管安全与事实
  *      （年龄文案 ageText、「1 岁以上」卡与落页 = phys ≥13）；
- *   ③ picker 下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」），
- *      且有清除通道能回退到现状口径；
+ *   ③ 下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」），且有清除通道能回退到
+ *      现状口径；**面板自建**（v3.0 用户 2026-10-15 追加：原生 picker 顶栏只有
+ *      「取消 / 确定」，放不下「清除」第三个按钮 → 换 picker-view + 顶栏
+ *      「取消 / 清除 / 确定」，清除仅在已选过日期后生效）；三列裁切走纯函数
+ *      age.dateColumns（越界值不进列表，§6w 实跑）；
  *   ④ 首页加「辅食第 N 个月」副文案，解释两个数字的关系。
  * 源码钉：age.foodMonthsOf 唯一分流入口；白名单三处（setBaby / 导入清洗 /
  *   档案页接线）；纯节奏类页不留「按生日直算月龄」旧写法；index 缓存比对
@@ -3557,20 +3580,55 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('storage.setBaby 没放行 foodStart —— 档案页存不下首次辅食日期')
   if (sj6w.indexOf('foodStart: typeof pack.baby.foodStart') < 0)
     E('importUserData 没清洗 foodStart —— 导入会丢首次辅食日期（换机丢数据）')
-  if (pjw6w.indexOf('onFoodStartChange') < 0 || pjw6w.indexOf('onClearFoodStart') < 0 ||
-      pww6w.indexOf('bindchange="onFoodStartChange"') < 0 ||
+  if (pjw6w.indexOf('openFoodPicker') < 0 || pjw6w.indexOf('confirmFoodPicker') < 0 ||
+      pjw6w.indexOf('onClearFoodStart') < 0 ||
+      pww6w.indexOf('bindtap="openFoodPicker"') < 0 ||
+      pww6w.indexOf('bindtap="confirmFoodPicker"') < 0 ||
       pww6w.indexOf('bindtap="onClearFoodStart"') < 0)
     E('档案页缺首次辅食日期的选择/清除接线 —— 选填字段必须能填也能回退')
   if (pjw6w.indexOf('foodMinOf') < 0 || pjw6w.indexOf('getMonth() + 4') < 0)
-    E('档案页 picker 下限不是「出生 + 4 个月」（公开指南最早不早于 4 月龄）')
+    E('档案页面板下限不是「出生 + 4 个月」（公开指南最早不早于 4 月龄）')
+
+  // 2b) 自建面板（v3.0，用户 2026-10-15 拍板：把「清除」提到选择面板顶栏）
+  //     原生 picker 顶栏只有「取消 / 确定」两个位置，放不下第三个按钮 ——
+  //     首次辅食日期必须换成 picker-view + 自定顶栏「取消 / 清除 / 确定」；
+  //     全页只剩「出生日期」一个原生日期 picker（mode="date" 恰好一处）。
+  //     裁切是纯函数 age.dateColumns（列表里没有非法值，不靠事后校验兜）。
+  // 全页原生日期 picker 恰好一处：出生日期
+  // （首次辅食日期 2026-10-15 已改成自建面板，不许再变回 mode="date"；
+  //  身高体重面板的「测量日期」v3.2 随面板搬到首页，不在这里了）
+  if ((pww6w.match(/mode="date"/g) || []).length !== 1 ||
+      pww6w.indexOf('bindchange="onDateChange"') < 0)
+    E('档案页原生日期 picker 数目不对 —— 只应有「出生日期」一处（首次辅食日期走自建面板，§6w；测量日期面板已搬首页）')
+  if (pww6w.indexOf('bindchange="onMetricDate"') >= 0)
+    E('档案页又出现测量日期 picker —— 测量面板已搬到首页（v3.2）')
+  if (pww6w.indexOf('bindchange="onFoodStartChange"') >= 0)
+    E('首次辅食日期又变回原生 picker 了 —— 已改自建面板（§6w）')
+  ;[['picker-view', pww6w], ['picker-view-column', pww6w], ['pvValue', pww6w],
+    ['bindchange="onFoodPickerChange"', pww6w], ['foodPickerOpen', pww6w],
+    ['age.dateColumns', pjw6w]].forEach((t) => {
+    if (t[1].indexOf(t[0]) < 0)
+      E('首次辅食日期自建面板缺 ' + t[0] + ' —— 面板接线断了（§6w）')
+  })
+  if (aj6w.indexOf('function dateColumns') < 0 || aj6w.indexOf('dateColumns,') < 0)
+    E('age.js 缺 dateColumns / 没导出 —— 面板三列裁切没有纯函数落点（§6w）')
+  // 清除按钮：只在「已经选过首次辅食日期」之后生效（用户 2026-10-15 口径）
+  if (pjw6w.indexOf('if (!this.data.foodStart) return') < 0)
+    E('清除按钮没挡住「还没选过日期」的情况 —— 用户要求选定了首次辅食日期之后才生效（§6w）')
+  if (pww6w.indexOf('fs-head-off') < 0)
+    E('清除按钮没接置灰态 —— 没选过日期时看不出不可点（§6w）')
 
   // 3) 分流接线
   if (mj6w.indexOf('phys >= 13') < 0)
     E('months.js 落页没按生理 ≥13 分流 —— 晚开始宝宝的 1 岁+页会判错')
   if (ij6w.indexOf('phys >= 13 ? guides.onePlus') < 0)
     E('index.js 「1 岁以上」卡没按生理月龄分流 —— 幼儿期口径必须看生理钟（§6w）')
-  if (ij6w.indexOf('foodAgeText') < 0 || iw6w.indexOf('head-food-age') < 0)
-    E('首页缺「辅食第 N 个月」副文案接线 —— 双时钟并存会让家长困惑（用户拍板要加）')
+  // 批⑬（用户 2026-10-16 拍板）：这条副文案从首页删了 —— 双时钟的事实没有变
+  // （「我的」的首次辅食日期行、计划口径照旧），首页只是不再复述；
+  // 剥注释再扫：我们自己在 index.js 注释里留了字段名做删除记录
+  const noC6w = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  if (noC6w(ij6w).indexOf('foodAgeText') >= 0 || iw6w.indexOf('head-food-age') >= 0)
+    E('首页又出现了「辅食第 N 个月」副文案 —— 用户 2026-10-16 要求从首页删除（§6w/§6x-22）')
   if (ij6w.indexOf('p.months !== fm') < 0)
     E('index.js 缓存比对没用辅食月龄（fm）—— 与引擎 p.months 口径不一致会反复重算')
   if (pj6w.indexOf('age.foodMonthsOf(baby)') < 0)
@@ -3600,6 +3658,28 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E(`4 月龄边界场景辅食月龄 = ${early6w}，期望 11（出生+4 月开始，辅食钟超前生理）`)
   if (ag6w.foodMonthsOf({ foodStart: '2026-05-01' }, now6w) !== null)
     E('foodMonthsOf 缺生日时应返回 null（两钟都无从谈起）')
+
+  // 实跑：自建面板的三列裁切（纯函数，不带 now —— 跑哪天都一样）
+  const dc6w = ag6w.dateColumns
+  const cA6w = dc6w('2026-02-10', '2026-04-05', 2026, 3, 20)
+  if (!cA6w || cA6w.years.join() !== '2026' || cA6w.months.join() !== '2,3,4' ||
+      cA6w.days.length !== 31 || cA6w.days[0] !== 1 || cA6w.value.join() !== '0,1,19')
+    E('dateColumns：同年区间裁错了 —— 面板会给出界外的月份/日或错的下标（§6w）')
+  const cB6w = dc6w('2025-11-20', '2026-02-10', 2026, 3, 30)
+  if (!cB6w || cB6w.years.join() !== '2025,2026' || cB6w.months.join() !== '1,2' ||
+      cB6w.days.join() !== '1,2,3,4,5,6,7,8,9,10' || cB6w.value.join() !== '1,1,9')
+    E('dateColumns：跨年/越界没夹进区间 —— 面板能滚到今天之后（§6w）')
+  const cC6w = dc6w('2024-02-01', '2024-02-29', 2024, 2, 29)
+  if (!cC6w || cC6w.days.length !== 29 || cC6w.days[28] !== 29 || cC6w.value.join() !== '0,0,28')
+    E('dateColumns：闰年 2 月没出 29 日 —— 闰年宝宝的区间少一天（§6w）')
+  const cD6w = dc6w('2026-10-15', '2026-10-15', 2026, 10, 15)
+  if (!cD6w || cD6w.years.length !== 1 || cD6w.months.join() !== '10' ||
+      cD6w.days.join() !== '15' || cD6w.value.join() !== '0,0,0')
+    E('dateColumns：下限 = 上限（今天刚满 4 个月）时应只剩一天可选（§6w）')
+  if (dc6w('2026-11-01', '2026-10-15', 2026, 11, 1) !== null)
+    E('dateColumns：下限晚于今天（还不满 4 个月）应返回 null —— 否则面板给出一堆未来日期（§6w）')
+  if (dc6w('2026-02-10', '2026-04-05', 2026, 13, 0) === null)
+    E('dateColumns：月/日越界时应夹进区间而不是返回 null（§6w）')
 
   // 指纹自愈：填 foodStart → 锚定日变 → 签名变（自动重算一次）；
   // 没填 → birth = 生日、签名与 v2.31 完全一致（零重算零打扰）
@@ -3631,7 +3711,1351 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
     E('menuDayOf 兼容路径变了 —— 没填辅食日期时「锚 = 生日 + 6 个月」的原语义必须逐字保持')
 
   if (errs.length === errsBefore)
-    console.log('  6w 首次辅食日期·双时钟(v2.32)：foodMonthsOf 唯一分流入口 ✓、没填回退=现状 ✓、白名单三处(setBaby/导入/档案页) ✓、picker 下限出生+4月+清除通道 ✓、节奏=辅食钟/1岁+=生理≥13 ✓、MENU_6 锚=辅食开始日直锚(+6错位修正+用户场景实跑) ✓、首页辅食副文案 ✓、指纹自愈(含 fs 分量)实跑 ✓')
+    console.log('  6w 首次辅食日期·双时钟(v2.32)：foodMonthsOf 唯一分流入口 ✓、没填回退=现状 ✓、白名单三处(setBaby/导入/档案页) ✓、面板自建(取消/清除/确定,清除仅已选后生效)+下限出生+4月 ✓、dateColumns 裁切实跑(同年/跨年夹取/闰年2月/单日/下限>今天) ✓、节奏=辅食钟/1岁+=生理≥13 ✓、MENU_6 锚=辅食开始日直锚(+6错位修正+用户场景实跑) ✓、首页辅食副文案 ✓、指纹自愈(含 fs 分量)实跑 ✓')
+}
+
+/* ---------- 6x. 成长曲线 · 数据层（v3.0 批①） ----------
+ * 红线：只做记录与展示，不做营养评估 —— 生长数据绝不进 planSignature
+ *   （记一次体重就重排整份周计划 = 脏耦合，§6x-5 钉死）。
+ * 批①只动数据层：bb_growth + 档案三字段(sex/birthWeight/birthLength) +
+ *   备份 fmt2（fmt1 老备份要能导，不逼老用户重录）。
+ * 实跑：同日覆写/排序/归一 ✓、日期闸门（未来点/出生前点拒收）✓、
+ *   区间拒收（越界值不进库）✓、resetAll 清 bb_growth ✓、
+ *   备份往返一致 + fmt1 兼容 + 脏条目丢弃 ✓、
+ *   planSignature 对生长记录不敏感 ✓。
+ * 照片：决策④（入口）本版不接线；照片本体 2026-10-15 批⑦ 已接 chooseMedia
+ *   （只存一张，固定路径覆盖写）—— 页面层钉见批④/批⑦（§6x-14/17）。
+ * 分享：2026-10-15 批⑧ —— 5 内容页双钩子、内容型标题、自动截当前页（§6x-18）。
+ */
+{
+  const errsBefore = errs.length
+  const sj6x = fs.readFileSync('./utils/storage.js', 'utf8')
+  const pj6x = fs.readFileSync('./utils/plan.js', 'utf8')
+  const prj6x = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  const prw6x = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+
+  // 1) 源码接线：数据层 5 个函数 + 3 个档案字段白名单
+  ;['function getGrowth', 'function setGrowth', 'function upsertGrowthRecord',
+    'function removeGrowthRecord', 'function cleanGrowthEntry'].forEach((fn) => {
+    if (sj6x.indexOf(fn) < 0) E('storage.js 缺 ' + fn + ' —— v3.0 成长曲线数据层没接线')
+  })
+  ;['sex', 'birthWeight', 'birthLength'].forEach((k) => {
+    if (sj6x.indexOf(`hasOwnProperty.call(patch, '${k}')`) < 0)
+      E(`storage.setBaby 白名单没放行 ${k} —— 档案页存不下生长曲线前置字段`)
+  })
+  if (sj6x.indexOf('KEYS.GROWTH, growth') < 0)
+    E('importUserData 没写回 bb_growth —— 导入会丢生长记录')
+  if (sj6x.indexOf('growth: getGrowth()') < 0)
+    E('exportUserData 没导出 growth —— 备份会丢生长记录')
+  if (sj6x.indexOf('removeStorageSync(KEYS.GROWTH)') < 0)
+    E('resetAll 没清 bb_growth —— 「清除全部数据」会残留曲线记录')
+  // 备份 fmt2 + 老备份兼容
+  if (!/BACKUP_FMT\s*=\s*2/.test(sj6x)) E('备份 fmt 没升到 2 —— v3.0 新增 growth 段必须升版本')
+  if (sj6x.indexOf('pack.fmt >= BACKUP_FMT_MIN') < 0)
+    E('isBackupText 只认单一 fmt —— fmt1 老备份会被拒，老用户换机丢数据')
+  // 档案页控件接线
+  ;['onSexPick', 'onBirthWeight', 'onBirthLength'].forEach((fn) => {
+    if (prj6x.indexOf(fn) < 0) E('profile.js 缺 ' + fn + ' —— 档案页生长前置字段没接线')
+    if (prw6x.indexOf(fn) < 0) E('profile.wxml 没接 ' + fn + ' —— 控件是死的')
+  })
+
+  // 2) plan.js 不许引用生长数据（红线反向钉）
+  if (/GROWTH|getGrowth|upsertGrowthRecord|cleanGrowthEntry/.test(pj6x))
+    E('plan.js 引用了生长数据 —— 生长记录不进计划输入/指纹，记一次体重就重排周计划（红线）')
+
+  // 3) 实跑：wx 桩
+  const mem6x = {}
+  const hadWx6x = typeof global.wx !== 'undefined'
+  const savedWx6x = global.wx
+  global.wx = {
+    getStorageSync: (k) => mem6x[k],
+    setStorageSync: (k, v) => { mem6x[k] = v },
+    removeStorageSync: (k) => { delete mem6x[k] }
+  }
+  try {
+    const st6x = require('./utils/storage.js')
+
+    // 先落 baby（走 setBaby，读写同源）：日期闸门（未来点/出生前点）依赖生日，
+    // 别让 upsert 因缺档案误放行
+    st6x.setBaby({ name: '臭宝', birthday: '2025-01-01' })
+
+    // 同日覆写：一条日期只留最后一次
+    st6x.upsertGrowthRecord({ date: '2025-01-01', weight: 3.2, length: 50 })
+    st6x.upsertGrowthRecord({ date: '2025-01-01', weight: 3.5, length: 51 })
+    const g6x = st6x.getGrowth()
+    if (g6x.length !== 1 || g6x[0].weight !== 3.5)
+      E('同日覆写失效 —— 一条日期存了两条记录（应留最后一次）')
+
+    // 排序 + 归一：乱序录入，读出按 date 升序、数值 1 位小数。
+    // 注意 getGrowth() 会保留同日那条（01-01），所以排序后共 3 条，别写死 2。
+    st6x.upsertGrowthRecord({ date: '2025-03-01', weight: 6.666, length: 63 })
+    st6x.upsertGrowthRecord({ date: '2025-02-01', weight: 5, length: 58 })
+    const gs6x = st6x.getGrowth()
+    if (gs6x.length !== 3 || gs6x[0].date !== '2025-01-01' ||
+        gs6x[1].date !== '2025-02-01' || gs6x[2].date !== '2025-03-01')
+      E('getGrowth 没按 date 升序 —— 曲线横轴会乱序')
+    if (gs6x[2].weight !== 6.7) E('体重没归一到 1 位小数（6.666 → ' + gs6x[2].weight + '）')
+
+    // 日期闸门：未来点 / 出生前点拒收（baby 已在段首落好）
+    if (st6x.upsertGrowthRecord({ date: '2099-01-01', weight: 7 }) !== false)
+      E('未来日期记录没被拒 —— 曲线会画出图外的点')
+    if (st6x.upsertGrowthRecord({ date: '2024-12-31', weight: 3 }) !== false)
+      E('出生前日期记录没被拒 —— 日龄为负，曲线起点错位')
+
+    // 区间拒收：越界值不进库（脏数据比空着更坏）
+    if (st6x.upsertGrowthRecord({ date: '2025-02-15', weight: 999 }) !== false)
+      E('越界体重（999kg）没被拒 —— 手滑单位错会画出假曲线')
+    if (st6x.upsertGrowthRecord({ date: '2025-02-15', length: 5 }) !== false)
+      E('越界身长（5cm）没被拒')
+
+    // 至少一项指标有值才成条
+    if (st6x.upsertGrowthRecord({ date: '2025-02-20' }) !== false)
+      E('三项全空的记录没被拒 —— 空条目在列表里是死行')
+
+    // removeGrowthRecord：删之前先确认库里有 3 条（01-01/02-01/03-01），删 04-01 这条
+    // 只是为了验证「删一个不存在的日期不影响已有记录」。removeGrowthRecord 无返回值，
+    // 别拿它当布尔断言。
+    st6x.upsertGrowthRecord({ date: '2025-04-01', weight: 7 })
+    st6x.removeGrowthRecord('2025-04-01')
+    if (st6x.getGrowth().length !== 3)
+      E('removeGrowthRecord 没删掉指定日期 —— 列表页删除会失效')
+
+    // resetAll 清 bb_growth
+    st6x.resetAll()
+    if (Array.isArray(mem6x[st6x.KEYS.GROWTH]) && mem6x[st6x.KEYS.GROWTH].length)
+      E('resetAll 没清 bb_growth —— 清除全部数据后曲线残留')
+
+    // 备份往返：growth + 3 档案字段都要跟着走（走 setBaby/setGrowth，读写同源）
+    st6x.setBaby({ name: '臭宝', birthday: '2025-01-01', sex: 'm', birthWeight: 3.2, birthLength: 50 })
+    st6x.setGrowth([{ date: '2025-01-01', weight: 3.2, length: 50 }])
+    const pack6x = JSON.parse(st6x.exportUserData())
+    if (pack6x.fmt !== 2 || !Array.isArray(pack6x.growth) || pack6x.growth.length !== 1)
+      E('exportUserData 没导出 fmt2 + growth —— 备份丢曲线')
+    if (pack6x.baby.sex !== 'm' || pack6x.baby.birthWeight !== 3.2)
+      E('导出生长前置字段（sex/birthWeight）丢了')
+    mem6x[st6x.KEYS.BABY] = null
+    mem6x[st6x.KEYS.GROWTH] = []
+    if (st6x.importUserData(JSON.stringify(pack6x)) !== true)
+      E('importUserData 没导回自己的导出 —— 换机会丢曲线')
+    if (st6x.getGrowth().length !== 1 || st6x.getGrowth()[0].weight !== 3.2)
+      E('导入后 bb_growth 没还原 —— 换机会丢曲线记录')
+    if (st6x.getBaby().sex !== 'm' || st6x.getBaby().birthLength !== 50)
+      E('导入后生长前置字段没还原')
+
+    // fmt1 老备份要能导（不逼老用户重录），growth 落成空数组
+    const legacy6x = { app: 'choubao-fushi', fmt: 1, at: 1, baby: { name: '老宝', birthday: '2025-01-01' }, statuses: [], introduced: [], mealLogs: [] }
+    if (st6x.importUserData(JSON.stringify(legacy6x)) !== true)
+      E('fmt1 老备份被拒 —— 升 fmt2 把老用户换机路堵死了')
+    if (st6x.getGrowth().length !== 0)
+      E('fmt1 老备份导入后 growth 不是空数组 —— 应落成 [] 而非 undefined')
+
+    // 脏条目丢弃：越界 / 坏日期 / 全空都不进库
+    const dirty6x = { app: 'choubao-fushi', fmt: 2, at: 1, baby: null, statuses: [], introduced: [], mealLogs: [],
+      growth: [{ date: '2025-01-01', weight: 3.2 }, { date: 'bad-date', weight: 3 }, { date: '2025-02-01', weight: 999 }, { date: '2025-03-01' }] }
+    if (st6x.importUserData(JSON.stringify(dirty6x)) !== true)
+      E('脏备份整体被拒 —— 应逐条清洗而非整包拒收')
+    if (st6x.getGrowth().length !== 1)
+      E('脏条目没被清洗 —— 坏日期/越界值进了库（应只留 1 条合法）')
+
+    // 4) planSignature 不敏感（红线）
+    const babySig6x = { name: '臭宝', birthday: '2025-01-01' }
+    const mkSt6x = (baby) => ({
+      getBaby: () => baby,
+      getIssues: () => [], getSick: () => false,
+      safeFoodIds: () => [], badFoodIds: () => [],
+      recordedFoodIds: () => [], observingFoodIds: () => [],
+      refusedRecipeIds: () => []
+    })
+    const beforeSig6x = plan.planSignature(mkSt6x(babySig6x))
+    st6x.upsertGrowthRecord({ date: '2025-05-01', weight: 7.5, length: 66 })
+    const afterSig6x = plan.planSignature(mkSt6x(babySig6x))
+    if (beforeSig6x !== afterSig6x)
+      E('planSignature 对生长记录敏感 —— 记一次体重就重排整份周计划（红线）')
+  } finally {
+    if (hadWx6x) global.wx = savedWx6x
+    else delete global.wx
+  }
+
+  /* ---- 6x · 批②：计算层（WHO 官方表 + utils/growth.js，纯函数无 wx）---- */
+
+  // 6) 双时钟：日龄只走 age.daysBetween（生理钟），与辅食钟零关系
+  const gj6x = fs.readFileSync('./utils/growth.js', 'utf8')
+  const agj6x = fs.readFileSync('./utils/age.js', 'utf8')
+  if (agj6x.indexOf('function daysBetween') < 0)
+    E('age.js 缺 daysBetween —— 生理日龄必须收口在 age.js（双时钟唯一入口）')
+  if (gj6x.indexOf('daysBetween') < 0 || gj6x.indexOf("require('./age')") < 0)
+    E('growth.js 没走 age.daysBetween —— 生长曲线必须用生理钟（§6w 分流表）')
+  if (gj6x.indexOf('foodStart') >= 0 || gj6x.indexOf('foodMonthsOf') >= 0)
+    E('growth.js 引用了辅食钟 —— 生长属「安全与事实类」，横轴只认出生日期')
+
+  // 8) WHO 表结构（6 表 × 61 月龄点）+ 官方中位锚点（容差兜底抄错/截断/串表）
+  const wj6x = require('./data/who-growth.js')
+  ;[['wfa', 'male'], ['wfa', 'female'], ['lhfa', 'male'], ['lhfa', 'female'],
+    ['hcfa', 'male'], ['hcfa', 'female']].forEach((t) => {
+    const tbl = (wj6x[t[0]] || {})[t[1]]
+    if (!Array.isArray(tbl) || tbl.length !== 61) {
+      E(`WHO 表 ${t[0]}.${t[1]} 不是 61 个月龄点（0–60 月）`)
+      return
+    }
+    for (let i = 0; i < tbl.length; i++) {
+      const tri = tbl[i]
+      if (!Array.isArray(tri) || tri.length !== 3 || tri.some((v) => !isFinite(v))) {
+        E(`WHO 表 ${t[0]}.${t[1]}[${i}] 不是三个有限数值`)
+        continue
+      }
+      if (!(tri[2] > 0 && tri[2] < 1))
+        E(`WHO 表 ${t[0]}.${t[1]}[${i}] 的 S 越界（${tri[2]}）—— 表可能抄坏`)
+      if (i > 0 && !(tri[1] > tbl[i - 1][1]))
+        E(`WHO 表 ${t[0]}.${t[1]} 中位数不是严格递增（第 ${i} 月）—— 表可能串行/截断`)
+    }
+  })
+  const anch6x = [
+    ['wfa', 'male', 0, 3.3464, 0.02, '男·出生体重中位'],
+    ['wfa', 'male', 6, 7.94, 0.03, '男·6 月龄体重中位'],
+    ['wfa', 'male', 12, 9.646, 0.03, '男·12 月龄体重中位'],
+    ['wfa', 'female', 12, 8.946, 0.03, '女·12 月龄体重中位'],
+    ['wfa', 'male', 60, 18.34, 0.05, '男·60 月龄体重中位'],
+    ['lhfa', 'male', 12, 75.74, 0.1, '男·12 月龄身长中位'],
+    ['hcfa', 'male', 0, 34.46, 0.1, '男·出生头围中位'],
+    ['hcfa', 'female', 0, 33.88, 0.1, '女·出生头围中位']
+  ]
+  anch6x.forEach((a) => {
+    const tri = ((wj6x[a[0]] || {})[a[1]] || [])[a[2]]
+    if (!Array.isArray(tri)) { E(`WHO 锚点 ${a[5]}：表不存在`); return }
+    if (Math.abs(tri[1] - a[3]) > a[4])
+      E(`WHO 锚点 ${a[5]}对不上：中位=${tri[1]}，期望≈${a[3]}±${a[4]} —— 表转录错了`)
+  })
+
+  // 计算层实跑（纯函数，不需要 wx 桩）
+  const gjs6x = require('./utils/growth.js')
+
+  // 9) 六带边界：lo 闭 hi 开，P3/P10/P50/P90/P97 各归其带 + 标签中性词表
+  const bandExp6x = [
+    [0, 'P3 以下'], [2.999, 'P3 以下'], [3, 'P3–P10'], [9.999, 'P3–P10'],
+    [10, 'P10–P50'], [49.999, 'P10–P50'], [50, 'P50–P90'], [89.999, 'P50–P90'],
+    [90, 'P90–P97'], [96.999, 'P90–P97'], [97, 'P97 以上'], [100, 'P97 以上']
+  ]
+  bandExp6x.forEach((b) => {
+    const got = gjs6x.bandOf(b[0])
+    if (!got || got.label !== b[1])
+      E(`bandOf(${b[0]}) = ${got ? got.label : 'null'}，应为 ${b[1]} —— 区间边界归属变了`)
+  })
+  gjs6x.BANDS.forEach((b) => {
+    if (/偏瘦|偏胖|肥胖|营养不良|发育迟缓|落后|正常|异常|健康|达标|矮小|超重/.test(b.label))
+      E(`区间标签混进评价词：${b.label} —— 红线「不做营养评估」`)
+  })
+
+  // 10) 0–60 月闸门 + 缺性别/缺数值/未知指标一律不出百分位
+  if (gjs6x.metricAt('weight', 7, 0, 'm') === null)
+    E('0 日龄算不出百分位 —— 出生点被闸门误挡')
+  if (gjs6x.metricAt('weight', 7, 1826, 'm') === null)
+    E('60 月龄算不出百分位 —— 0–60 覆盖尾点被挡')
+  if (gjs6x.metricAt('weight', 7, 1857, 'm') !== null)
+    E('61 月龄还在出百分位 —— 已超出 WHO 0–5 岁表（0–60 闸门失效）')
+  if (gjs6x.metricAt('weight', 7, -1, 'm') !== null)
+    E('负日龄出百分位 —— 出生前的点不该有数')
+  if (gjs6x.metricAt('weight', 7, 100, '') !== null || gjs6x.metricAt('weight', 7, 100, 'x') !== null)
+    E('缺性别/非法性别还在出百分位 —— 会查错表（红线闸门）')
+  if (gjs6x.metricAt('weight', null, 100, 'm') !== null)
+    E('缺数值出百分位')
+  if (gjs6x.metricAt('nope', 7, 100, 'm') !== null)
+    E('未知指标出百分位')
+  // LMS 链路端到端自洽：量到中位数 = P50
+  const atMed6x = gjs6x.metricAt('weight', wj6x.wfa.male[0][1], 0, 'm')
+  if (!atMed6x || Math.abs(atMed6x.p - 50) > 0.01)
+    E('量到中位数不是 P50 —— z/百分位链路算错（p=' + (atMed6x ? atMed6x.p.toFixed(3) : 'null') + '）')
+  const edge6x = gjs6x.metricAt('weight', 4.5, 30, 'f')
+  if (!edge6x || edge6x.p < 0 || edge6x.p > 100 || !edge6x.band)
+    E('正常输入算不出合法百分位/区间 —— 计算链断了')
+
+  // 6b) 双时钟实跑：填不填 foodStart，同一记录的百分位必须逐字一致
+  const baby6x = { name: '测试', birthday: '2026-01-01', sex: 'm' }
+  const recs6x = [{ date: '2026-07-01', weight: 8, length: 68 }]
+  const pt6x = gjs6x.pointsFor(recs6x, 'weight', baby6x)
+  const ptFs6x = gjs6x.pointsFor(recs6x, 'weight',
+    Object.assign({}, baby6x, { foodStart: '2026-05-01' }))
+  if (!pt6x.length || pt6x[0].p === null)
+    E('合法记录算不出百分位 —— pointsFor 链路断了')
+  else if (pt6x[0].days !== 181)
+    E('daysBetween 日龄算错：2026-01-01 → 2026-07-01 应 181 天，实得 ' + pt6x[0].days)
+  if (JSON.stringify(pt6x) !== JSON.stringify(ptFs6x))
+    E('填了 foodStart 百分位就变 —— 生长曲线串了辅食钟（双时钟分流表红线）')
+  // 缺性别的点标 no_sex、p 为 null —— 页面据此「只出记录、不出百分位」（§6x-7 前置）
+  const ns6x = gjs6x.pointsFor(recs6x, 'weight', { birthday: '2026-01-01', sex: '' })
+  if (!ns6x.length || ns6x[0].reason !== 'no_sex' || ns6x[0].p !== null)
+    E('缺性别的点没标 no_sex —— 页面没法只显示记录、不出百分位')
+
+  /* ---- 6x · 批③：曲线页 pages/growth（§6x-7/11/12/13 + 画图链路 + 三项决策钉）---- */
+
+  // 注册：进 pages、不进 tabBar（决策④：本版只注册页面，不加第 4 个 tab；
+  //       v3.5 起「不加 tab」仍有效，但「零入口」已作废 —— 入口在「我的」页）
+  if (appJson.pages.indexOf('pages/growth/growth') < 0)
+    E('app.json 没注册 pages/growth/growth —— 曲线页进不了包')
+  ;(appJson.tabBar.list || []).forEach((t) => {
+    if (t.pagePath === 'pages/growth/growth')
+      E('生长曲线进了 tabBar —— 决策④：先不加入口，只注册页面')
+  })
+
+  const grj6x = fs.readFileSync('./pages/growth/growth.js', 'utf8')
+  const grw6x = fs.readFileSync('./pages/growth/growth.wxml', 'utf8')
+  // wxss 先剥注释再扫 —— 头注释会写「不许 box-shadow」这类字面量，不能误伤
+  const grc6x = fs.readFileSync('./pages/growth/growth.wxss', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+
+  // 7) 页面级性别闸门：曲线渲染过 showChart、缺性别出提示、区间 chip 过 hasSex、
+  //    页面不许自己算数学（只吃 growth.pointsFor 的闸门结果）
+  if (grj6x.indexOf('hasSex') < 0)
+    E('growth.js 没有 hasSex 闸门')
+  if (grw6x.indexOf('wx:if="{{showChart}}"') < 0)
+    E('growth.wxml 曲线卡没挂 showChart 闸门 —— 缺性别/超范围时曲线会被画出来')
+  if (grw6x.indexOf('!hasSex') < 0)
+    E('growth.wxml 缺「没填性别」提示分支 —— 用户不知道为什么没曲线')
+  if (!/hasBand:\s*!!\(hasSex/.test(grj6x))
+    E('growth.js 的区间 chip 没过 hasSex —— 缺性别也会露出区间（红线闸门）')
+  if (grj6x.indexOf('pointsFor') < 0)
+    E('growth.js 没走 growth.pointsFor —— 页面必须吃现成的闸门与生理日龄')
+  if (/percentileOf|zScore|Math\.pow/.test(grj6x))
+    E('growth.js 自己算了 z/百分位 —— 数学只能在 utils/growth.js 一处')
+
+  // 画图链路：P50 参考线 == 表内中位数；曲线值回代 metricAt 能还原同一百分位（互逆）
+  // （lmsAt 约定入参 'm'/'f'，与页面取 baby.sex 同款）
+  ;[3, 10, 50, 90, 97].forEach((p) => {
+    const cv = gjs6x.percentileCurve('weight', 'm', p)
+    if (!Array.isArray(cv) || cv.length !== gjs6x.MAX_MONTH + 1 || cv.some((v) => !isFinite(v)))
+      E('percentileCurve(' + p + ') 没返回 61 个有限值 —— 参考线画不出来')
+  })
+  const cv50_6x = gjs6x.percentileCurve('weight', 'm', 50)
+  if (cv50_6x && Math.abs(cv50_6x[12] - wj6x.wfa.male[12][1]) > 1e-9)
+    E('P50 参考线不等于表内 12 月龄中位数 —— LMS 逆变换算错')
+  const cv10_6x = gjs6x.percentileCurve('weight', 'm', 10)
+  const rt6x = cv10_6x ? gjs6x.metricAt('weight', cv10_6x[12], 12 * 30.4375, 'm') : null
+  if (!rt6x || Math.abs(rt6x.p - 10) > 0.01)
+    E('参考线数值回代 metricAt 不是 P10 —— 曲线与百分位的互逆链路断了')
+  if (Math.abs(gjs6x.zForPercentile(50)) > 1e-9)
+    E('zForPercentile(50) 不是 0 —— 二分写反了')
+
+  // 11) 评价词反向钉：页面可见文本 + 页面 JS 字符串（剥注释后）零评价词
+  const stripJs6x = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  const badWords6x = ['偏瘦', '偏胖', '肥胖', '营养不良', '发育迟缓', '正常范围', '正常', '异常', '达标', '超重', '矮小', '落后', '健康状况']
+  ;[[stripJs6x(grj6x), 'growth.js'], [grw6x, 'growth.wxml']].forEach((t) => {
+    badWords6x.forEach((w) => {
+      if (t[0].indexOf(w) >= 0)
+        E(t[1] + ' 出现评价词「' + w + '」—— 红线：只做记录与展示，不做营养评估')
+    })
+  })
+
+  // 12) 恒定说明句 + 免责声明在位（区间卡与页脚各一次）
+  if (gj6x.indexOf('不是健康评价') < 0)
+    E('growth.DISCLAIMER 丢了「不是健康评价」恒定说明句 —— 硬要求')
+  if (grj6x.indexOf('growth.DISCLAIMER') < 0)
+    E('growth.js 没引用 growth.DISCLAIMER —— 恒定说明句没接线')
+  if (grw6x.indexOf('{{disclaimer}}') < 0)
+    E('growth.wxml 没渲染 disclaimer')
+  if (grw6x.indexOf('不是健康评价') < 0)
+    E('曲线页「不是健康评价」说明句不在位 —— 百分位必须配恒定说明（§6x-12）')
+  if (grw6x.indexOf('不做营养评估') < 0)
+    E('曲线页缺「不做营养评估」声明')
+
+  // 13) 决策④「曲线页零入口」已作废（v3.5 · 用户 2026-10-20 拍板方案 C）：
+  //     入口恰好一处，在「我的」页「生长曲线」行 —— 正向钉。
+  //     反向钉仍在：首页**不许**出现曲线入口（首页只管「录入」，看曲线在「我的」）。
+  //     计数前先剥注释 —— 注释里写「跳 pages/growth」是文档，不是代码。
+  const stripJs13x = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  const stripWxml13x = (s) => s.replace(/<!--[\s\S]*?-->/g, '')
+  const mineCode13x = stripWxml13x(fs.readFileSync('./pages/mine/mine.wxml', 'utf8'))
+    + stripJs13x(fs.readFileSync('./pages/mine/mine.js', 'utf8'))
+  const mineHits13x = (mineCode13x.match(/pages\/growth/g) || []).length
+  if (mineHits13x !== 1)
+    E('「我的」页生长曲线入口数量 = ' + mineHits13x + ' —— 方案 C 要求恰好一处跳曲线页（§6x-13）')
+  ;['pages/index/index.js', 'pages/index/index.wxml'].forEach((f) => {
+    const code = fs.readFileSync('./' + f, 'utf8')
+    if (code.indexOf('goGrowth') >= 0 || code.indexOf('/pages/growth') >= 0)
+      E(f + ' 出现生长曲线入口 —— 正向钉：入口只在「我的」页，首页只管录入（§6x-13）')
+  })
+
+  // 隐私口径：曲线页零媒体选择、零网络调用（照片上传只属于首页头卡，批⑦）
+  if (/chooseMedia|chooseImage|chooseVideo|chooseMessageFile/.test(grj6x))
+    E('growth.js 接了媒体选择 —— 照片上传只在首页头卡（批⑦），曲线页零媒体')
+  if (/wx\.(request|uploadFile|downloadFile)\b/.test(grj6x))
+    E('growth.js 有网络调用 —— 隐私口径「未采集」被破')
+
+  // 画布自绘：type=2d + 自写画笔（无构建约定，不引图表库）
+  if (grw6x.indexOf('<canvas') < 0 || grw6x.indexOf('type="2d"') < 0)
+    E('growth.wxml 没有 type=2d 的 canvas —— 曲线要自绘')
+
+  // 视觉基线顺手钉住本页：字重三档、阴影唯一、display 唯一（§6l/A1）
+  if (/font-weight:\s*(700|bold)/.test(grc6x))
+    E('growth.wxss 用了 700/bold —— 字重只许 400/500/600 三档')
+  if (/box-shadow/.test(grc6x))
+    E('growth.wxss 自己加了 box-shadow —— 阴影只许 app.wxss 的 .card 一处（§6l）')
+  if (grc6x.indexOf('--fs-display') >= 0)
+    E('growth.wxss 用了 --fs-display —— A1：display 是计划页唯一时刻')
+
+  // 14) 方案 C-1 版面钉（v3.5 · 用户 2026-10-20 拍板）：
+  //     ① 「测量记录」卡必须在「曲线卡」之后、「录入卡」之前 —— 从「我的」跳进来的人
+  //        要在一屏多一点的位置看见记录，不能滚到 1.3 屏外；
+  //     ② 不能再有独立「当前位置」卡压在记录前面（它已压成曲线卡里的一行）；
+  //     ③ 曲线卡里 current 那行在位，画布高度 392rpx（腾出那一行的位置）。
+  const iChart6x = grw6x.indexOf('{{metricLabel}}曲线')
+  const iCur6x = grw6x.indexOf('gr-cur-meta')
+  const iRec6x = grw6x.indexOf('测量记录 · {{records.length}} 次')
+  const iIn6x = grw6x.indexOf('{{editing ? \'修改记录\' : \'记一次测量\'}}')
+  if (iChart6x < 0 || iCur6x < 0 || iRec6x < 0 || iIn6x < 0)
+    E('growth.wxml 缺曲线卡 / current 行 / 测量记录卡 / 录入卡锚点（§6x-14）')
+  if (!(iCur6x > iChart6x && iRec6x > iChart6x && iIn6x > iRec6x))
+    E('曲线页卡片顺序被破坏 —— 方案 C-1 要求 曲线卡 → 测量记录 → 录入卡（§6x-14）')
+  if (grc6x.indexOf('height: 392rpx') < 0)
+    E('growth.wxss 画布不是 392rpx —— C-1 把 current 压进曲线卡，腾出的就是这个高度（§6x-14）')
+  if (/wx:if="\{\{cur \&\& !showChart\}\}"/.test(grw6x) === false)
+    E('growth.wxml 缺「没性别/超月龄时单独一张 current 卡」分支 —— 曲线不出时当前值会丢（§6x-14）')
+
+  /* ---- 6x · 批④：首页拍立得贴纸 + 出生信息行（§6x-14/15）---- */
+
+  const iw6x = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const ic6x = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+  const ij6x = fs.readFileSync('./pages/index/index.js', 'utf8')
+
+  // 14) 贴纸与照片（决策① · 2026-10-15 批⑦ 修订为真照片，只存一张）：
+  //    照片仍走本机文件不进仓库；打包位图在 v3.6（用户 2026-10-20）新增一张品牌位图 ——
+  //    分享卡 share-card.png（500×400）。基线是 **7** 个。
+  //    （同批还加过关于页 logo-circle.png，当天就撤了 —— 见 §6x-20f，别再加回来。）
+  const expectedImgs6x = ['tab-plan.png', 'tab-plan-on.png', 'tab-food.png', 'tab-food-on.png',
+    'tab-mine.png', 'tab-mine-on.png', 'share-card.png']
+  const imgs6x = fs.readdirSync('./images')
+  if (imgs6x.length !== expectedImgs6x.length || imgs6x.some((f) => expectedImgs6x.indexOf(f) < 0))
+    E('images/ 目录与基线（6 tab 图标 + share-card）不一致 —— 照片仍走本机文件（§6x-14）')
+  const scSize6x = fs.statSync('./images/share-card.png').size
+  if (scSize6x > 60 * 1024)
+    E('分享卡超过 60KB —— 上传包 ≤2MB 的预算不能砸在位图上（§6x-14）')
+  const segS6x = iw6x.indexOf('6x-scan-start')
+  const segE6x = iw6x.indexOf('6x-scan-end')
+  if (segS6x < 0 || segE6x < 0 || segE6x <= segS6x)
+    E('index.wxml 缺 6x-scan-start/end 标记 —— 首页新增段没圈出来，词表没法扫（§6x-11/14）')
+  else {
+    const seg6x = iw6x.slice(segS6x, segE6x)
+    // 结构检查先剥 HTML 注释 —— 起始标记本身在注释里（`<!--` 在切片外，先截到首个 `-->`），
+    // 注释里举例的字面标签不是真节点（词表仍扫原文，注释是随手写的，最接近用户可见文案）
+    let segNoC6x = seg6x
+    const cHead6x = segNoC6x.indexOf('-->')
+    if (cHead6x >= 0) segNoC6x = segNoC6x.slice(cHead6x + 3)
+    segNoC6x = segNoC6x.replace(/<!--[\s\S]*?-->/g, '')
+    if (/background-image|url\(/.test(seg6x))
+      E('首页新增段有 CSS 位图 —— 照片只能经 <image> 渲染，贴纸本体仍纯 CSS（§6x-14）')
+    const im6x = segNoC6x.match(/<image[^>]*>/g) || []
+    if (im6x.length !== 1 || im6x[0].indexOf('src="{{photo}}"') < 0 || im6x[0].indexOf('wx:if="{{photo}}"') < 0)
+      E('首页新增段的 <image> 不是唯一、闸门、绑 {{photo}} 的那张 —— 贴纸只渲染本机照片（§6x-14）')
+    if (segNoC6x.indexOf('polaroid-ph') < 0)
+      E('贴纸缺占位回退（polaroid-ph）—— 没照片时应显示空框（§6x-14）')
+    if (segNoC6x.indexOf('bindtap="chooseBabyPhoto"') < 0)
+      E('贴纸没接 bindtap chooseBabyPhoto —— 上传入口是死的（决策① 2026-10-15 修订，§6x-14）')
+    if (segNoC6x.indexOf('longpress="removeBabyPhoto"') < 0)
+      E('贴纸没接 longpress removeBabyPhoto —— 传上去的照片没有回退通道（§6x-14）')
+    if (segNoC6x.indexOf('birthText') >= 0)
+      E('出生信息行又回来了 —— 用户 2026-10-16 要求从首页删除（批⑬，§6x-14/§6x-22）')
+    badWords6x.forEach((w) => {
+      if (seg6x.indexOf(w) >= 0)
+        E('index.wxml 新增段出现评价词「' + w + '」—— 红线（§6x-11）')
+    })
+  }
+  // 批⑦ · index.js 上传接线：chooseMedia(只图、压缩、单张) → saveBabyPhoto 落盘；
+  // 零网络（照片纯本机，隐私口径「未采集」不破）
+  const cmAt6x = ij6x.indexOf('wx.chooseMedia(')
+  if (cmAt6x < 0)
+    E('index.js 没接 chooseMedia —— 用户拍板可传照片，上传入口缺失（批⑦，§6x-17）')
+  else {
+    const cmBlk6x = ij6x.slice(cmAt6x, ij6x.indexOf('\n  },', cmAt6x))
+    ;['count: 1', "mediaType: ['image']", "sizeType: ['compressed']", 'storage.saveBabyPhoto'].forEach((s) => {
+      if (cmBlk6x.indexOf(s) < 0)
+        E('chooseMedia 选项缺「' + s + '」—— 单张/只图/压缩/落盘口径被改掉（批⑦，§6x-17）')
+    })
+  }
+  if (ij6x.indexOf('chooseBabyPhoto') < 0 || ij6x.indexOf('removeBabyPhoto') < 0 ||
+      ij6x.indexOf('storage.clearBabyPhoto') < 0)
+    E('index.js 缺 chooseBabyPhoto/removeBabyPhoto/clearBabyPhoto 接线（批⑦，§6x-17）')
+  if (/wx\.(request|uploadFile|downloadFile)\b|wx\.cloud/.test(ij6x))
+    E('index.js 有网络调用 —— 照片纯本机落盘，隐私口径「未采集」被破（批⑦）')
+  if (/PHOTO|BabyPhoto|baby-photo/.test(pj6x))
+    E('plan.js 引用了宝宝照片 —— 照片不进计划输入/指纹（§6x-17）')
+  // 词表扩到首页：JS/WXSS 剥注释后扫（既有注释里有「正常」字样，属注释不属文案）
+  const stripCss6x = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '')
+  badWords6x.forEach((w) => {
+    if (stripJs6x(ij6x).indexOf(w) >= 0)
+      E('index.js（剥注释后）出现评价词「' + w + '」—— 红线（§6x-11）')
+    if (stripCss6x(ic6x).indexOf(w) >= 0)
+      E('index.wxss（剥注释后）出现评价词「' + w + '」—— 红线（§6x-11）')
+  })
+
+  // 15) 字重三档 / 对比度现算不破（复用 §6g/§6n 算法，本段各起一份）
+  const app6x = fs.readFileSync('./app.wxss', 'utf8')
+  const lum6x = (hex) => {
+    const v = [1, 3, 5]
+      .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)))
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]
+  }
+  const ratio6x = (a, b) => (Math.max(lum6x(a), lum6x(b)) + 0.05) / (Math.min(lum6x(a), lum6x(b)) + 0.05)
+  const icStrip6x = stripCss6x(ic6x)
+  ;['polaroid', 'polaroid-img', 'polaroid-ph',
+    // 批⑨ 头卡新元素：小标 / 两行大标题 / 2×2 指标格。
+    // 批⑬ 删掉的 head-date / head-note / head-birth 不在清单里，反向钉在 §6x-22
+    'head-main', 'head-kicker', 'head-star', 'head-line', 'head-name', 'head-age',
+    'stat-grid', 'stat-row', 'stat-cell',
+    'stat-label', 'stat-value', 'stat-unit', 'stat-sub'].forEach((cls) => {
+    const rule = icStrip6x.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*\\}'))
+    if (!rule) {
+      E('index.wxss 缺 .' + cls + ' 规则 —— 引用了没定义的类 / 死样式（wxml↔wxss 断链，§6x-15）')
+      return
+    }
+    const fw = rule[0].match(/font-weight:\s*([^\s;}]+)/)
+    if (fw && ['400', '500', '600'].indexOf(fw[1]) < 0)
+      E('.' + cls + ' 字重 ' + fw[1] + ' 不在 400/500/600 三档（§6x-15）')
+    if (/url\(|background-image/.test(rule[0]))
+      E('.' + cls + ' 带了位图 —— 贴纸必须纯 CSS（§6x-14/15）')
+  })
+  const tintM6x = app6x.match(/--c-green-tint:\s*(#[0-9a-f]{6})/i)
+  const t3M6x = app6x.match(/--c-text-3:\s*(#[0-9a-f]{6})/i)
+  const cardM6x = app6x.match(/--c-card:\s*(#[0-9a-f]{6})/i)
+  if (tintM6x && t3M6x) {
+    const rb6x = ratio6x(t3M6x[1], tintM6x[1])
+    if (rb6x < 4.5)
+      E('出生信息行 ' + t3M6x[1] + ' on 品牌浅绿 ' + tintM6x[1] + ' = ' + rb6x.toFixed(1) + ':1 < 4.5:1（AA，§6x-15）')
+  }
+  if (cardM6x && t3M6x) {
+    const rs6x = ratio6x(t3M6x[1], cardM6x[1])
+    if (rs6x < 4.5)
+      E('贴纸占位字 ' + t3M6x[1] + ' on 白底 ' + cardM6x[1] + ' = ' + rs6x.toFixed(1) + ':1 < 4.5:1（AA，§6x-15）')
+  }
+
+  /* ---- 6x · 批⑥：出生指标区间修订 + 打字期不归一（用户 2026-10-15 实测
+     「出生身长无法正常填写」—— 根因是受控输入每击归一：打「50」时半截值
+     「5」越界被清空回写，永远填不进。区间同步改为 3–10 kg / 20–70 cm）----
+     ---- 批⑭（用户 2026-10-16 拍板）：出生体重放宽为「大于 2 kg 且小于 15 kg」
+     —— 端点不算（2.0 / 15.0 都拒），下限从 3 放到 2 是为了让低出生体重宝宝
+     （2.0–3.0 那一段）也能建档；越界反馈沿用 blur 清空 + 底部 toast 小字提醒
+     （用户选定，不要改成内联小字） ---------------------------------------- */
+
+  // 区间文本钉（体重是严格开区间，身长含端点）
+  if (!/BIRTH_WEIGHT_MIN\s*=\s*2\b/.test(sj6x) || !/BIRTH_WEIGHT_MAX\s*=\s*15\b/.test(sj6x))
+    E('出生体重区间不是「大于 2 且小于 15」—— 用户 2026-10-16 拍板的区间被改掉了（§6x-16）')
+  if (!/BIRTH_LENGTH_MIN\s*=\s*20\b/.test(sj6x) || !/BIRTH_LENGTH_MAX\s*=\s*70\b/.test(sj6x))
+    E('出生身长区间不是 20–70 cm —— 用户 2026-10-15 拍板的区间被改掉了（§6x-16）')
+  // 四个出生体重调用点必须都带 strict（第 4 实参 true）；身长一个都不许带
+  const bwStrict14 = (sj6x.match(/sanitizeBirthMetric\([^)]*BIRTH_WEIGHT[^)]*,\s*true\s*\)/g) || []).length +
+    (prj6x.match(/sanitizeBirthMetric\([^)]*BIRTH_WEIGHT[^)]*,\s*true\s*\)/g) || []).length
+  if (bwStrict14 !== 4)
+    E('出生体重调用点没都走 strict —— 用户口径是「大于 2 且小于 15」，端点要拒收（§6x-16）')
+  if (/sanitizeBirthMetric\([^)]*BIRTH_LENGTH[^)]*,\s*true\s*\)/.test(sj6x + prj6x))
+    E('出生身长被误加了 strict —— 身长是含端点的 20–70（§6x-16）')
+
+  // 打字期不归一：input 必须回写原始输入；校验/归一/提示全部落 blur
+  if (prj6x.indexOf('this.setData({ birthWeight: e.detail.value })') < 0 ||
+      prj6x.indexOf('this.setData({ birthLength: e.detail.value })') < 0)
+    E('出生指标 input 没回写原始输入 —— 打字中途归一会吞小数点/清半截值（身长「50」打到「5」就没了，§6x-16）')
+  if (prw6x.indexOf('bindblur="onBirthWeightBlur"') < 0 || prw6x.indexOf('bindblur="onBirthLengthBlur"') < 0)
+    E('档案页出生指标没绑 bindblur —— 校验、归一与提示没有落点（§6x-16）')
+  const bwTyp6x = prj6x.match(/onBirthWeight\(e\) \{[\s\S]{0,600}?\n {2}\},/)
+  if (!bwTyp6x)
+    E('profile.js 的 onBirthWeight 结构变了 —— §6x-16 的钉要跟着核')
+  else if (bwTyp6x[0].indexOf('showToast') >= 0)
+    E('onBirthWeight 打字过程中弹 toast —— 提示应放 blur（§6x-16）')
+  ;[['onBirthWeightBlur', 'BIRTH_WEIGHT_MIN', '出生体重'], ['onBirthLengthBlur', 'BIRTH_LENGTH_MIN', '出生身长']].forEach((t) => {
+    const m = prj6x.match(new RegExp(t[0] + '\\(\\) \\{[\\s\\S]{0,600}?\\n {2}\\},'))
+    if (!m) {
+      E('profile.js 缺 ' + t[0] + ' —— 校验放了 blur 但 handler 没接线')
+      return
+    }
+    if (m[0].indexOf('showToast') < 0 || m[0].indexOf(t[1]) < 0)
+      E(t[0] + ' 缺区间校验提示 —— 越界输入用户得不到反馈（§6x-16）')
+  })
+
+  // 边界与越界实跑（wx 桩自起一份）
+  const mem6xb = {}
+  const hadWxb = typeof global.wx !== 'undefined'
+  const savedWxb = global.wx
+  global.wx = {
+    getStorageSync: (k) => mem6xb[k],
+    setStorageSync: (k, v) => { mem6xb[k] = v },
+    removeStorageSync: (k) => { delete mem6xb[k] }
+  }
+  try {
+    const st6xb = require('./utils/storage.js')
+    st6xb.setBaby({ name: '臭宝', birthday: '2026-01-01' })
+    // 批⑭：体重是严格开区间 —— 端点内侧（2.1 / 14.9）合法，端点本身（2 / 15）拒收
+    st6xb.setBaby({ birthWeight: 2.1, birthLength: 20 })
+    const bMin6x = st6xb.getBaby()
+    if (bMin6x.birthWeight !== 2.1 || bMin6x.birthLength !== 20)
+      E('出生指标下界（2.1kg / 20cm）被拒 —— 端点内侧应合法（§6x-16）')
+    st6xb.setBaby({ birthWeight: 14.9, birthLength: 70 })
+    const bMax6x = st6xb.getBaby()
+    if (bMax6x.birthWeight !== 14.9 || bMax6x.birthLength !== 70)
+      E('出生指标上界（14.9kg / 70cm）被拒 —— 端点内侧应合法（§6x-16）')
+    ;[2, 15].forEach((v14) => {
+      st6xb.setBaby({ birthWeight: v14 })
+      if (st6xb.getBaby().birthWeight !== '')
+        E('出生体重 ' + v14 + 'kg 没被拒 —— 用户口径是「大于 2 且小于 15」，端点不算（§6x-16）')
+    })
+    st6xb.setBaby({ birthWeight: 2.9 })
+    if (st6xb.getBaby().birthWeight !== 2.9)
+      E('出生体重 2.9kg 被拒了 —— 批⑭ 已把下限放宽到 2（§6x-16）')
+    st6xb.setBaby({ birthWeight: 20 })
+    if (st6xb.getBaby().birthWeight !== '')
+      E('出生体重 20kg 没被拒 —— 上限 15 之外应当拒收（§6x-16）')
+    st6xb.setBaby({ birthLength: 19.9 })
+    if (st6xb.getBaby().birthLength !== '')
+      E('出生身长 19.9cm 没被拒 —— 区间应为 20–70 cm')
+    st6xb.setBaby({ birthLength: 70.1 })
+    if (st6xb.getBaby().birthLength !== '')
+      E('出生身长 70.1cm 没被拒 —— 区间应为 20–70 cm')
+    st6xb.setBaby({ birthWeight: 3.24 })
+    if (st6xb.getBaby().birthWeight !== 3.2)
+      E('出生体重没归一到 1 位小数 —— 3.24 应存 3.2（§6x-16）')
+  } finally {
+    if (hadWxb) global.wx = savedWxb
+    else delete global.wx
+  }
+
+  /* ---- 6x · 批⑦：照片落盘实跑（用户 2026-10-15 拍板：头卡贴纸可传照片，
+     只存一张）—— 固定路径覆盖写 + 移除/清除通道 + 备份信封不含照片 ---- */
+  const mem7x = {}
+  const files7x = {}
+  const hadWx7x = typeof global.wx !== 'undefined'
+  const savedWx7x = global.wx
+  global.wx = {
+    env: { USER_DATA_PATH: 'wxfile://usr' },
+    getStorageSync: (k) => mem7x[k],
+    setStorageSync: (k, v) => { mem7x[k] = v },
+    removeStorageSync: (k) => { delete mem7x[k] },
+    getFileSystemManager: () => ({
+      copyFileSync: (s, d) => { files7x[d] = 'from:' + s },
+      unlinkSync: (d) => { if (!(d in files7x)) throw new Error('ENOENT: ' + d); delete files7x[d] },
+      accessSync: (d) => { if (!(d in files7x)) throw new Error('ENOENT: ' + d) }
+    })
+  }
+  try {
+    const st7x = require('./utils/storage.js')
+    const p1 = st7x.saveBabyPhoto('wxfile://tmp/a.jpg')
+    if (!p1 || p1.indexOf('baby-photo.jpg') < 0)
+      E('saveBabyPhoto 没落到固定文件名 baby-photo.jpg —— 单张语义靠固定路径（§6x-17）')
+    const p2 = st7x.saveBabyPhoto('wxfile://tmp/b.jpg')
+    if (!p1 || p2 !== p1)
+      E('第二次保存走了别的路径 —— 会攒出第二张，用户只许一张（§6x-17）')
+    if (st7x.getBabyPhoto() !== p1)
+      E('getBabyPhoto 没回落盘路径 —— 首页渲染不出刚传的照片（§6x-17）')
+    if (files7x[p1] !== 'from:wxfile://tmp/b.jpg')
+      E('旧照片没被覆盖写 —— 固定路径覆盖语义坏了，会攒出多张（§6x-17）')
+    if (JSON.stringify(JSON.parse(st7x.exportUserData())).indexOf('baby-photo') >= 0)
+      E('照片进了备份信封 —— 图是二进制、路径换机必失效，不许进备份（§6x-17）')
+    st7x.clearBabyPhoto()
+    if (st7x.getBabyPhoto() !== '' || files7x[p1])
+      E('clearBabyPhoto 没清干净 —— 路径或本机文件有残留（§6x-17）')
+    st7x.saveBabyPhoto('wxfile://tmp/c.jpg')
+    st7x.resetAll()
+    if (st7x.getBabyPhoto() !== '' || files7x['wxfile://usr/baby-photo.jpg'])
+      E('resetAll 没清 bb_photo/照片文件 —— 「清除全部数据」后贴纸还挂旧照或留孤儿文件（§6x-17）')
+  } finally {
+    if (hadWx7x) global.wx = savedWx7x
+    else delete global.wx
+  }
+
+  /* ---- 6x · 批⑧：分享（用户 2026-10-15 三项拍板；v3.6 修订②：
+     ①标题走页面内容型、不带宝宝名字/月龄/状态；
+     ②缩略图**改传本地 share-card.png**（原来是"不传 imageUrl、微信自动截当前页"）；
+     ③内容页全开 5 类，档案页与「我的」不开放分享）---- */
+
+  const sh6x = stripJs6x(fs.readFileSync('./utils/share.js', 'utf8'))
+  // ① 拍板标题白名单：文案只在 share.js 一处，改字 = 重新拍板
+  ;['一周辅食计划', '食材怎么加', '各月龄注意事项', '成长曲线'].forEach((t) => {
+    if (sh6x.indexOf("'" + t + "'") < 0)
+      E('utils/share.js 缺拍板标题「' + t + '」—— 分享文案是用户拍板的（§6x-18）')
+  })
+  badWords6x.forEach((w) => {
+    if (sh6x.indexOf(w) >= 0)
+      E('utils/share.js（剥注释后）出现评价词「' + w + '」—— 红线（§6x-18）')
+  })
+  if (/require\s*\(|getBaby|storage|https?:\/\//.test(sh6x))
+    E('share.js 引了存储/网络 —— 分享不带个人信息（拍板①，§6x-18）')
+  // ② 缩略图（v3.6 · 用户 2026-10-20 修订拍板②）：允许 imageUrl，但**只许**指向
+  //    本地分享卡位图，且只能在此文件出现一次（页面钩子仍只调 card()）
+  if ((sh6x.match(/imageUrl/g) || []).length !== 1)
+    E('share.js 里 imageUrl 不是恰好一处 —— 分享卡位图只能有一个绑定点（§6x-18）')
+  if (sh6x.indexOf("'/images/share-card.png'") < 0)
+    E('share.js 的 imageUrl 不是本地 share-card.png —— 不许网络图、不许带个人信息（拍板②，§6x-18）')
+  if (sh6x.indexOf('/images/logo-circle.png') >= 0)
+    E('share.js 里出现 about 页的 logo —— 分享卡与关于页是两张位图，别混（§6x-18）')
+
+  // ③ 内容页全开：4 页直配 + 食材详情单独钉（见下），双钩子缺一菜单就有一个是灰的
+  const appJson6x = JSON.parse(fs.readFileSync('./app.json', 'utf8'))
+  const sharePages6x = [
+    ['./pages/index/index.js', '/pages/index/index', 'share.TITLES.plan'],
+    ['./pages/food/food.js', '/pages/food/food', 'share.TITLES.food'],
+    ['./pages/months/months.js', '/pages/months/months', 'share.TITLES.months'],
+    ['./pages/growth/growth.js', '/pages/growth/growth', 'share.TITLES.growth']
+  ]
+  sharePages6x.forEach((t) => {
+    const s = stripJs6x(fs.readFileSync(t[0], 'utf8'))
+    ;['onShareAppMessage', 'onShareTimeline'].forEach((h) => {
+      if (s.indexOf(h) < 0)
+        E(t[0] + ' 缺 ' + h + ' —— 右上角「转发给朋友 / 分享到朋友圈」是灰的（拍板③，§6x-18）')
+    })
+    if (s.indexOf(t[2]) < 0)
+      E(t[0] + ' 分享标题没走 ' + t[2] + ' —— 拍板文案必须单一来源（§6x-18）')
+    if (s.indexOf("'" + t[1] + "'") < 0)
+      E(t[0] + ' 分享缺显式 path ' + t[1] + ' —— 分享打开要落回原页（§6x-18）')
+    if (appJson6x.pages.indexOf(t[1].slice(1)) < 0)
+      E(t[0] + ' 的分享 path 没在 app.json 注册 —— 点开就是 404（§6x-18）')
+    if (/imageUrl/.test(s))
+      E(t[0] + ' 传了 imageUrl —— 拍板②：缩略图用微信自动截当前页（§6x-18）')
+  })
+  // 食材详情：双钩子 + 标题跟食材走 + path 带 ?id 落回原食材
+  const fd6x = stripJs6x(fs.readFileSync('./pages/food-detail/food-detail.js', 'utf8'))
+  ;['onShareAppMessage', 'onShareTimeline', 'foodDetailTitle', "'/pages/food-detail/food-detail?id='"].forEach((s) => {
+    if (fd6x.indexOf(s) < 0)
+      E('food-detail.js 分享缺「' + s + '」—— 双钩子 / 食材标题 / 带 id 落回原页（§6x-18）')
+  })
+  if (/imageUrl/.test(fd6x))
+    E('food-detail.js 传了 imageUrl —— 拍板②：缩略图用微信自动截当前页（§6x-18）')
+  // 反向钉：档案页与「我的」不开放分享（拍板③）
+  ;['./pages/profile/profile.js', './pages/mine/mine.js'].forEach((f) => {
+    if (/onShareAppMessage|onShareTimeline/.test(fs.readFileSync(f, 'utf8')))
+      E(f + ' 开了分享 —— 拍板③：档案页与「我的」不开放分享（§6x-18）')
+  })
+
+  /* ---- 6x · 批⑨：首页头卡对标参考图（用户 2026-10-15 拍板四项）----
+     ① 2×2 下两格换**现有**数据（本周打卡 / 已引入），不新建睡/奶记录
+     ② 补「出生时间」「一句话描述」两个选填字段（→ 出生日期行 / 个性行）
+     ③ 照片保持拍立得白框（§6x-14 已钉）  ④ 装饰沿用品牌绿
+     本批钉：两字段清洗/白名单/导入往返 + 不进指纹；头卡结构；零新数据源 ---- */
+
+  // 19a) 一句话描述的清洗口径（实跑）；出生时间字段已按用户要求删除（19i 反向后钉）
+  const st9x = require('./utils/storage.js')
+  ;[['  是个 爱笑的\n小家伙  ', '是个 爱笑的 小家伙'], ['', ''], ['   ', '']].forEach((t) => {
+    if (st9x.sanitizeBabyNote(t[0]) !== t[1])
+      E('sanitizeBabyNote(' + JSON.stringify(t[0]) + ') 应为 ' + JSON.stringify(t[1]) + ' —— 个性行清洗口径变了（§6x-19）')
+  })
+  if (st9x.sanitizeBabyNote('x'.repeat(99)).length !== st9x.BABY_NOTE_MAX)
+    E('sanitizeBabyNote 没按 BABY_NOTE_MAX 截断 —— 超长个性行会撑破头卡（§6x-19）')
+
+  // 19b) 白名单 + 导出/导入往返 + 指纹不敏感（实跑：wx 桩自起一份）
+  const mem9x = {}
+  const hadWx9x = typeof global.wx !== 'undefined'
+  const savedWx9x = global.wx
+  global.wx = {
+    getStorageSync: (k) => mem9x[k],
+    setStorageSync: (k, v) => { mem9x[k] = v },
+    removeStorageSync: (k) => { delete mem9x[k] }
+  }
+  try {
+    const s9 = require('./utils/storage.js')
+    s9.setBaby({ name: '豆豆', birthday: '2026-05-06', note: '  是个爱笑的小家伙 ' })
+    const b9 = s9.getBaby()
+    if (b9.note !== '是个爱笑的小家伙')
+      E('setBaby 没接住 note 或没清洗 —— 档案页填了存不进去（§6x-19）')
+
+    // 指纹不敏感（红线）：纯展示字段，改它绝不重排计划
+    const plan9x = require('./utils/plan.js')
+    const sigA9 = plan9x.planSignature(s9)
+    s9.setBaby({ note: '换了句话' })
+    const sigB9 = plan9x.planSignature(s9)
+    if (!sigA9)
+      E('planSignature 在已建档输入下返回空 —— 指纹链路断了（§6x-19）')
+    else if (sigA9 !== sigB9)
+      E('note 进了计划指纹 —— 改它会重排整份计划（红线，§6x-19）')
+
+    // 导出带字段、导入还原字段（换机不丢）
+    s9.setBaby({ note: '是个爱笑的小家伙' })
+    const env9 = s9.exportUserData()
+    if (env9.indexOf('是个爱笑的小家伙') < 0)
+      E('导出备份没带个性描述 —— 换机丢字段（§6x-19）')
+    const before9 = s9.getBaby()
+    s9.importUserData(env9)
+    const after9 = s9.getBaby()
+    if (after9.note !== before9.note)
+      E('导入备份没还原个性描述 —— 往返不一致（§6x-19）')
+    // 导入侧同一套清洗：脏备份（带换行）不许写进库
+    s9.importUserData(JSON.stringify({ app: 'choubao-fushi', fmt: 2, baby: { name: 'x', birthday: '2026-01-01', note: '  a\n\nb  ' } }))
+    const dirty9 = s9.getBaby()
+    if (dirty9.note !== 'a b')
+      E('导入侧没清洗 note —— 脏备份能写进库（§6x-19）')
+  } finally {
+    if (hadWx9x) global.wx = savedWx9x; else delete global.wx
+  }
+
+  // 19c) 头卡结构（wxml）：小标 / 两行大标题 / 个性行 / 2×2 指标格 ——
+  //      批⑬ 删掉 出生日期行 / 出生指标行 / 状态行（§6x-22）；个性行批⑮ 恢复
+  ;['head-kicker', 'head-line', 'head-note',
+    'stat-grid', 'stat-cell', 'stat-label'].forEach((cls) => {
+    if (iw6x.indexOf(cls) < 0)
+      E('index.wxml 缺 .' + cls + ' —— 批⑨ 头卡结构没对齐参考图（§6x-19）')
+  })
+  ;['体重', '身长', '本周打卡', '已引入'].forEach((t) => {
+    if (iw6x.indexOf(t) < 0)
+      E('index.wxml 头卡指标格缺「' + t + '」—— 2×2 四格标签（§6x-19）')
+  })
+  if (iw6x.indexOf('wx:if="{{noteText}}"') < 0)
+    E('个性行没挂 noteText 闸门 —— 没填描述的人会看到空行（§6x-19）')
+  ;['statWeight.value', 'statLength.value', 'statCheck.value', 'statFood.value'].forEach((s) => {
+    if (iw6x.indexOf('{{' + s + '}}') < 0)
+      E('指标格没绑 {{' + s + '}} —— 四格得走现有数据（拍板①，§6x-19）')
+  })
+
+  // 19d) 反向后钉：零新数据源（拍板①：换现有数据，不新建睡/奶记录）
+  if (/bb_sleep|bb_milk|bb_nap|bb_night/i.test(sj6x))
+    E('storage 出现了睡眠/奶量记录键 —— 拍板①是「换现有数据」，不新建记录（§6x-19）')
+  if (/setStorageSync\(\s*['"]bb_(sleep|milk|nap)/i.test(ij6x) ||
+      /storage\.(get|set)(Sleep|Milk|Nap)\b/.test(ij6x))
+    E('index.js 新建了睡/奶数据 —— 拍板①不新建记录（§6x-19）')
+  if (ij6x.indexOf('d.done') < 0 || ij6x.indexOf('d.total') < 0)
+    E('本周打卡没走计划已有的 done/total —— 拍板①要复用现有数据（§6x-19）')
+  /* 批⑨ 拍板④「装饰沿用品牌绿」在批⑫ 被用户 2026-10-16 修订：两行大标题换
+     手写体，颜色改用浅蓝 --c-hand-title —— 那是唯一例外，色值/对比度钉在
+     §6x-21。这里原口径保留：语义蓝 --c-blue、语义红 --c-red、任何硬编码色
+     仍然一律禁止（--c-hand-title 是新命名的 token，不会落进这条正则）。 */
+  ;['head-main', 'head-kicker', 'head-star', 'head-line', 'head-name', 'head-age',
+    'head-note', 'stat-grid', 'stat-row', 'stat-cell', 'stat-label',
+    'stat-value', 'stat-unit', 'stat-sub'].forEach((cls) => {
+    const rule = icStrip6x.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*\\}'))
+    if (rule && /var\(--c-(red|blue)\b|#[0-9a-f]{3,6}/i.test(rule[0]))
+      E('.' + cls + ' 用了蓝/红或硬编码色 —— 批⑨ 拍板④ 仍有效，批⑫ 只放宽标题浅蓝那一处（§6x-19）')
+  })
+
+  // 19e) index.js 接线：小标序数词 + 个性行 + 指标格装配（全走 storage 现有源）。
+  //      批⑬ 起 headDateText 不再装配（noteText 批⑮ 恢复了）—— index.js 注释里
+  //      还留着这些名字做删除记录，所以一律剥注释再扫，别被自己写的说明误伤
+  const noC19e = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+  ;['enMonthWord', 'MONTH_WORDS', 'buildStats6x',
+    'monthWord', 'monthNo', 'noteText',
+    'statWeight', 'statLength', 'statCheck', 'statFood'].forEach((s) => {
+    if (noC19e(ij6x).indexOf(s) < 0)
+      E('index.js 缺 ' + s + ' —— 批⑨ 头卡派生没装配（§6x-19）')
+  })
+  ;['headDateText'].forEach((s) => {
+    if (noC19e(ij6x).indexOf(s) >= 0)
+      E('index.js 又在装配 ' + s + ' —— 首页不显示它，装配就是死数据（批⑬，§6x-19/§6x-22）')
+  })
+  if (ij6x.indexOf('safeFoodIds()') < 0)
+    E('「已引入」没走 storage.safeFoodIds —— 必须与档案页/「我的」同一数据源（§6x-19）')
+  if (iw6x.indexOf('{{name}}的') < 0 || iw6x.indexOf('第{{monthNo}}个月') < 0)
+    E('两行大标题没拼「名称 + 第 N 个月」—— 批⑨ 标题口径变了（§6x-19）')
+
+  // 19f) 档案页控件接线（一句话描述，选填）
+  const prw9x = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+  const prj9x = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+  if (prw9x.indexOf('bindinput="onNoteInput"') < 0)
+    E('档案页一句话描述没绑 bindinput —— 存不进库（§6x-19）')
+  if (prj9x.indexOf('noteMax: storage.BABY_NOTE_MAX') < 0)
+    E('描述上限没跟 storage.BABY_NOTE_MAX 走 —— 页面里另写了个数（§6x-19）')
+
+  // 19g) 对比度现算：品牌深绿小标/增量、次级灰日期行/个性行 ≥ 4.5（AA）
+  const gdark9x = app6x.match(/--c-green-dark:\s*(#[0-9a-f]{6})/i)
+  const t2M9x = app6x.match(/--c-text-2:\s*(#[0-9a-f]{6})/i)
+  if (gdark9x && tintM6x) {
+    const r = ratio6x(gdark9x[1], tintM6x[1])
+    if (r < 4.5)
+      E('英文小标/★ ' + gdark9x[1] + ' on 品牌浅绿 ' + tintM6x[1] + ' = ' + r.toFixed(1) + ':1 < 4.5:1（AA，§6x-19）')
+  }
+  if (gdark9x && cardM6x) {
+    const r = ratio6x(gdark9x[1], cardM6x[1])
+    if (r < 4.5)
+      E('指标格增量 ' + gdark9x[1] + ' on 白底 ' + cardM6x[1] + ' = ' + r.toFixed(1) + ':1 < 4.5:1（AA，§6x-19）')
+  }
+  if (t2M9x && tintM6x) {
+    const r = ratio6x(t2M9x[1], tintM6x[1])
+    if (r < 4.5)
+      E('出生日期行/个性行 ' + t2M9x[1] + ' on 品牌浅绿 ' + tintM6x[1] + ' = ' + r.toFixed(1) + ':1 < 4.5:1（AA，§6x-19）')
+  }
+
+  // 19h) 批⑬（用户 2026-10-16 拍板）：状态行与出生信息行一并删掉 —— 原来的
+  //      「出生信息行 → 状态行 → 指标格」版式钉翻成反向钉；指标格位置不动，
+  //      入口胶囊跟在指标格之后的钉挪到 §6t
+  if (iw6x.indexOf('head-issue-row') >= 0 || iw6x.indexOf('head-birth') >= 0 ||
+      iw6x.indexOf('head-date') >= 0)
+    E('头卡又出现状态行 / 出生信息行 / 出生日期行 —— 用户 2026-10-16 要求删除（批⑬，§6x-19h/§6x-22）')
+  if (iw6x.indexOf('stat-grid') < 0)
+    E('index.wxml 缺 2×2 指标格 —— 头卡版式断链（§6x-19h）')
+
+  // 19i) 反向后钉：出生时间字段已按用户要求**删除**（2026-10-15）——
+  //      storage 白名单与清洗、档案页控件、首页日期行都不许再出现
+  ;['utils/storage.js', 'pages/index/index.js', 'pages/index/index.wxml',
+    'pages/profile/profile.wxml', 'pages/profile/profile.js'].forEach((f) => {
+    if (/birthTime/.test(fs.readFileSync('./' + f, 'utf8')))
+      E(f + ' 又出现了 birthTime 字段 —— 用户 2026-10-15 要求删除出生时间（§6x-19i）')
+  })
+  if (prw9x.indexOf('出生时间') >= 0)
+    E('档案页又出现「出生时间」这一行 —— 用户 2026-10-15 要求删除（§6x-19i）')
+
+  /* ── §6x-20 身高体重记录入口 + 面板（v3.0 · 用户 2026-10-15；v3.2 搬到首页）
+   * 用户要求：① 一个「记身高体重」的入口，点开是贴底面板（图二版式：
+   * 身长 / 体重 / 头围 / 测量日期 + 保存 + 已有记录时「删除这条记录」）；
+   * ②「我的」页加一行历史（形态待用户拍板，见 20e）。
+   * v3.2（用户 2026-10-19）：档案页第 5 步整屏删除，入口搬到**首页头卡胶囊**，
+   * 就地弹面板、不跳页 —— 断言目标文件随之从 profile 改为 index。
+   * v3.5（用户 2026-10-20）：拍板方案 C —— 「我的」页那一行改成**整行跳曲线页**，
+   * 本页不再展开清单、不再逐条删除（全站唯一一份测量记录在曲线页，见 §6x-13）。
+   * v3.6（用户 2026-10-20）：同页新增「关于」卡 —— 新头像「围兜宝宝」在包内的
+   * 唯一落点（分享卡与平台头像都在微信侧），见 20f。
+   * 数据层**不新增**：就是曲线页那份 bb_growth（storage.getGrowth /
+   * upsertGrowthRecord / removeGrowthRecord），多处共用同一份，绝不另存。
+   * 面板默认载入「今天」这条（用户拍板）：今天已有 → 带出旧值可改可删；今天没有
+   * → 空表单新建；改「测量日期」= 改那一天。字段名沿用「身长」（用户拍板：
+   * 与曲线页、数据字段 length 一个词）。红线不变：只出数值，不出评价。
+   */
+  const prw20x = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+  const prj20x = fs.readFileSync('./pages/index/index.js', 'utf8')
+  const prc20x = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+
+  // 20a) 首页入口 + 面板接线
+  if (prw20x.indexOf('记录身高体重') < 0)
+    E('首页缺「记录身高体重」入口 —— 档案页第 5 步已删，这是唯一录入口（§6x-20a）')
+  ;['bindtap="openMetricSheet"', 'bindchange="onMetricDate"', 'bindinput="onMetricInput"',
+    'bindtap="onMetricSave"', '删除这条记录', 'mForm.weight', 'mForm.length',
+    'mForm.head'].forEach((s) => {
+    if (prw20x.indexOf(s) < 0) E('身高体重面板 wxml 缺 ' + s + '（§6x-20a）')
+  })
+  ;['openMetricSheet', 'loadMetric', 'onMetricSave', 'onMetricDelete'].forEach((s) => {
+    if (prj20x.indexOf(s) < 0) E('首页测量面板缺 ' + s + ' handler（§6x-20a）')
+  })
+  if (prj20x.indexOf('this.loadMetric(storage.todayStr())') < 0)
+    E('测量面板默认载入的不是「今天」这条 —— 用户 2026-10-15 拍板的默认口径变了（§6x-20a）')
+  if (prj20x.indexOf('metricHasRecord') < 0 || prw20x.indexOf('metricHasRecord') < 0)
+    E('「删除这条记录」没跟「该日期是否已有记录」联动 —— 删除通道会一直挂着（§6x-20a）')
+  // v3.2：保存/删除后必须 refresh —— 头卡「体重 / 身长」要立刻跟上
+  if ((prj20x.match(/this\.refresh\(\)/g) || []).length < 2)
+    E('保存或删除后没 refresh 首页 —— 头卡体重/身长会停在旧数字（§6x-20a）')
+
+  // 20b) 不新增数据源（反向钉）：只走 storage 三个既有接口，页面不碰 key
+  ;['storage.getGrowth', 'storage.upsertGrowthRecord', 'storage.removeGrowthRecord'].forEach((s) => {
+    if (prj20x.indexOf(s) < 0)
+      E('首页测量面板没走 ' + s + ' —— 与曲线页不是同一份数据（§6x-20b）')
+  })
+  if (prj20x.indexOf('setStorageSync') >= 0 || prj20x.indexOf('KEYS.') >= 0)
+    E('首页直接碰 storage key —— 测量记录必须走 utils/storage.js（§6x-20b）')
+
+  // 20c) 红线：新 UI 文案不含评价词。只扫**面板段** —— 首页别处的既有文案
+  //      有「恢复正常饮食」「生长发育异常」，全文扫会误报（v3.2 收窄）
+  const panel20x = (prw20x.match(/<!-- 身高体重记录 · 贴底面板[\s\S]*?删除这条记录<\/view>/) || [''])[0]
+  if (!panel20x) E('首页找不到测量面板段 —— 注释锚点被改了（§6x-20c）')
+  ;[[panel20x, 'index.wxml 面板段'], [stripJs6x(prj20x), 'index.js（剥注释）']].forEach((t) => {
+    badWords6x.forEach((w) => {
+      if (t[0].indexOf(w) >= 0)
+        E(t[1] + ' 出现评价词「' + w + '」—— 身高体重只记录不评价（红线，§6x-20c）')
+    })
+  })
+
+  // 20d) 新元素对比度现算 ≥ 4.5（AA）+ 类名断链
+  ;['.ms-head', '.ms-title', '.ms-save', '.ms-del'].forEach((c) => {
+    if (prc20x.indexOf(c) < 0) E('index.wxss 缺 ' + c + ' —— 测量面板样式断链（§6x-20d）')
+  })
+  const muted20x = app6x.match(/--c-muted:\s*(#[0-9a-f]{6})/i)
+  const red20x = app6x.match(/--c-red:\s*(#[0-9a-f]{6})/i)
+  ;[[cardM6x, t2M9x, '取消（次级灰）on 白底'],
+    [cardM6x, gdark9x, '保存（品牌深绿）on 白底'],
+    [muted20x, red20x, '删除（红）on 次级底']].forEach((p) => {
+    if (!p[0] || !p[1]) return
+    const r = ratio6x(p[1][1], p[0][1])
+    if (r < 4.5)
+      E('§6x-20d ' + p[2] + ' = ' + r.toFixed(1) + ':1 < 4.5:1（AA）')
+  })
+
+  // 20e) 「我的」页的「生长曲线」行（v3.5 · 用户 2026-10-20 拍板方案 C）：
+  //      整行跳 pages/growth，行右值 = 记录条数；本页**不**展开清单、**不**提供删除。
+  //      清单与增删改只在曲线页（§6x-13 正向钉的唯一入口）。
+  //      注意：索引页仍由首页头卡胶囊负责「录入」，「我的」这一行只负责「看」。
+  const mw20x = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+  const mj20x = fs.readFileSync('./pages/mine/mine.js', 'utf8')
+  if (mw20x.indexOf('生长曲线') < 0 || mw20x.indexOf('{{growthCount}} 次记录') < 0)
+    E('「我的」缺「生长曲线」行或次数 —— 曲线页唯一入口断了（§6x-20e）')
+  if (mw20x.indexOf('bindtap="goGrowth"') < 0)
+    E('「我的」生长曲线行没挂 bindtap="goGrowth" —— 方案 C 是整行跳转（§6x-20e）')
+  if (mj20x.indexOf('/pages/growth/growth') < 0)
+    E('「我的」缺 goGrowth 里的跳转地址 —— 行能点但跳不走（§6x-20e）')
+  // 反向钉：本页不许再复制一份只能删的副本
+  ;['growthList', 'removeGrowth', 'hg-del', 'data-row="growth"'].forEach((s) => {
+    if (mw20x.indexOf(s) >= 0) E('「我的」又出现 ' + s + ' —— 清单与删除只在曲线页（§6x-20e）')
+  })
+  if (mj20x.indexOf('removeGrowthRecord') >= 0)
+    E('「我的」页自己删测量记录 —— 删除通道只在曲线页（§6x-20e）')
+  if (mj20x.indexOf('growthCount') < 0) E('「我的」缺 growthCount —— 行右值没数（§6x-20e）')
+  if (mj20x.indexOf('setStorageSync') >= 0 || mj20x.indexOf('KEYS.') >= 0)
+    E('「我的」直接碰 storage key —— 测量记录必须走 utils/storage.js（§6x-20e）')
+  const mc20x = fs.readFileSync('./pages/mine/mine.wxss', 'utf8')
+  ;['.row-ic', '.row-top'].forEach((c) => {
+    if (mc20x.indexOf(c) < 0) E('mine.wxss 缺 ' + c + ' —— 生长曲线行样式断链（§6x-20e）')
+  })
+  // 红线：这一段 UI 文案不含评价词。mine.wxml 全文件扫不了（免责声明里有
+  // 「生长发育异常」），所以按 6x-hg-scan-start/end 标记段扫；JS 剥注释后整份扫。
+  const hgs20x = mw20x.indexOf('6x-hg-scan-start')
+  const hge20x = mw20x.indexOf('6x-hg-scan-end')
+  if (hgs20x < 0 || hge20x < 0 || hge20x < hgs20x)
+    E('mine.wxml 缺 6x-hg-scan-start/end 标记 —— 新段没圈出来，词表没法扫（§6x-20e）')
+  else {
+    const seg20x = mw20x.slice(hgs20x, hge20x)
+    badWords6x.forEach((w) => {
+      if (seg20x.indexOf(w) >= 0)
+        E('「我的」生长曲线行段出现评价词「' + w + '」—— 只记录不评价（红线，§6x-20e）')
+    })
+  }
+  badWords6x.forEach((w) => {
+    if (stripJs6x(mj20x).indexOf(w) >= 0)
+      E('mine.js（剥注释后）出现评价词「' + w + '」—— 红线（§6x-20e）')
+  })
+  // 20f) 「关于」卡：v3.6 当天新增、当天按用户要求删除（2026-10-20）——
+  //      连带 images/logo-circle.png 一并撤掉，品牌位图现在只有分享卡一张。
+  //      这里留一条反向钉，免得哪天有人把卡加回来却忘了位图。
+  if (mw20x.indexOf('about-card') >= 0 || mw20x.indexOf('logo-circle.png') >= 0)
+    E('「我的」又出现关于卡 —— 用户 2026-10-20 已删除，要加回来请连位图一起拍板（§6x-20f）')
+
+  /* ── §6x-21 批⑫ · 首页头卡手写体 + 浅蓝（用户 2026-10-16 拍板）───────────────
+   * 用户要求：「臭宝的 / 第 N 个月」两行大标题换手写体，且**不用品牌绿，改浅蓝**。
+   * 这次拍板修订了两块旧板：
+   *   ① 决策③「不引字体文件」→ 引字体，但只以内嵌子集的形态（不联网）；
+   *   ② 批⑨ 拍板④「装饰沿用品牌绿」→ 标题那一处放宽为浅蓝 --c-hand-title。
+   * 技术前提（官方口径 + 实测）：WXSS 的 @font-face 只吃 base64 或网络地址，
+   *   包内 ttf 的相对路径不生效；wx.loadFontFace 同样必须 https —— 两条都与
+   *   「不联网」红线冲突，所以唯一路径是把子集 base64 内嵌进
+   *   pages/index/font.wxss（由 scripts/gen-hand-font.py 生成，别手改）。
+   * 体积实测（站酷快乐体 · SIL OFL 1.1）：
+   *   只覆盖标题字 3.6KB；把宝宝名也做成手写体则要带 GB2312 一级 3755 字
+   *   → base64 582KB。配套把 scripts/（1.1MB xlsx 生成缓存）排除出上传包，
+   *   净包体积反而比批⑪ 时更小。
+   */
+  {
+    const ftx21x = fs.existsSync('./pages/index/font.wxss')
+      ? fs.readFileSync('./pages/index/font.wxss', 'utf8') : ''
+    if (!ftx21x) {
+      E('缺 pages/index/font.wxss —— 手写体子集没生成（跑 python scripts/gen-hand-font.py）（§6x-21）')
+    } else {
+      // 21a) @font-face 本体：家族名 / 字重描述符 / base64 woff2 / 零网络
+      if (ftx21x.indexOf("font-family: 'ChoubaoHand'") < 0)
+        E("font.wxss 的 @font-face 家族名不是 'ChoubaoHand' —— index.wxss 引用不到（§6x-21）")
+      if (ftx21x.indexOf('font-weight: 600') < 0)
+        E('font.wxss 的 @font-face 没声明 font-weight: 600 —— 站酷快乐体只有一个字重，'
+          + '描述符不写 600，渲染器会按 400 处理再伪加粗，圆体笔画会糊成一团（§6f 字重三档钉的 600 也在这）（§6x-21）')
+      const uri21x = ftx21x.match(/url\(['"]?data:font\/woff2;base64,([A-Za-z0-9+/=]+)/)
+      if (!uri21x) {
+        E('font.wxss 的 @font-face 不是 base64 woff2 内嵌 —— 包内字体路径不生效，走网络又破红线（§6x-21）')
+      } else {
+        // 完整性：解开后前 4 字节必须是 wOF2 魔数（截断/写坏一眼抓住）
+        if (Buffer.from(uri21x[1], 'base64').slice(0, 4).toString('latin1') !== 'wOF2')
+          E('font.wxss 的 woff2 解开后没有 wOF2 魔数 —— 内容被截断或写坏，重跑 gen-hand-font.py（§6x-21）')
+        // 生成脚本的自述必须与实际字节一致（防止手改 base64 没重跑脚本）
+        const stat21x = ftx21x.match(/choubao-hand-font:\s*family=(\S+) chars=(\d+) woff2=([\d.]+)KB base64=([\d.]+)KB mode=(\w+)/)
+        if (!stat21x) {
+          E('font.wxss 缺 choubao-hand-font: 统计行 —— 体积/字集没有可核对的口径（§6x-21）')
+        } else {
+          if (stat21x[1] !== 'ChoubaoHand')
+            E('统计行的家族名与 @font-face 不一致 —— 改了名没重跑脚本（§6x-21）')
+          if (Math.abs(uri21x[1].length / 1024 - parseFloat(stat21x[4])) > 2)
+            E('统计行声明 base64 ' + stat21x[4] + 'KB，实际 ' + (uri21x[1].length / 1024).toFixed(1)
+              + 'KB —— base64 被手改过，重跑 gen-hand-font.py（§6x-21）')
+          if (stat21x[5] !== 'full')
+            E("字体字集是 '" + stat21x[5] + "' 模式 —— 用户 2026-10-16 拍板两行都换手写体，"
+              + '名字那行要覆盖常用汉字。真要精简到只有月龄行：python scripts/gen-hand-font.py --lean（§6x-21）')
+          if (parseInt(stat21x[2], 10) < 3700)
+            E('字体字集 ' + stat21x[2] + ' 字 < 3700 —— 名字那行的常用汉字覆盖丢了（§6x-21）')
+        }
+        // 零网络：剥注释后不许出现任何 http(s) 地址（注释里的版权链接是 OFL
+        // 要求随附的，不参与判定；真正的来源已由上面的 base64 钉死）
+        if (/https?:\/\//i.test(stripCss6x(ftx21x)))
+          E('font.wxss 里出现网络地址 —— 字体走网络就破「不联网」红线（§6x-21）')
+      }
+      // 项目里不许再有第二条加载字体的通道
+      const jsDirs21x = ['.'].concat(fs.readdirSync('./pages', { withFileTypes: true })
+        .filter((d) => d.isDirectory()).map((d) => './pages/' + d.name))
+      const jsFiles21x = jsDirs21x.flatMap((dir) => fs.readdirSync(dir)
+        .filter((f) => /\.js$/.test(f) && f !== '_validate.js').map((f) => dir + '/' + f))
+      jsFiles21x.forEach((f) => {
+        if (/loadFontFace/.test(fs.readFileSync(f, 'utf8')))
+          E(f + ' 调用了 wx.loadFontFace —— 字体内嵌即可，不许走网络字体（§6x-21）')
+      })
+    }
+
+    // 21b) 接线：index.wxss 引入子集 + 标题容器挂家族 + 两个子元素挂浅蓝
+    if (!/^\s*@import\s+"font\.wxss"\s*;/m.test(ic6x))
+      E('index.wxss 没引入 font.wxss —— @font-face 进不了包，标题会掉回系统字（§6x-21）')
+    const hl21x = icStrip6x.match(/\.head-line\s*\{[^}]*\}/)
+    if (!hl21x || hl21x[0].indexOf("'ChoubaoHand'") < 0)
+      E('.head-line 没挂手写体家族 —— 两行大标题会掉回系统字（§6x-21）')
+    ;['head-name', 'head-age'].forEach((cls) => {
+      const rule = icStrip6x.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*\\}'))
+      if (!rule || rule[0].indexOf('var(--c-hand-title)') < 0)
+        E('.' + cls + ' 没用 --c-hand-title —— 用户 2026-10-16 拍板：标题改浅蓝（§6x-21）')
+    })
+    // 小标与 ★ 仍走品牌绿：这一行没换手写体，12px 的浅蓝压浅绿过不了正文 AA（4.5:1）
+    ;['head-kicker', 'head-star'].forEach((cls) => {
+      const rule = icStrip6x.match(new RegExp('\\.' + cls + '\\s*\\{[^}]*\\}'))
+      if (!rule || rule[0].indexOf('var(--c-green-dark)') < 0)
+        E('.' + cls + ' 不再是品牌绿 —— 批⑫ 只放宽标题那一处（§6x-21）')
+    })
+
+    // 21c) 色值走 token + 对比度现算：浅蓝压品牌浅绿 ≥ 3:1（40rpx/600 算大字）
+    const hand21x = app6x.match(/--c-hand-title:\s*(#[0-9a-f]{6})/i)
+    if (!hand21x) {
+      E('app.wxss 缺 --c-hand-title —— 标题浅蓝没走 token（§6x-21）')
+    } else if (tintM6x) {
+      const rh21x = ratio6x(hand21x[1], tintM6x[1])
+      if (rh21x < 3)
+        E('标题浅蓝 ' + hand21x[1] + ' on 品牌浅绿 ' + tintM6x[1] + ' = ' + rh21x.toFixed(1)
+          + ':1 < 3:1 —— 40rpx/600 属「大字」，AA 门槛 3:1；再浅一档连大字都过不了（§6x-21）')
+    }
+
+    // 21d) 上传包预算：scripts/ 是构建期产物（含 1.1MB WHO 表 xlsx 缓存），
+    //      运行时零依赖 —— 不排除的话，字体那 582KB 就是白花的
+    const pc21x = JSON.parse(fs.readFileSync('./project.config.json', 'utf8'))
+    const ig21x = (pc21x.packOptions && pc21x.packOptions.ignore) || []
+    if (!ig21x.some((o) => o.type === 'folder' && o.value === 'scripts'))
+      E('project.config.json 没把 scripts/ 排除出上传包 —— 里面 1.1MB 是 WHO 表生成缓存，'
+        + '运行时用不到，不排除会让手写体的包体积白花（§6x-21）')
+    const walk21x = (dir) => fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => {
+      if (d.name === '.git' || d.name === 'node_modules') return []
+      const p21x = dir + '/' + d.name
+      if (d.isDirectory()) {
+        if (ig21x.some((o) => o.type === 'folder' && o.value === d.name)) return []
+        return walk21x(p21x)
+      }
+      if (d.name === '_validate.js' || /\.(md|bak)$/.test(d.name)) return []
+      return [p21x]
+    })
+    const pkgBytes21x = walk21x('.').reduce((a, p) => a + fs.statSync(p).size, 0)
+    if (pkgBytes21x > 1900 * 1024)
+      E('上传包（原始字节估）' + (pkgBytes21x / 1024).toFixed(0) + 'KB，已逼近主包上限 2MB —— '
+        + '字集是主要开销，重跑 gen-hand-font.py --lean 可降到 4KB 量级（§6x-21）')
+  }
+
+  /* ── §6x-22 批⑬ · 首页头卡删五处文案（v3.0 · 用户 2026-10-16 拍板）───────────
+   * 用户在真机截图上框了两块，要求把框内文案**从首页删掉**，一共五处：
+   *   ① 出生日期行「2026 年 5 月 6 日 · 5 个月 10 天」
+   *   ② 出生指标行「出生 6.6kg · 56cm」
+   *   ③ 状态行「当前状态：…」
+   *   ④ 阶段说明行「刚起步，一天 1–2 餐，从强化铁米粉开始」
+   *   ⑤「辅食第 1 个月 · 自 2026-10-13 起」
+   * （框里还有一行个性行「爱笑狂魔」，批⑮ 用户 2026-10-16 又要求恢复 —— 它在
+   *   §6x-19c/19e 里是正向钉，不在这节的反向名单里。）
+   * 这一节是**反向钉**，口径是「只删首页渲染 + 它那份派生装配」，数据源一律不动：
+   * 出生体重/身长档案页照填（指标格的 Δ 还要用）、一句话描述照填、
+   * foodStart 照进计划指纹、状态在「我的」与档案页照看。
+   */
+  {
+    const w22 = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+    const j22 = stripJs6x(fs.readFileSync('./pages/index/index.js', 'utf8'))
+    const c22 = stripCss6x(fs.readFileSync('./pages/index/index.wxss', 'utf8'))
+
+    // 22a) wxml：绑定点与类名都不许回来（个性行批⑮ 已恢复，不在名单里）
+    ;[['headDateText', '出生日期行'], ['birthText', '出生指标行'],
+      ['issueLabel', '状态行'], ['issueNone', '状态行'],
+      ['stageDesc', '阶段说明行'], ['foodAgeText', '辅食月龄副文案']].forEach((t) => {
+      if (w22.indexOf('{{' + t[0] + '}}') >= 0)
+        E('index.wxml 又绑了 {{' + t[0] + '}} —— ' + t[1] + '按用户 2026-10-16 要求从首页删除（§6x-22）')
+    })
+    ;[['head-date', '出生日期行'], ['head-birth', '出生指标行'],
+      ['head-issue', '状态行'], ['head-food-age', '辅食月龄副文案']].forEach((t) => {
+      if (w22.indexOf(t[0]) >= 0)
+        E('index.wxml 又出现 ' + t[0] + ' —— ' + t[1] + '已删（批⑬，§6x-22）')
+    })
+
+    // 22b) js：派生不许再装配（剥注释后扫 —— 我们的注释里留了字段名做删除记录）
+    ;['headDateText(', 'birthText:', 'foodAgeText:',
+      'issueLabel:', 'issueNone:', 'base.stageDesc'].forEach((t) => {
+      if (j22.indexOf(t) >= 0)
+        E('index.js 又在装配 ' + t.replace(/[(:,]$/, '') + ' —— 首页不显示它，装配就是死数据（§6x-22）')
+    })
+    if (/getStatuses\(\)/.test(j22) || /statusLabels\(/.test(j22))
+      E('index.js 又去取状态汇总 —— 头卡状态行已删，这行取值是死的（§6x-22）')
+
+    // 22c) wxss：死样式不许复活（剥注释后扫）
+    ;['head-date', 'head-birth', 'head-issue-row',
+      'head-issue--none', 'head-food-age'].forEach((cls) => {
+      if (new RegExp('\\.' + cls + '\\s*\\{').test(c22))
+        E('index.wxss 又有 .' + cls + ' 规则 —— 随文案一起删了，加回来就是死样式（§6x-22）')
+    })
+    if (/\.head-issue(::before)?\s*\{/.test(c22))
+      E('index.wxss 又有 .head-issue 规则 —— 状态行已删（§6x-22）')
+
+    // 22d) 反向兜底：数据源不许被顺手删掉（「只删展示」的另一半）——
+    //      个性行批⑮ 恢复了，但档案页那个控件照旧不许动
+    const prw22 = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+    ;[['birthWeight', '出生体重控件'], ['birthLength', '出生身长控件'],
+      ['onNoteInput', '一句话描述控件']].forEach((t) => {
+      if (prw22.indexOf(t[0]) < 0)
+        E('档案页' + t[1] + '没了 —— 批⑬ 只删首页展示，数据入口要留着（§6x-22）')
+    })
+    const mw22 = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+    if (mw22.indexOf('issueLabel') < 0)
+      E('「我的」的状态行被误删 —— 用户只让删首页（§6x-22）')
+  }
+
+  if (errs.length === errsBefore) {
+    console.log('  6x 成长曲线·数据层(v3.0 批①)：bb_growth 读写/同日覆写/排序/归一 ✓、日期闸门(未来/出生前) ✓、区间拒收+全空拒收 ✓、档案三字段白名单+控件接线 ✓、备份 fmt2 往返+fmt1 兼容+脏条目清洗 ✓、resetAll 清 bb_growth ✓、planSignature 不敏感(红线) ✓')
+    console.log('  6x 成长曲线·计算层(v3.0 批②)：WHO 官方表 6 表×61 点结构+8 个中位锚点 ✓、双时钟(生理日龄/foodStart 无感) ✓、六带边界+标签中性词表 ✓、0–60 月与缺性别/缺数值闸门 ✓、中位数=P50 链路自洽 ✓')
+    console.log('  6x 成长曲线·页面层(v3.0 批③)：注册+不进 tabBar ✓、性别闸门(曲线/区间过 hasSex) ✓、参考线互逆(曲线↔metricAt) ✓、评价词反向钉 ✓、恒定说明句+免责声明 ✓、入口恰好一处(v3.5 方案C) ✓、曲线页零媒体+零网络 ✓、canvas 自绘+字重/阴影/display 基线 ✓')
+    console.log('  6x 成长曲线·首页(v3.0 批④)：贴纸本体纯 CSS+images 打包位图零新增 ✓、出生信息行已删(批⑬ 反向钉) ✓、词表扩扫首页(JS/WXSS 剥注释+标记段) ✓、字重三档+新元素对比度现算 AA ✓')
+    console.log('  6x 成长曲线·出生指标修订(批⑥/批⑭·用户 2026-10-15、10-16)：出生体重「大于 2 且小于 15 kg」严格开区间+出生身长 20–70cm 边界与越界实跑 ✓、打字期不归一(input 回写原始值) ✓、校验/归一/提示落 blur(越界清空+toast) ✓')
+    console.log('  6x 成长曲线·照片(批⑦·用户 2026-10-15)：chooseMedia(单张/只图/压缩)→固定路径覆盖写实跑 ✓、长按移除回退+占位回退 ✓、resetAll 连文件清 ✓、备份信封不含照片 ✓、index 零网络+plan 零照片指纹 ✓')
+    console.log('  6x 成长曲线·分享(批⑧·用户 2026-10-15；v3.6 修订拍板②)：5 内容页双钩子(appMessage+timeline) ✓、内容型拍板标题单一来源+词表 ✓、分享卡位图 imageUrl 恰好一处且只指向本地 share-card.png ✓、零网络/零个人信息 ✓、显式 path 回原页(食材详情带 id) ✓、档案/我的反向钉 ✓')
+    console.log('  6x 成长曲线·首页头卡对标(批⑨·用户 2026-10-15)：英文小标+两行大标题(同容器同字号,--fs-display) ✓(出生时间字段已按用户要求删除,反向钉) 、2×2 指标格换现有数据(体重/身长/本周打卡/已引入) ✓、一句话描述 白名单+清洗+导入往返+不进指纹 ✓、零新数据源(不建睡/奶) ✓、新元素字重三档+对比度现算 AA ✓')
+    console.log('  6x 首页头卡删五处文案(批⑬·用户 2026-10-16)：出生日期行/出生指标行/状态行/阶段说明行/辅食月龄副文案 五处连同派生装配与样式一并删除 ✓、数据源反向兜底(档案页控件/我的状态行照在) ✓、入口胶囊位置钉改钉指标格之后(形态钉不变) ✓')
+    console.log('  6x 首页恢复个性行(批⑮·用户 2026-10-16)：一句话描述 加回头卡(标题与指标格之间) ✓、noteText 装配与 .head-note 样式恢复 ✓、档案页控件不动 ✓')
+    console.log('  6x 身高体重记录入口(批⑪·用户 2026-10-15)：档案页入口行+贴底面板(身长/体重/头围/测量日期+保存) ✓、默认载入「今天」这条 ✓、已有记录时「删除这条记录」+确认框 ✓、同一份 bb_growth(不新增数据源反向钉) ✓、红线词表扫档案页 ✓、新元素对比度现算 AA ✓')
+    console.log('  6x 生长曲线入口·方案C(v3.5 · 用户 2026-10-20)：「我的」页「生长曲线」行整行跳曲线页(恰好一处,首页反向钉) ✓、「我的」不再复制只能删的清单(反向钉) ✓、记录列表紧跟曲线卡且位置钉死 ✓、current 压成曲线卡内一行+画布 392rpx ✓、没性别/超月龄分支单独一张 current 卡 ✓')
+    console.log('  6x 首页头卡手写体(批⑫·用户 2026-10-16)：站酷快乐体子集 base64 内嵌、零网络 ✓、@font-face 家族名+字重描述符 600(防伪加粗) ✓、wOF2 魔数与统计行自洽 ✓、名字常用字覆盖(full 模式,GB2312 一级 3755 字) ✓、index 引入+两行挂家族+浅蓝 token ✓、浅蓝压品牌浅绿 ≥3:1(40rpx/600 按大字算) ✓、小标/★ 仍品牌绿 ✓、scripts 排除出上传包+整包 ≤2MB ✓')
+  }
+
+  /* ── 6y 首次进入弹窗 + 档案页分步向导（v3.1 · 用户 2026-10-19 拍板）─────
+   *  两个改动互相咬合：弹窗负责「最少信息建好档」，向导负责「剩下的慢慢补」。
+   *  所以弹窗里只许出现名字/生日/辅食日期 —— 性别与出生指标一旦进弹窗，
+   *  首屏摩擦就加回来了，向导第 2 步也失去存在意义。这条是反向钉。 */
+  {
+    const errsBefore6y = errs.length
+    const stj6y = fs.readFileSync('./utils/storage.js', 'utf8')
+    const ij6y = fs.readFileSync('./pages/index/index.js', 'utf8')
+    const iw6y = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+    const prj6y = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+    const prw6y = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+    const prx6y = fs.readFileSync('./pages/profile/profile.wxss', 'utf8')
+
+    // a) 默认名：存在、已导出、四位无前导零（1000 起）
+    if (stj6y.indexOf('function defaultBabyName(') < 0)
+      E('storage 缺 defaultBabyName —— 首次进入弹窗没有可预填的名字')
+    if (stj6y.indexOf('defaultBabyName: defaultBabyName') < 0)
+      E('defaultBabyName 没导出 —— 页面拿不到')
+    if (!/1000 \+ Math\.floor\(Math\.random\(\) \* 9000\)/.test(stj6y))
+      E('默认名不是「1000 + rand*9000」—— 会出现「宝贝0007」这种前导零编号')
+
+    // b) 弹窗：触发走 isConfigured，且编号必须落库
+    if (ij6y.indexOf('maybeOpenOnboard') < 0)
+      E('index.js 缺 maybeOpenOnboard —— 首次进入不会弹窗')
+    if (ij6y.indexOf('storage.defaultBabyName()') < 0)
+      E('弹窗没调 defaultBabyName —— 名字是空的')
+    if (ij6y.indexOf('storage.setBaby({ name: name })') < 0)
+      E('默认名没落库 —— 每次启动会换一个编号，用户一眼看穿是假的')
+
+    // c) 弹窗字段：名字 + 生日 + 辅食日期；性别/出生指标不许进来（反向钉）
+    ;['obName', 'obBirthday', 'onObFoodStart', 'confirmOnboard', 'skipOnboard'].forEach((k) => {
+      if (iw6y.indexOf(k) < 0) E('index.wxml 弹窗缺 ' + k)
+    })
+    // 只扫弹窗本体（ob-dialog → ob-skip），不扫文件里的注释 ——
+    // 上面那段说明文字本身就写着这三个词
+    const obBlock6y = (iw6y.match(/<view class="ob-dialog"[\s\S]*?<view class="ob-skip"/) || [''])[0]
+    if (!obBlock6y)
+      E('index.wxml 找不到 ob-dialog 弹窗本体 —— 选择器或结构被改了')
+    ;['性别', '出生体重', '出生身长'].forEach((w) => {
+      if (obBlock6y.indexOf(w) >= 0)
+        E('弹窗里出现「' + w + '」—— 这三项不影响排菜，属于档案页第 2 步（反向钉）')
+    })
+    if (iw6y.indexOf('catchtouchmove="noop"') < 0)
+      E('弹窗遮罩没挡 touchmove —— 背景页会跟着滚')
+
+    // d) 向导：4 步、进度条可点、四个导航 handler 都在
+    //    v3.2：原第 5 步「都记好了」整屏删除（用户 2026-10-19），收尾摘要没了
+    ;['goStep', 'nextStep', 'prevStep', 'finish'].forEach((h) => {
+      if (prj6y.indexOf(h + '(') < 0) E('profile.js 缺向导 handler ' + h)
+      if (prw6y.indexOf('bindtap="' + h + '"') < 0) E('profile.wxml 没把 ' + h + ' 接到按钮上')
+    })
+    const stepCards6y = (prw6y.match(/step === \d/g) || []).length
+    if (stepCards6y !== 4)
+      E('档案页应为 4 张分步卡，实际 ' + stepCards6y + ' 张')
+    if (prw6y.indexOf('wx:for="{{stepPips}}"') < 0)
+      E('进度条没遍历 stepPips —— 步骤条会空')
+    if (prw6y.indexOf('data-step="{{item}}"') < 0)
+      E('进度条没绑 data-step —— 点不动，向导就只能一路翻页')
+
+    // e) 闸门：没生日不许离开第 1 步（后三步全靠月龄，没它全是空转）
+    if (prj6y.indexOf('!this.data.birthday') < 0)
+      E('nextStep/goStep 没拦「没填生日」—— 会生成一份算不出月龄的空计划')
+
+    // f) 样式：固定头/脚 + 进度条真的定义了（引用没定义 = 裸渲染）
+    ;['.wiz-head', '.wiz-foot', '.step-pip', '.wiz-card', '.wiz-btn'].forEach((c) => {
+      if (prx6y.indexOf(c + ' {') < 0) E('profile.wxss 缺 ' + c + ' —— 向导骨架没样式')
+    })
+
+    // g) 旧外壳不许借尸还魂：固定头脚和 page-wrap 的 padding 会打架
+    if (prw6y.indexOf('page-wrap--safe') >= 0)
+      E('档案页还留着旧的 page-wrap 外壳 —— 会和固定头脚打架')
+
+    if (errs.length === errsBefore6y) {
+      console.log('  6y 首次进入弹窗+档案页向导(v3.2·用户 2026-10-19)：默认名「宝贝+4位」落库一次不重算 ✓、触发走 isConfigured(不新增首次启动标志) ✓、弹窗只含名字/生日/辅食日期(性别与出生指标反向钉) ✓、跳过可用+遮罩挡滚 ✓、档案页 4 张分步卡+可点进度条+四个导航 handler ✓、没生日不放行 ✓、固定头脚样式齐全 ✓')
+    }
+
+    /* ── 6z 首页头卡「记录身高体重」胶囊（v3.2 方案A · 用户 2026-10-19 拍板）──
+     *  位置：头卡 2×2 指标格下方，与「滑动查看各月龄注意事项」并排（两枚胶囊）。
+     *  行为：点左胶囊 → 档案页第 5 步 + 直接弹测量面板（?metric=1）。
+     *  反向钉：首页不许复制一套测量面板 UI —— 面板只存在档案页一份，
+     *  否则改一处忘另一处，两边的校验口径迟早走样。 */
+    const errsBefore6z = errs.length
+    const ij6z = fs.readFileSync('./pages/index/index.js', 'utf8')
+    const iw6z = fs.readFileSync('./pages/index/index.wxml', 'utf8')
+    const iq6z = fs.readFileSync('./pages/index/index.wxss', 'utf8')
+    const prj6z = fs.readFileSync('./pages/profile/profile.js', 'utf8')
+    const prw6z = fs.readFileSync('./pages/profile/profile.wxml', 'utf8')
+    const mw6z = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+
+    // a) 两枚胶囊并排：双类选择器覆盖，原 .head-more-row 的 flex-end 一字不动
+    if (iw6z.indexOf('head-more-row--dual') < 0)
+      E('index.wxml 缺 head-more-row--dual —— 第二枚胶囊会挤在右侧，和月龄入口叠在一起')
+    if (!/\.head-more-row\.head-more-row--dual\s*\{[^}]*space-between/.test(iq6z))
+      E('.head-more-row--dual 没写 justify-content: space-between —— 两枚胶囊不会分到两端')
+    if ((iw6z.match(/class="head-more"/g) || []).length !== 2)
+      E('头卡胶囊不是恰好两枚 —— 方案A = 「记录身高体重」+「滑动查看各月龄注意事项」')
+
+    // b) 左胶囊文案与接线：就地弹面板，不跳页
+    if (iw6z.indexOf('记录身高体重') < 0)
+      E('index.wxml 缺「记录身高体重」胶囊 —— 方案A 的入口没落地')
+    if (!/bindtap="openMetricSheet"[^>]*>\s*<text class="hm-plus">＋<\/text>记录身高体重/.test(iw6z))
+      E('「记录身高体重」胶囊没绑 openMetricSheet —— 死入口')
+    if (/pages\/profile\/profile\?metric=1/.test(ij6z))
+      E('首页又跳 profile?metric=1 —— v3.2 已改成就地弹面板，档案页没有面板了')
+
+    // c) 反向钉：面板只存在一份，就在首页。档案页第 5 步与面板都不许复活
+    if (/step === 5/.test(prw6z))
+      E('档案页又出现第 5 步卡 —— 用户 2026-10-19 拍板整屏删除')
+    ;['ms-head', 'metricOpen', 'mForm'].forEach((k) => {
+      if (prw6z.indexOf(k) >= 0 || prj6z.indexOf(k) >= 0)
+        E('档案页又出现测量面板的 ' + k + ' —— 面板只存在首页一份，别复制第二套 UI')
+    })
+    if (prj6z.indexOf('openMetricSheet') >= 0 || prj6z.indexOf('metricSummaryText') >= 0)
+      E('profile.js 又出现测量面板 handler —— 面板已搬到首页（§6x-20a）')
+    if (!/stepPips:\s*\[1,\s*2,\s*3,\s*4\]/.test(prj6z))
+      E('档案页 stepPips 不是 [1,2,3,4] —— 第 5 步删了但进度条还是 5 段')
+
+    // d) 备份搬家：「我的」页要有导出/导入（§6v 已钉接线，这里钉它真的在页面上）
+    if (mw6z.indexOf('数据备份') < 0 || mw6z.indexOf('bindtap="onExport"') < 0)
+      E('「我的」页没有数据备份卡 —— 档案页第 5 步删了，备份就没出口了')
+
+    // e) 「我的」页空态文案要指向新入口
+    if (mw6z.indexOf('到首页头卡') < 0)
+      E('mine.wxml 生长记录空态还只指档案页 —— 首页现在也能记，文案要一起说')
+
+    if (errs.length === errsBefore6z) {
+      console.log('  6z 首页头卡「记录身高体重」胶囊(v3.2 方案A·用户 2026-10-19)：两枚胶囊两端对齐 ✓、文案+openMetricSheet 就地弹面板 ✓、档案页第 5 步与面板均未复活(反向钉) ✓、stepPips 收窄为 4 ✓、备份已落「我的」页 ✓、空态文案同步 ✓')
+    }
+
+    /* ── 6z-2 我的记录三格化（v3.4 · 用户 2026-10-19 拍板）────────────────
+     *  三行（已吃过 / 有反应 / 累计）改成三格并列：数字提主视觉、标签做注解，
+     *  高度从 3 行压到 1 行。展开逻辑不变（openRow + toggleRow 一字未改），
+     *  三块清单集中放在三格下方。
+     *  反向钉：三行旧文案不许回来 —— 回来就是又占掉三行高度。 */
+    const errsBefore6z2 = errs.length
+    const mw62 = fs.readFileSync('./pages/mine/mine.wxml', 'utf8')
+    const mq62 = fs.readFileSync('./pages/mine/mine.wxss', 'utf8')
+    ;['safe', 'bad', 'all'].forEach((r) => {
+      if (mw62.indexOf('data-row="' + r + '"') < 0)
+        E('我的记录三格缺 data-row="' + r + '" —— 那一格点了没反应（§6z-2）')
+    })
+    ;['safeCount', 'badCount', 'recordedCount'].forEach((k) => {
+      if (mw62.indexOf('{{' + k + '}}') < 0)
+        E('三格缺 ' + k + ' —— 数字是空的（§6z-2）')
+    })
+    ;['已吃过、没问题的食材', '有反应、已排除的食材', '累计记录过的食材'].forEach((t) => {
+      if (mw62.indexOf(t) >= 0)
+        E('我的记录又退回三行文案「' + t + '」—— v3.4 已改三格，别再占三行（§6z-2）')
+    })
+    if ((mw62.match(/class="trio-cell/g) || []).length !== 3)
+      E('我的记录不是恰好三格 —— 三行改三格是用户 2026-10-19 拍板的形态（§6z-2）')
+    ;['.trio', '.trio-cell', '.trio-num', '.trio-on'].forEach((c) => {
+      if (mq62.indexOf(c + ' {') < 0) E('mine.wxss 缺 ' + c + ' —— 三格没样式（§6z-2）')
+    })
+    if (errs.length === errsBefore6z2) {
+      console.log('  6z-2 我的记录三格化(v3.4·用户 2026-10-19)：三格 + 三个 data-row ✓、数字绑三个计数 ✓、展开清单仍在三格下方 ✓、旧三行文案反向钉 ✓、样式齐全 ✓')
+    }
+  }
 }
 
 /* ---------- 7. 统计 ---------- */

@@ -4,6 +4,7 @@ const icons = require('../../data/food-icons')
 const age = require('../../utils/age')
 const storage = require('../../utils/storage')
 const plan = require('../../utils/plan')
+const share = require('../../utils/share')
 
 const STATUS_TEXT = {
   safe: '已经吃过，没问题',
@@ -140,5 +141,20 @@ Page({
   toggleSteps(e) {
     const id = e.currentTarget.dataset.id
     this.setData({ expanded: this.data.expanded === id ? '' : id })
+  },
+
+  // 分享（批⑧）：标题跟当前食材走（「南瓜怎么加」），path 带 id 落回原页原食材
+  foodShareCard() {
+    const f = this.data.food
+    return share.card(share.foodDetailTitle(f && f.name),
+      '/pages/food-detail/food-detail?id=' + this.foodId)
+  },
+
+  onShareAppMessage() {
+    return this.foodShareCard()
+  },
+
+  onShareTimeline() {
+    return this.foodShareCard()
   }
 })

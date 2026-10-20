@@ -21,18 +21,35 @@
     <button class="btn btn-ghost mt" bindtap="goProfile">{{hasBaby ? '修改宝宝档案' : '去填写'}}</button>
   </view>
 
-  <!-- 我的记录（v2.1 升级为记录中枢）：点行展开该组食材名单，
-       「有反应」单独一行 —— 数据（badFoodIds）一直在，之前只是没有行 -->
+  <!-- 我的记录（v2.1 记录中枢；v3.4 用户 2026-10-19 拍板：三行改三格）：
+       三行改成三格并列 —— 数字提到主视觉，标签降成注解，高度从 3 行压到 1 行。
+       点任意一格展开对应清单（原 toggleRow / openRow 逻辑一字未改）。
+       「累计 = 已吃过 + 有反应」是纯加法（recordedFoodIds 就是全量，
+       v2.30 起只剩 safe / bad 两态），但三格并排能一眼看出比例，
+       比藏起来强 —— 别以「冗余」为由删掉第三格。 -->
   <view class="card">
     <view class="card-title">我的记录</view>
-    <view class="row row-tap {{openRow === 'safe' ? 'row-open' : ''}}"
-          data-row="safe" bindtap="toggleRow">
-      <text class="row-label">已吃过、没问题的食材</text>
-      <view class="row-right">
-        <text class="row-value">{{safeCount}} 种</text>
-        <text class="link-arrow {{openRow === 'safe' ? 'link-arrow-open' : ''}}">›</text>
+
+    <view class="trio">
+      <view class="trio-cell {{openRow === 'safe' ? 'trio-on' : ''}}"
+            data-row="safe" bindtap="toggleRow">
+        <view class="trio-num">{{safeCount}}</view>
+        <view class="trio-lab">已吃过</view>
+      </view>
+      <view class="trio-cell {{openRow === 'bad' ? 'trio-on trio-on-bad' : ''}}"
+            data-row="bad" bindtap="toggleRow">
+        <view class="trio-num trio-num-bad">{{badCount}}</view>
+        <view class="trio-lab">有反应</view>
+      </view>
+      <view class="trio-cell {{openRow === 'all' ? 'trio-on' : ''}}"
+            data-row="all" bindtap="toggleRow">
+        <view class="trio-num">{{recordedCount}}</view>
+        <view class="trio-lab">累计</view>
       </view>
     </view>
+
+    <!-- 三块清单集中放在三格下方：原来各自跟在自己的行后面，现在行没了，
+         展开区统一落在这里（点哪格展开哪块，切换时整块替换） -->
     <view class="row-detail fx-in" wx:if="{{openRow === 'safe'}}">
       <view class="rd-item" wx:for="{{safeList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
@@ -42,14 +59,6 @@
       <view class="muted rd-empty" wx:if="{{!safeList.length}}">还没有确认过的食材 —— 去档案页勾选（勾选 = 已经吃过、没问题），会自动记进来</view>
     </view>
 
-    <view class="row row-tap {{openRow === 'bad' ? 'row-open' : ''}}"
-          data-row="bad" bindtap="toggleRow">
-      <text class="row-label">有反应、已排除的食材</text>
-      <view class="row-right">
-        <text class="row-value row-value-bad">{{badCount}} 种</text>
-        <text class="link-arrow {{openRow === 'bad' ? 'link-arrow-open' : ''}}">›</text>
-      </view>
-    </view>
     <view class="row-detail fx-in" wx:if="{{openRow === 'bad'}}">
       <view class="rd-item" wx:for="{{badList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
@@ -60,14 +69,6 @@
       <view class="muted rd-hint" wx:if="{{badList.length}}">已永久排除、不再排进菜单；到档案页「有反应的食材」卡里点「清除记录」可重新引入。</view>
     </view>
 
-    <view class="row row-tap {{openRow === 'all' ? 'row-open' : ''}}"
-          data-row="all" bindtap="toggleRow">
-      <text class="row-label">累计记录过的食材</text>
-      <view class="row-right">
-        <text class="row-value">{{recordedCount}} 种</text>
-        <text class="link-arrow {{openRow === 'all' ? 'link-arrow-open' : ''}}">›</text>
-      </view>
-    </view>
     <view class="row-detail fx-in" wx:if="{{openRow === 'all'}}">
       <view class="rd-item" wx:for="{{recordedList}}" wx:key="foodId"
             data-id="{{item.foodId}}" bindtap="goFoodDetail">
@@ -77,6 +78,23 @@
       </view>
       <view class="muted rd-empty" wx:if="{{!recordedList.length}}">还没有任何记录</view>
     </view>
+
+    <!-- 6x-hg-scan-start -->
+    <!-- 生长曲线入口（v3.5 · 用户 2026-10-20 拍板方案 C）：整行跳曲线页。
+         本页不再展开记录清单、也不再提供逐条删除 —— 曲线页那张「测量记录」卡
+         是同一份 bb_growth，而且能点行改、点行删，比这里那份只能删的副本完整。
+         所以这一行是**跳转入口**，不是清单开关：取消 toggleRow / 行内展开 / 删除按钮。
+         v3.4：三格之后这行要一条上分隔线，否则和三格糊在一起。 -->
+    <view class="row row-tap row-top" bindtap="goGrowth">
+      <text class="row-label"><text class="row-ic">↗</text>生长曲线</text>
+      <view class="row-right">
+        <text class="row-value">{{growthCount}} 次记录</text>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+    <!-- 空态提示（v3.5 保留）：没有测量记录时，告诉用户去哪儿记 —— 录入口在首页头卡 -->
+    <view class="muted row-hint" wx:if="{{!growthCount}}">还没有测量记录 —— 到首页头卡「记录身高体重」记一次，曲线就有起点了。</view>
+    <!-- 6x-hg-scan-end -->
   </view>
 
   <!-- 最近 14 天喂养记录（v2.1 自档案页移来：记录归「我的」，档案页只管编辑） -->
@@ -89,6 +107,28 @@
       <text class="mh-state mh-s-{{item.status}}">{{item.label}}<text wx:if="{{item.reactionName}}" class="mh-react"> · {{item.reactionName}}</text></text>
     </view>
     <view class="muted" wx:if="{{!mealHistory.length}}">还没有记录 —— 在首页给每餐打卡，这里就会有内容。</view>
+  </view>
+
+  <!-- 数据备份（v3.2 从档案页搬来，用户 2026-10-19）：档案页第 5 步删除后，
+       换机/换账号/重装微信的出口落在这里。程序只做复制/粘贴两个动作，不联网
+       （§6v 钉）。导入是整包覆盖，js 侧导入前必须弹确认框（onImport）。 -->
+  <view class="card">
+    <view class="card-title">数据备份</view>
+    <view class="card-sub">换手机前先把备份复制走，存到微信「文件传输助手」或收藏里；到了新手机在这里粘贴导入。</view>
+    <view class="row row-tap" bindtap="onExport">
+      <text class="row-label">导出备份</text>
+      <view class="row-right">
+        <text class="row-value">复制到剪贴板</text>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
+    <view class="row row-tap" bindtap="onImport">
+      <text class="row-label">导入备份</text>
+      <view class="row-right">
+        <text class="row-value">粘贴恢复</text>
+        <text class="link-arrow">›</text>
+      </view>
+    </view>
   </view>
 
   <view class="disclaimer">

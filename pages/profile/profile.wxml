@@ -1,119 +1,201 @@
-<view class="page-wrap page-wrap--safe">
+<view class="wiz">
 
-  <!-- 宝宝信息：名称 + 生日（两张控件各写各的字段，由 setBaby 合并） -->
-  <view class="card">
-    <!-- 标题行：左标题、右补充信息，基线对齐 -->
-    <view class="card-head">
-      <view class="card-title">宝宝信息</view>
-      <view class="age-now" wx:if="{{ageText}}">现在 {{ageText}}</view>
+  <!-- ── 固定头部：进度条 + 步骤号 ─────────────────────────────────────────
+       v3.1 分步向导（用户 2026-10-19 拍板）：一屏一张卡，一次只处理一件事。
+       进度条**可点跳转** —— 向导最被诟病的是「改一个字段要翻好几页」，
+       可点进度条就是这条的解药，别删。 -->
+  <view class="wiz-head">
+    <view class="stepper">
+      <view class="step-pip {{step >= item ? 'on' : ''}}"
+            wx:for="{{stepPips}}" wx:key="*this" wx:for-item="item"
+            data-step="{{item}}" bindtap="goStep"></view>
     </view>
-    <view class="card-sub">名称和出生日期都是必填，两项都填好才能生成计划。</view>
-    <view class="row">
-      <text class="row-label">宝宝名称<text class="req">*</text></text>
-      <input class="row-input" value="{{name}}" placeholder="必填，如：臭宝"
-             placeholder-class="row-input-ph" maxlength="{{nameMax}}"
-             bindinput="onNameInput" />
+    <view class="wiz-meta">
+      <text class="wiz-step">第 {{step}} 步 · 共 {{stepPips.length}} 步</text>
+      <!-- 跳过只出现在 2–3 步（全选填）；第 1 步有必填，第 4 步底部就是「完成」，
+           再摆一个「跳过」等于两个按钮干同一件事（v3.2 删第 5 步后收窄到 2–3） -->
+      <text class="wiz-skip" wx:if="{{step >= 2 && step <= 3}}" bindtap="nextStep">跳过</text>
     </view>
-    <picker mode="date" value="{{birthday}}" start="{{minDate}}" end="{{today}}" bindchange="onDateChange">
-      <view class="row">
-        <text class="row-label">出生日期<text class="req">*</text></text>
-        <text class="row-value">{{birthday || '点击选择'}}</text>
+  </view>
+
+  <view class="wiz-body">
+
+    <!-- ① 宝宝信息（名称 + 生日 + 首次辅食日期）
+         标题仍是「宝宝信息」—— _validate §6x 钉住第一张卡的语义，别改成别的 -->
+    <view class="card wiz-card" wx:if="{{step === 1}}">
+      <view class="card-head">
+        <view class="card-title">宝宝信息</view>
+        <view class="age-now" wx:if="{{ageText}}">现在 {{ageText}}</view>
       </view>
-    </picker>
-    <!-- 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天 ——
-         计划/性状/餐次/引入门改按辅食月龄排；不填 = 按出生日期推算（现状）。
-         下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」，§6w 钉） -->
-    <picker mode="date" value="{{foodStart}}" start="{{foodMinDate}}" end="{{today}}"
-            wx:if="{{birthday}}" bindchange="onFoodStartChange">
+
       <view class="row">
+        <text class="row-label">宝宝名称<text class="req">*</text></text>
+        <input class="row-input" value="{{name}}" placeholder="必填，如：臭宝"
+               placeholder-class="row-input-ph" maxlength="{{nameMax}}"
+               bindinput="onNameInput" />
+      </view>
+
+      <picker mode="date" value="{{birthday}}" start="{{minDate}}" end="{{today}}" bindchange="onDateChange">
+        <view class="row">
+          <text class="row-label">出生日期<text class="req">*</text></text>
+          <text class="row-value">{{birthday || '点击选择'}}</text>
+        </view>
+      </picker>
+
+      <!-- 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天 ——
+           计划/性状/餐次/引入门改按辅食月龄排；不填 = 按出生日期推算（现状）。
+           下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」，§6w 钉）。
+           选择器是**自建底部面板**（用户 2026-10-15 拍板）：原生 picker 顶栏只有
+           「取消 / 确定」两个位置，放不下第三个「清除」按钮，只能自己画。 -->
+      <view class="row" wx:if="{{birthday}}" bindtap="openFoodPicker">
         <text class="row-label">首次辅食日期</text>
         <text class="row-value">{{foodStart || '选填，点击选择'}}</text>
       </view>
-    </picker>
-    <view class="food-start-hint" wx:if="{{!birthday}}">填好出生日期后，可选填「首次辅食日期」——计划会按宝宝实际开始吃辅食的时间安排。</view>
-    <view class="food-start-clear" wx:if="{{foodStart}}" bindtap="onClearFoodStart">清除，改回按出生日期推算月龄</view>
-  </view>
-
-  <!-- 宝宝状态 -->
-  <view class="card">
-    <view class="card-title">宝宝状态怎么样</view>
-    <view class="card-sub">可多选，会影响搭配方向。</view>
-    <view class="chips">
-      <view class="chip {{item.on ? 'chip-on' : ''}}"
-            wx:for="{{statuses}}" wx:key="key" wx:for-item="item"
-            data-key="{{item.key}}" bindtap="onStatusChange">{{item.label}}</view>
+      <view class="food-start-hint" wx:if="{{!birthday}}">填好出生日期后，可选填「首次辅食日期」——计划会按宝宝实际开始吃辅食的时间安排。</view>
     </view>
-  </view>
 
-  <!-- 有反应的食材：计划页/详情页标完 reaction 的落点（status=bad 永久排除）。
-       日期 = 出现反应的当天（markIntroduced 写入），就医时可与下方喂养记录对照。 -->
-  <view class="card" wx:if="{{badFoods.length > 0}}">
-    <view class="card-title">有反应的食材</view>
-    <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点这一行的「清除记录」，再回下方食材列表重新勾选。</view>
-    <view class="obs-item" wx:for="{{badFoods}}" wx:key="foodId" wx:for-item="b">
-      <view class="obs-head">
-        <text class="obs-name">{{b.name}}</text>
-        <text class="muted">{{b.date}} 出现反应</text>
+    <!-- ② 成长数据（性别 + 出生指标 + 一句话描述，全选填）
+         三项都不进计划指纹 —— 改它们绝不重排计划（§6x 钉）。 -->
+    <view class="card wiz-card" wx:if="{{step === 2}}">
+      <view class="card-head">
+        <view class="card-title">成长数据</view>
       </view>
-      <view class="obs-actions">
-        <view class="mini-btn mini-clear" data-id="{{b.foodId}}" bindtap="clearBad">清除记录</view>
-        <view class="mini-btn mini-bad" data-id="{{b.foodId}}" bindtap="goFoodDetail">查看详情</view>
-      </view>
-    </view>
-  </view>
+      <view class="card-sub">可跳过。性别选上才会绘制生长曲线。</view>
 
-  <!-- 已吃过的食材 -->
-  <view class="card">
-    <view class="card-title">已经吃过、没问题的食材</view>
-    <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材，一次一种、逐个来。</view>
-    <!-- 「标记有反应」按钮与准则二引导文案已按用户决策删除（v2.30）：
-         标记 bad 的按钮入口只剩食材详情页「食物过敏」（§6j），别加回来（§6u 钉） -->
-
-    <view class="search">
-      <input class="search-input" placeholder="搜食材，如 南瓜 / 蛋黄"
-             value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
-      <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">清空</view>
-    </view>
-
-    <view class="group" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
-      <view class="group-name">{{g.category}}</view>
-      <view class="chips">
-        <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}} {{f.tooEarly ? 'chip-early' : ''}}"
-              style="{{!f.checked && f.status !== 'bad' ? 'background:' + f.iconBg : ''}}"
-              wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
-              data-id="{{f.id}}" bindtap="toggleFood">
-          <text class="chip-ic">{{f.icon}}</text>
-          <text>{{f.name}}</text>
-          <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
-          <!-- 引入的月龄门（v2.25 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
-          <text class="chip-flag" wx:if="{{f.tooEarly}}">{{f.minMonth}}月起</text>
-          <!-- 状态徽标：与「查一查」同一套词、同一个样式（utils/foodlist.js 出数，§6u 钉）。
-               已吃过/有反应亮徽标；「未引入」是未勾选的常态，不铺一层灰标 -->
-          <text class="food-status st-{{f.status}}" wx:if="{{f.status !== 'new'}}">{{f.statusText}}</text>
+      <view class="grow-sex">
+        <text class="row-label">性别</text>
+        <view class="grow-sex-opts">
+          <view class="chip {{sex === item.k ? 'chip-on' : ''}}"
+                wx:for="{{sexOpts}}" wx:key="k" wx:for-item="item"
+                data-k="{{item.k}}" bindtap="onSexPick">{{item.label}}</view>
         </view>
       </view>
+
+      <view class="row">
+        <text class="row-label">出生体重（kg）</text>
+        <input class="row-input" type="digit" value="{{birthWeight}}" placeholder="选填，如 3.2"
+               placeholder-class="row-input-ph" bindinput="onBirthWeight" bindblur="onBirthWeightBlur" />
+      </view>
+      <view class="row">
+        <text class="row-label">出生身长（cm）</text>
+        <input class="row-input" type="digit" value="{{birthLength}}" placeholder="选填，如 50"
+               placeholder-class="row-input-ph" bindinput="onBirthLength" bindblur="onBirthLengthBlur" />
+      </view>
+      <view class="row">
+        <text class="row-label">一句话描述</text>
+        <input class="row-input" value="{{note}}" placeholder="选填，如：是个爱笑的小家伙"
+               placeholder-class="row-input-ph" maxlength="{{noteMax}}" bindinput="onNoteInput" />
+      </view>
     </view>
 
-    <view class="muted empty-hit" wx:if="{{groups.length === 0}}">没找到这个食材，换个词试试</view>
+    <!-- ③ 现在状态（多选 + 有反应的食材）
+         状态会改变加权方向，也会改变指纹里的 sick —— 改完 setPlan(null)，计划重排。 -->
+    <view class="card wiz-card" wx:if="{{step === 3}}">
+      <view class="card-head">
+        <view class="card-title">宝宝状态怎么样</view>
+      </view>
+      <view class="card-sub">可多选，会影响搭配方向。</view>
 
-    <view class="count-line">已勾选 {{totalChecked}} 种</view>
-  </view>
+      <view class="chips">
+        <view class="chip {{item.on ? 'chip-on' : ''}}"
+              wx:for="{{statuses}}" wx:key="key" wx:for-item="item"
+              data-key="{{item.key}}" bindtap="onStatusChange">{{item.label}}</view>
+      </view>
 
-  <!-- 数据备份（v2.31 · 方案A 零后端）：换机/换账号/重装微信不丢数据。
-       程序只做复制/粘贴两个动作，备份文本经用户自己的手转存，不联网（§6v 钉）。
-       导入是整包覆盖，js 侧导入前必须弹确认框（onImport） -->
-  <view class="card">
-    <view class="card-title">数据备份</view>
-    <view class="card-sub">导出 = 把档案、状态、食材记录和喂养打卡打成一段文本，自动复制到剪贴板。换手机前先把这段文本发到微信「文件传输助手」或存进收藏，到了新手机，在这里粘贴导入即可找回。</view>
-    <view class="obs-actions">
-      <view class="mini-btn mini-clear" bindtap="onExport">导出备份</view>
-      <view class="mini-btn mini-clear" bindtap="onImport">导入备份</view>
+      <!-- 有反应的食材：计划页/详情页标完 reaction 的落点（status=bad 永久排除）。
+           日期 = 出现反应的当天（markIntroduced 写入），就医时可与喂养记录对照。 -->
+      <block wx:if="{{badFoods.length > 0}}">
+        <view class="wiz-divider"></view>
+        <view class="wiz-sub">有反应的食材</view>
+        <view class="card-sub">已从菜单中永久排除，不再推荐。要重新引入，点这一行的「清除记录」，再回上一步重新勾选。</view>
+        <view class="obs-item" wx:for="{{badFoods}}" wx:key="foodId" wx:for-item="b">
+          <view class="obs-head">
+            <text class="obs-name">{{b.name}}</text>
+            <text class="muted">{{b.date}} 出现反应</text>
+          </view>
+          <view class="obs-actions">
+            <view class="mini-btn mini-clear" data-id="{{b.foodId}}" bindtap="clearBad">清除记录</view>
+            <view class="mini-btn mini-bad" data-id="{{b.foodId}}" bindtap="goFoodDetail">查看详情</view>
+          </view>
+        </view>
+      </block>
     </view>
+
+    <!-- ④ 已经吃过、没问题的食材（原来和状态卡挤在一屏的 53 个 chip，现在独占一张卡）
+         「标记有反应」按钮与准则二引导文案已按用户决策删除（v2.30）：
+         标记 bad 的按钮入口只剩食材详情页「食物过敏」（§6j），别加回来（§6u 钉） -->
+    <view class="card wiz-card" wx:if="{{step === 4}}">
+      <view class="card-head">
+        <view class="card-title">已经吃过、没问题的食材</view>
+      </view>
+      <view class="card-sub">勾选 = 已经吃过、确认没问题，会直接排进菜单。带「敏」的是常见致敏食材，一次一种、逐个来。</view>
+
+      <view class="search">
+        <input class="search-input" placeholder="搜食材，如 南瓜 / 蛋黄"
+               value="{{keyword}}" bindinput="onKeyword" confirm-type="search" />
+        <view class="search-clear" wx:if="{{keyword}}" bindtap="clearKeyword">清空</view>
+      </view>
+
+      <view class="group" wx:for="{{groups}}" wx:key="category" wx:for-item="g">
+        <view class="group-name">{{g.category}}</view>
+        <view class="chips">
+          <view class="chip {{f.checked ? 'chip-on' : ''}} {{f.status === 'bad' ? 'chip-bad' : ''}} {{f.tooEarly ? 'chip-early' : ''}}"
+                style="{{!f.checked && f.status !== 'bad' ? 'background:' + f.iconBg : ''}}"
+                wx:for="{{g.foods}}" wx:key="id" wx:for-item="f"
+                data-id="{{f.id}}" bindtap="toggleFood">
+            <text class="chip-ic">{{f.icon}}</text>
+            <text>{{f.name}}</text>
+            <text class="chip-flag" wx:if="{{f.allergen}}">敏</text>
+            <!-- 引入的月龄门（v2.25 · 方案A）：没到月龄点了也不许引入，先亮出来 -->
+            <text class="chip-flag" wx:if="{{f.tooEarly}}">{{f.minMonth}}月起</text>
+            <!-- 状态徽标：与「查一查」同一套词、同一个样式（utils/foodlist.js 出数，§6u 钉）。
+                 已吃过/有反应亮徽标；「未引入」是未勾选的常态，不铺一层灰标 -->
+            <text class="food-status st-{{f.status}}" wx:if="{{f.status !== 'new'}}">{{f.statusText}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="muted empty-hit" wx:if="{{groups.length === 0}}">没找到这个食材，换个词试试</view>
+
+      <view class="count-line">已勾选 {{totalChecked}} 种</view>
+    </view>
+
+
   </view>
 
-  <button class="btn btn-primary" bindtap="goBack">完成</button>
-
-  <view class="disclaimer">
-    这里的月龄与食材信息参考公开喂养指南整理，仅供参考。每个宝宝的添加节奏不同，具体请遵医嘱。
+  <!-- 固定底部操作条：上一步 / 下一步 / 完成。三个按钮都占满一行，
+       用 flex 平分 —— 第 1 步没有「上一步」，按钮自然撑满整行。 -->
+  <view class="wiz-foot">
+    <button class="btn btn-ghost wiz-btn" wx:if="{{step > 1}}" bindtap="prevStep">上一步</button>
+    <button class="btn btn-primary wiz-btn" wx:if="{{step < stepPips.length}}" bindtap="nextStep">下一步</button>
+    <button class="btn btn-primary wiz-btn" wx:if="{{step === stepPips.length}}" bindtap="finish">完成</button>
   </view>
+
+  <!-- 首次辅食日期 · 自建底部面板（v3.0，用户 2026-10-15 拍板）：
+       原生 picker 顶栏只有「取消 / 确定」，放不下第三个「清除」按钮 —— 顶栏三格
+       等宽：取消 / 清除 / 确定。清除只在已选过日期后可点（没选过时置灰且不响应）。
+       三列可选项由 age.dateColumns 裁好（出生 + 4 个月 ~ 今天），列里没有非法值。 -->
+  <view class="sheet-mask" wx:if="{{foodPickerOpen}}" bindtap="closeFoodPicker"
+        catchtouchmove="noop"></view>
+  <view class="sheet" wx:if="{{foodPickerOpen}}">
+    <view class="fs-head">
+      <view class="fs-head-btn" bindtap="closeFoodPicker">取消</view>
+      <view class="fs-head-btn {{foodStart ? '' : 'fs-head-off'}}"
+            bindtap="onClearFoodStart">清除</view>
+      <view class="fs-head-btn fs-head-ok" bindtap="confirmFoodPicker">确定</view>
+    </view>
+    <picker-view class="fs-pv" value="{{pvValue}}" bindchange="onFoodPickerChange"
+                 indicator-style="height: 88rpx;">
+      <picker-view-column>
+        <view class="fs-pv-item" wx:for="{{years}}" wx:key="*this">{{item}} 年</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view class="fs-pv-item" wx:for="{{months}}" wx:key="*this">{{item}} 月</view>
+      </picker-view-column>
+      <picker-view-column>
+        <view class="fs-pv-item" wx:for="{{days}}" wx:key="*this">{{item}} 日</view>
+      </picker-view-column>
+    </picker-view>
+  </view>
+
 </view>

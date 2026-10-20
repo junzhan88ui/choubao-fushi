@@ -42,6 +42,10 @@
       {
         "value": ".md",
         "type": "suffix"
+      },
+      {
+        "value": "scripts",
+        "type": "folder"
       }
     ],
     "include": []

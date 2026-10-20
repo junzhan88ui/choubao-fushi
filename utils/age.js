@@ -202,11 +202,104 @@ function isRecipeSuitable(recipe, months) {
   return months >= recipe.monthRange[0] && months <= recipe.monthRange[1]
 }
 
+/**
+ * 生理日龄（v3.0 成长曲线）—— birthday 到 day 的整日差。
+ *
+ * 生长曲线的横轴是日龄（WHO 表按日龄取 LMS），月龄换算 30.4375 天/月也在这里
+ * 统一做。按日历日期做 UTC 零点差，绕开夏令时/时区进位；不看 foodStart ——
+ * 生长属「安全与事实类」（§6w 分流表），永远走生理钟。
+ *
+ * @param {string} birthday 'YYYY-MM-DD'
+ * @param {string|Date} day 'YYYY-MM-DD' 或 Date
+ * @returns {number|null} 天数（负数 = 还没出生）；非法输入 null
+ */
+function daysBetween(birthday, day) {
+  const b = utcDay(birthday)
+  const d = utcDay(day)
+  if (b === null || d === null) return null
+  return Math.round((d - b) / 86400000)
+}
+
+/** 任意日期入参归一到「UTC 当日零点」的时间戳；非法返回 null */
+function utcDay(v) {
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return null
+    return Date.UTC(v.getFullYear(), v.getMonth(), v.getDate())
+  }
+  const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return null
+  const t = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return isNaN(t) ? null : t
+}
+
+/**
+ * 自建日期面板的三列内容（v3.0 · 档案页「首次辅食日期」）。
+ *
+ * 为什么自己画：原生 `<picker mode="date">` 的顶栏只有「取消 / 确定」两个位置，
+ * 放不下第三个按钮。用户 2026-10-15 要求把「清除」放到选择面板顶栏中间
+ * （取消 / 清除 / 确定），所以该字段换成 `picker-view` + 自定顶栏。
+ *
+ * 这个函数只做**纯日期裁切**，不碰页面、不碰 now（可脱离小程序实跑，_validate §6w）：
+ * 把 [minStr, maxStr] 闭区间按年 / 月 / 日三列展开，并给出目标日期 (y, m, d) 落在
+ * 三列里的下标（正是 picker-view 的 value 语义）。
+ *
+ * 越界的月份 / 日**不进列表**（夹到区间最近的一端），不是事后弹提示兜 ——
+ * 滚轮里根本不存在非法值，选不到出生 + 4 个月之前、也选不到今天之后；
+ * 2 月自动只有 28/29 天（闰年也对）。
+ *
+ * @param {string} minStr 'YYYY-MM-DD' 下限（含）
+ * @param {string} maxStr 'YYYY-MM-DD' 上限（含）
+ * @param {number} y 目标年
+ * @param {number} m 目标月（1–12）
+ * @param {number} d 目标日
+ * @returns {{years:number[], months:number[], days:number[], value:number[]}|null}
+ *   min > max（宝宝还不满 4 个月）或任一入参非法时 null
+ */
+function dateColumns(minStr, maxStr, y, m, d) {
+  const lo = utcDay(minStr)
+  const hi = utcDay(maxStr)
+  if (lo === null || hi === null || lo > hi) return null
+  const min = new Date(lo)
+  const max = new Date(hi)
+  const minY = min.getUTCFullYear(), minM = min.getUTCMonth() + 1, minD = min.getUTCDate()
+  const maxY = max.getUTCFullYear(), maxM = max.getUTCMonth() + 1, maxD = max.getUTCDate()
+
+  const years = []
+  for (let i = minY; i <= maxY; i++) years.push(i)
+  if (years.indexOf(y) < 0) y = y < minY ? minY : maxY
+
+  const months = []
+  for (let i = 1; i <= 12; i++) {
+    if (y === minY && i < minM) continue
+    if (y === maxY && i > maxM) continue
+    months.push(i)
+  }
+  if (months.indexOf(m) < 0) m = m < months[0] ? months[0] : months[months.length - 1]
+
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate() // 该月最后一天
+  const days = []
+  for (let i = 1; i <= last; i++) {
+    if (y === minY && m === minM && i < minD) continue
+    if (y === maxY && m === maxM && i > maxD) continue
+    days.push(i)
+  }
+  if (days.indexOf(d) < 0) d = d < days[0] ? days[0] : days[days.length - 1]
+
+  return {
+    years: years,
+    months: months,
+    days: days,
+    value: [years.indexOf(y), months.indexOf(m), days.indexOf(d)]
+  }
+}
+
 module.exports = {
   MIN_MONTH,
   CONTENT_MAX,
   STAGES,
   monthsBetween,
+  daysBetween,
+  dateColumns,
   foodMonthsOf,
   getStage,
   getAgeStatus,

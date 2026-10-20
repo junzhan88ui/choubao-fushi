@@ -14,15 +14,43 @@ Page({
     today: '',
     minDate: '',
     // 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天。
-    // foodMinDate = picker 下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」）
+    // foodMinDate = 面板下限 = 出生 + 4 个月（公开指南「最早不早于 4 月龄」）
     foodStart: '',
     foodMinDate: '',
+    // 首次辅食日期 · 自建底部面板（用户 2026-10-15 拍板）：原生 picker 顶栏只有
+    // 「取消 / 确定」，放不下第三个「清除」按钮，所以自画面板。years/months/days =
+    // 当前三列可选项（已按「出生+4月 ~ 今天」裁过，越界值不进列表），
+    // pvValue = 三列选中下标（picker-view 的 value 语义）。
+    foodPickerOpen: false,
+    years: [],
+    months: [],
+    days: [],
+    pvValue: [0, 0, 0],
+    // 性别 + 出生指标（v3.0 成长曲线前置字段，全选填）：性别决定查哪套 WHO
+    // 百分位表（男/女两套），出生指标兼作曲线第一条锚点与首页出生信息行。
+    // 三项都不进计划指纹 —— 改它们绝不触发计划重算。
+    sex: '',
+    sexOpts: [{ k: 'm', label: '男' }, { k: 'f', label: '女' }],
+    birthWeight: '',
+    birthLength: '',
+    // 一句话描述（v3.0 批⑨，选填）：首页头卡的个性行。
+    // 上限跟 storage.BABY_NOTE_MAX 走，页面里不另写一个数。不进计划指纹。
+    note: '',
+    noteMax: storage.BABY_NOTE_MAX,
     ageText: '',
     // 当前月龄（null = 没填生日）。v2.25 · 方案A 之后档案页是引入的唯一入口，
     // 引擎不再按 minMonth 升序排引入，这道月龄门只能在这里挡。
     months: null,
     // 状态多选：由 storage.STATUSES 逐项算出是否已勾选
     statuses: [],
+    // ── v3.1 分步向导（用户 2026-10-19 拍板）──────────────────────────────
+    // 一屏一张卡，一次只处理一件事。4 步：信息 / 成长 / 状态 / 食材。
+    // 原第 5 步「都记好了」整屏已删（v3.2）：摘要只是复述前面四步，
+    // 身高体重记录改由首页头卡胶囊直接弹面板，备份挪到「我的」页。
+    // 顶部进度条可点跳转 —— 改单个字段不用一路翻页（这是向导唯一被诟病的点，
+    // 用可点进度条抵消掉）。stepPips 只做渲染，长度就是总步数。
+    step: 1,
+    stepPips: [1, 2, 3, 4],
     keyword: '',
     groups: [],
     totalChecked: 0,
@@ -50,10 +78,65 @@ Page({
       // v2.32 双时钟：档案页的引入月龄门走辅食月龄（没填回退生理月龄）
       months: birthday ? age.foodMonthsOf(baby) : null,
       foodStart: (baby && baby.foodStart) || '',
-      foodMinDate: this.foodMinOf(birthday)
+      foodMinDate: this.foodMinOf(birthday),
+      sex: (baby && baby.sex) || '',
+      birthWeight: (baby && baby.birthWeight) || '',
+      birthLength: (baby && baby.birthLength) || '',
+      note: (baby && baby.note) || ''
     })
     this.rebuildStatus()
     this.rebuild()
+  },
+
+  /** 性别（v3.0 选填，两选一互斥）：写 'm'/'f'，再点一次取消 = ''。
+   *  不进计划指纹，不 setPlan(null)。 */
+  onSexPick(e) {
+    const k = e.currentTarget.dataset.k
+    const next = this.data.sex === k ? '' : k
+    storage.setBaby({ sex: next })
+    this.setData({ sex: next })
+  },
+
+  /** 出生体重/身长（v3.0 选填；区间按用户 2026-10-16 拍板：出生体重**大于 2 kg
+   *  且小于 15 kg**（端点不算）、出生身长 20–70 cm（含端点））：
+   *  input 阶段只回写**原始输入**、不归一 —— 旧版每击归一会吞掉小数点、并把
+   *  打字中途的半截越界值清空（身长「50」打到「5」就没了，永远填不进）；
+   *  校验、归一与提示全部放 blur —— 越界就是清空输入框 + 底部弹 toast 小字提醒
+   *  （用户 2026-10-16 选定保留 toast，不要内联小字）。不进计划指纹。 */
+  onBirthWeight(e) {
+    this.setData({ birthWeight: e.detail.value })
+    storage.setBaby({ birthWeight: storage.sanitizeBirthMetric(e.detail.value,
+      storage.BIRTH_WEIGHT_MIN, storage.BIRTH_WEIGHT_MAX, true) })
+  },
+  onBirthWeightBlur() {
+    const raw = this.data.birthWeight
+    const v = storage.sanitizeBirthMetric(raw, storage.BIRTH_WEIGHT_MIN, storage.BIRTH_WEIGHT_MAX, true)
+    this.setData({ birthWeight: v })
+    storage.setBaby({ birthWeight: v })
+    if (v === '' && String(raw === undefined || raw === null ? '' : raw).trim() !== '')
+      wx.showToast({ title: '出生体重需大于 ' + storage.BIRTH_WEIGHT_MIN + ' kg、小于 ' + storage.BIRTH_WEIGHT_MAX + ' kg', icon: 'none' })
+  },
+
+  onBirthLength(e) {
+    this.setData({ birthLength: e.detail.value })
+    storage.setBaby({ birthLength: storage.sanitizeBirthMetric(e.detail.value,
+      storage.BIRTH_LENGTH_MIN, storage.BIRTH_LENGTH_MAX) })
+  },
+  onBirthLengthBlur() {
+    const raw = this.data.birthLength
+    const v = storage.sanitizeBirthMetric(raw, storage.BIRTH_LENGTH_MIN, storage.BIRTH_LENGTH_MAX)
+    this.setData({ birthLength: v })
+    storage.setBaby({ birthLength: v })
+    if (v === '' && String(raw === undefined || raw === null ? '' : raw).trim() !== '')
+      wx.showToast({ title: '出生身长需在 ' + storage.BIRTH_LENGTH_MIN + '–' + storage.BIRTH_LENGTH_MAX + ' cm', icon: 'none' })
+  },
+
+  /** 一句话描述（v3.0 批⑨，选填）：首页头卡个性行，实时清洗（压空格/截断）后落库。
+   *  用户自己的话，不校验、不弹提示，不进计划指纹。 */
+  onNoteInput(e) {
+    const note = storage.sanitizeBabyNote(e.detail.value)
+    storage.setBaby({ note: note })
+    this.setData({ note: note })
   },
 
   /** 辅食日期 picker 的下限：出生 + 4 个月（公开指南「最早不早于 4 月龄」）。
@@ -68,7 +151,8 @@ Page({
   /** 重建状态卡选项（列表由 storage 提供，「状态正常」恒在第一位）
    *  页面不自己判断勾选态 —— 互斥关系由 storage 的 statusOptions 负责。 */
   rebuildStatus() {
-    this.setData({ statuses: storage.statusOptions() })
+    const list = storage.statusOptions()
+    this.setData({ statuses: list })
   },
 
   /** 重建食材勾选列表 —— 取数走共享模块（与「查一查」同一份数据源）。
@@ -157,25 +241,72 @@ Page({
     wx.showToast({ title: '已保存', icon: 'success' })
   },
 
-  /** 首次辅食日期（v2.32 双时钟，选填）：当天视为辅食 6 月龄第 1 天 ——
-   *  计划/性状/餐次/引入门改按辅食月龄排（age.foodMonthsOf 唯一分流入口）。
-   *  没填 = 按出生日期推算（现状）。下限 = 出生 + 4 个月；改/清都作废旧计划。 */
-  onFoodStartChange(e) {
-    const v = e.detail.value
+  /** 首次辅食日期 · 自建底部面板（v3.0，用户 2026-10-15 拍板）：
+   *  原生 `<picker mode="date">` 顶栏只有「取消 / 确定」两个位置，放不下第三个
+   *  「清除」按钮 —— 只能自己画面板（picker-view + 自定顶栏「取消 / 清除 / 确定」）。
+   *  日期范围口径不变：下限 = 出生 + 4 个月（§6w 决策③），上限 = 今天。 */
+
+  /** 'YYYY-MM-DD' → [y, m, d]；非法返回 null（页面自己的入参归一，不外借） */
+  _ymd(s) {
+    const m = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null
+  },
+
+  /** 打开面板：已填过 → 停在那天；没填过 → 停在今天（最常用的就是「今天开吃」） */
+  openFoodPicker() {
     if (!this.data.birthday) {
       wx.showToast({ title: '先填出生日期', icon: 'none' })
       return
     }
-    if (this.data.foodMinDate && v < this.data.foodMinDate) {
-      wx.showToast({ title: '最早 ' + this.data.foodMinDate + '（出生满 4 个月）', icon: 'none' })
+    const p = this._ymd(this.data.foodStart) || this._ymd(this.data.today)
+    // 裁切逻辑全在 age.dateColumns（纯函数，§6w 实跑）：越界的年月日不进列表，
+    // 宝宝还不满 4 个月时（下限 > 今天）返回 null —— 此时没有任何合法日期可选
+    const cols = p && age.dateColumns(this.data.foodMinDate, this.data.today, p[0], p[1], p[2])
+    if (!cols) {
+      wx.showToast({ title: '宝宝满 4 个月后才能填首次辅食日期', icon: 'none' })
       return
     }
-    this._applyFoodStart(v, '已保存，计划将按辅食开始日安排')
+    this.setData({
+      foodPickerOpen: true,
+      years: cols.years, months: cols.months, days: cols.days, pvValue: cols.value
+    })
   },
 
-  /** 清除辅食日期 = 回到「按出生日期推算月龄」的现状口径。
-   *  选填字段必须可回退：误填/想改回老口径都靠这条通道。 */
+  closeFoodPicker() {
+    this.setData({ foodPickerOpen: false })
+  },
+
+  /** 滚动即时重裁：年变了月份列跟着变、年月变了天数列跟着变（2 月只有 28/29 天）。
+   *  裁完必须回写 pvValue —— 否则 picker-view 停在已被裁掉的下标上。 */
+  onFoodPickerChange(e) {
+    const v = e.detail.value || []
+    const cols = age.dateColumns(this.data.foodMinDate, this.data.today,
+      this.data.years[v[0]], this.data.months[v[1]], this.data.days[v[2]])
+    if (!cols) return
+    this.setData({
+      years: cols.years, months: cols.months, days: cols.days, pvValue: cols.value
+    })
+  },
+
+  /** 确定：按下标取回年月日 → 落库。列里不可能有非法值，这里不再重复校验范围。 */
+  confirmFoodPicker() {
+    const v = this.data.pvValue || []
+    const y = this.data.years[v[0]]
+    const m = this.data.months[v[1]]
+    const d = this.data.days[v[2]]
+    if (!y || !m || !d) return
+    this.setData({ foodPickerOpen: false })
+    this._applyFoodStart(storage.todayStr(new Date(y, m - 1, d)),
+      '已保存，计划将按辅食开始日安排')
+  },
+
+  /** 清除辅食日期（面板顶栏中间那个按钮）= 回到「按出生日期推算月龄」的现状口径。
+   *  选填字段必须可回退：误填/想改回老口径都靠这条通道。
+   *  只在**已经选过**日期后才生效（用户 2026-10-15：清除要「选定了首次辅食日期
+   *  之后」才能点）—— 没选过时按钮置灰，且这里也挡一道。 */
   onClearFoodStart() {
+    if (!this.data.foodStart) return
+    this.setData({ foodPickerOpen: false })
     this._applyFoodStart('', '已改回按出生日期推算月龄')
   },
 
@@ -245,6 +376,61 @@ Page({
     this.rebuild()
   },
 
+  /** 面板遮罩的 catchtouchmove 落点：只为挡住背景页跟着滚，不做任何事 */
+  noop() {},
+
+  /* ── v3.1 分步向导（用户 2026-10-19 拍板）───────────────────────────────
+   *  5 步 = 5 张卡，一屏一张。数据仍是**边填边存**（每个 input handler 自己
+   *  调 storage.setBaby），向导只切视图、不攒草稿 —— 中途杀进程不丢，
+   *  也不需要维护一份「未提交」的状态。
+   *
+   *  唯一硬闸门是出生日期：没有它就算不出月龄，后面三步（状态/食材/收尾）
+   *  全是空转，所以第 1 步不放行。其余步骤都能留空。 */
+
+  /** 切步 + 回到页顶（不回到顶部的话，从长列表翻页会停在半截） */
+  _toStep(s) {
+    this.setData({ step: s })
+    wx.pageScrollTo({ scrollTop: 0, duration: 0 })
+  },
+
+  /** 点进度条跳步：第 1 步之外都要求已有生日（否则后三步没有意义） */
+  goStep(e) {
+    const s = Number(e.currentTarget.dataset.step)
+    const max = this.data.stepPips.length
+    if (!s || s < 1 || s > max || s === this.data.step) return
+    if (s > 1 && !this.data.birthday) {
+      wx.showToast({ title: '先选一下出生日期', icon: 'none' })
+      return
+    }
+    this._toStep(s)
+  },
+
+  nextStep() {
+    if (this.data.step === 1 && !this.data.birthday) {
+      wx.showToast({ title: '先选一下出生日期', icon: 'none' })
+      return
+    }
+    if (this.data.step >= this.data.stepPips.length) return
+    this._toStep(this.data.step + 1)
+  },
+
+  prevStep() {
+    if (this.data.step <= 1) return
+    this._toStep(this.data.step - 1)
+  },
+
+  /** 收尾页「完成」：这里才做整体校验。缺项直接把人送回第 1 步 ——
+   *  在收尾页弹一句「还差出生日期」而不给入口，等于让用户自己找路。 */
+  finish() {
+    const miss = storage.missingFields()
+    if (miss.length) {
+      wx.showToast({ title: '还差' + miss.join('和'), icon: 'none' })
+      this._toStep(1)
+      return
+    }
+    this.goBack()
+  },
+
   goBack() {
     const pages = getCurrentPages()
     if (pages.length > 1) {
@@ -252,44 +438,5 @@ Page({
     } else {
       wx.switchTab({ url: '/pages/index/index' })
     }
-  },
-
-  /** 导出备份（v2.31）：整段 JSON 复制到剪贴板。用户自己转存到微信聊天/收藏，
-   *  程序不上传不联网 —— 隐私口径「未采集」靠这条维持（§6v 钉无网络调用） */
-  onExport() {
-    wx.setClipboardData({
-      data: storage.exportUserData(),
-      success() {
-        wx.showToast({ title: '已复制，去微信里存好', icon: 'none' })
-      }
-    })
-  },
-
-  /** 导入备份（v2.31）：剪贴板文本 → 信封预检（isBackupText，垃圾文本直接拒）
-   *  → 确认框（导入 = 整包覆盖，必须先确认，§6v 钉 showModal）→ 落库 → 整页重建 */
-  onImport() {
-    const that = this
-    wx.getClipboardData({
-      success(res) {
-        const text = res.data || ''
-        if (!storage.isBackupText(text)) {
-          wx.showToast({ title: '剪贴板里不是备份文本', icon: 'none' })
-          return
-        }
-        wx.showModal({
-          title: '导入备份',
-          content: '会用备份里的内容整体覆盖当前档案、食材记录和喂养打卡，导入后本周计划会重新生成。确定导入吗？',
-          success(r) {
-            if (!r.confirm) return
-            if (storage.importUserData(text)) {
-              that.onShow() // 重建档案/状态/食材清单
-              wx.showToast({ title: '导入完成', icon: 'success' })
-            } else {
-              wx.showToast({ title: '备份格式不支持', icon: 'none' })
-            }
-          }
-        })
-      }
-    })
   }
 })

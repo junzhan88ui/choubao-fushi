@@ -12,28 +12,79 @@
   <block wx:if="{{ready && configured}}">
 
     <!-- 顶部信息（v2.7 · ③ 品牌面：与今天卡共用 --c-green-tint，全站唯一大色块）
-         v2.30：右上角阶段标签（稠糊/带颗粒…）已按用户要求删除 —— 阶段信息
-         下一行 stageDesc 已说清，不重复；反向钉在 _validate §6t -->
+         v2.30：右上角阶段标签（稠糊/带颗粒…）已按用户要求删除 —— 反向钉 §6t
+         批⑬（用户 2026-10-16）：阶段说明行也删了，本卡不再复述阶段 —— 反向钉 §6t -->
     <view class="card card--brand">
+      <!--6x-scan-start：v3.0 头卡段（§6x-11 词表只扫本段）
+           批⑦（用户 2026-10-15 拍板）：占位贴纸升级为可传照片 ——
+           点贴纸选一张（覆盖旧的，只存一张）、长按移除回占位；
+           <image> 只绑 storage 落盘的本机路径，打包位图仍零新增
+           批⑨（用户 2026-10-15 拍板）：头卡对标参考图 —— 英文小标 + 两行大标题 +
+           2×2 指标格（体重/身长/本周打卡/已引入）；
+           批⑫（用户 2026-10-16 拍板）：两行大标题换手写体 —— 站酷快乐体子集、
+            base64 内嵌进 wxss、全程不联网；配色由品牌绿改为浅蓝 --c-hand-title。
+            英文小标这一行不跟着换，仍是大字距 + 品牌深绿；
+           批⑬（用户 2026-10-16 拍板）：出生日期、出生指标、状态这三行删掉，
+            指标格下面那两行阶段/辅食月龄说明同批删除，反向钉在 _validate §6x-22；
+            个性行（一句话描述）批⑮ 又加回来 —— 头卡 = 小标 + 两行标题 + 个性行 + 照片 + 指标格 -->
       <view class="head-row">
-        <view class="head-line">
-          <text class="head-name">{{name}}</text>
-          <text class="head-age">{{ageText}}</text>
+        <view class="head-main">
+          <view class="head-kicker">my {{monthWord}} month<text class="head-star">★</text></view>
+          <view class="head-line">
+            <text class="head-name">{{name}}的</text>
+            <text class="head-age">第{{monthNo}}个月</text>
+          </view>
+          <!-- 个性行（批⑬ 删、批⑮ 用户 2026-10-16 恢复）：一句话描述 ——
+               档案页选填、清洗后落库，不进计划指纹 -->
+          <view class="head-note" wx:if="{{noteText}}">{{noteText}}</view>
+        </view>
+        <view class="polaroid" bindtap="chooseBabyPhoto" longpress="removeBabyPhoto">
+          <image wx:if="{{photo}}" class="polaroid-img" src="{{photo}}" mode="aspectFill" />
+          <view class="polaroid-ph" wx:else>贴上宝宝的照片</view>
         </view>
       </view>
-      <view class="muted" wx:if="{{stageDesc}}">{{stageDesc}}</view>
-      <!-- v2.32 双时钟副文案（用户选定）：选填了「首次辅食日期」才显示 ——
-           生理月龄（上方 ageText）与计划的辅食月龄并存时，用一行小字说明关系，
-           防止「现在 9 个月」与「按辅食 7 月龄排」的困惑 -->
-      <view class="muted head-food-age" wx:if="{{foodAgeText}}">{{foodAgeText}}</view>
-      <!-- v2.31 · 提案A（用户选定）：入口从状态行右端的纯文字链接改为状态行下方
-           右对齐的独立胶囊按钮 —— 状态行独占一行，长状态不再被挤折行；胶囊用
-           --r-pill 全站胶囊语言、绿底浅色（.st-safe 同系，无描边 —— 全站无硬编码
-           描边色）。文案与 goMonths 接线不变（§6t 钉），别退回纯文字链接 -->
-      <view class="head-issue-row">
-        <view class="head-issue {{issueNone ? 'head-issue--none' : ''}}">当前状态：{{issueLabel}}</view>
+      <!-- 批⑬（用户 2026-10-16 拍板）：这一行的状态汇总删了 —— 头卡不再复述
+           状态，状态仍在「我的」与档案页看得到；别加回来（§6x-22 反向钉） -->
+      <view class="stat-grid">
+        <view class="stat-row">
+          <view class="stat-cell">
+            <view class="stat-label">体重</view>
+            <view class="stat-value">{{statWeight.value}}<text class="stat-unit" wx:if="{{statWeight.unit}}">{{statWeight.unit}}</text></view>
+            <view class="stat-sub" wx:if="{{statWeight.sub}}">{{statWeight.sub}}</view>
+          </view>
+          <view class="stat-cell">
+            <view class="stat-label">身长</view>
+            <view class="stat-value">{{statLength.value}}<text class="stat-unit" wx:if="{{statLength.unit}}">{{statLength.unit}}</text></view>
+            <view class="stat-sub" wx:if="{{statLength.sub}}">{{statLength.sub}}</view>
+          </view>
+        </view>
+        <view class="stat-row">
+          <view class="stat-cell">
+            <view class="stat-label">本周打卡</view>
+            <view class="stat-value">{{statCheck.value}}</view>
+            <view class="stat-sub" wx:if="{{statCheck.sub}}">{{statCheck.sub}}</view>
+          </view>
+          <view class="stat-cell">
+            <view class="stat-label">已引入</view>
+            <view class="stat-value">{{statFood.value}}<text class="stat-unit" wx:if="{{statFood.unit}}">{{statFood.unit}}</text></view>
+            <view class="stat-sub" wx:if="{{statFood.sub}}">{{statFood.sub}}</view>
+          </view>
+        </view>
       </view>
-      <view class="head-more-row">
+      <!--6x-scan-end -->
+      <!-- 批⑬（用户 2026-10-16 拍板）：阶段说明行（stageDesc）与「辅食第 N 个月 ·
+           自 X 起」副文案（foodAgeText）同批删掉 —— 这里不留兜底空壳，
+           反向钉在 _validate §6t / §6w -->
+      <!-- v2.31 · 提案A（用户选定）：入口是指标格下方右对齐的独立胶囊按钮 ——
+           胶囊用 --r-pill 全站胶囊语言、绿底浅色（.st-safe 同系，无描边 —— 全站无硬编码
+           描边色）。文案与 goMonths 接线不变（§6t 钉），别退回纯文字链接 -->
+      <!-- v3.2 方案A（用户 2026-10-19 拍板）：两枚胶囊并排 —— 左「记录身高体重」
+           就地弹测量面板（openMetricSheet，不跳页；档案页第 5 步已删，这里是
+           唯一录入口），右仍是月龄指南。两枚都 88rpx 高，行高不变、
+           首屏高度零变化。文案「滑动查看各月龄注意事项」一字未压 —— 实测两枚
+           合计约 586rpx，可用 646rpx，余量足够，不需要拿可读性换位置。 -->
+      <view class="head-more-row head-more-row--dual">
+        <view class="head-more" bindtap="openMetricSheet"><text class="hm-plus">＋</text>记录身高体重</view>
         <view class="head-more" bindtap="goMonths">滑动查看各月龄注意事项<text class="head-more-ic">▸</text></view>
       </view>
     </view>
@@ -243,4 +294,84 @@
     </view>
 
   </block>
+
+  <!-- ── v3.1 首次进入弹窗（用户 2026-10-19 拍板）───────────────────────────
+       触发条件 = !storage.isConfigured()（不新增「首次启动」标志位，见 index.js
+       maybeOpenOnboard 的注释）。只问三件事：名字（已预填「宝贝+4位编号」）、
+       出生日期（唯一必填）、首次辅食日期（选填）。
+       性别/出生体重/出生身长**不进这里** —— 它们不影响排菜，放进来只会把
+       首屏摩擦加回去，留给档案页第 2 步。
+       点遮罩 = 跳过，与「先随便看看」同一条路（只关窗，不写持久标记）。 -->
+  <view class="ob-mask" wx:if="{{obOpen}}" bindtap="skipOnboard" catchtouchmove="noop"></view>
+  <view class="ob-dialog" wx:if="{{obOpen}}">
+    <view class="ob-title">先认识一下宝宝</view>
+
+    <view class="ob-name">
+      <input class="ob-name-input" value="{{obName}}" maxlength="{{obNameMax}}"
+             placeholder="给宝宝起个名字" placeholder-class="ob-ph"
+             bindinput="onObName" />
+      <text class="ob-name-tag">可改</text>
+    </view>
+
+    <picker mode="date" value="{{obBirthday}}" start="{{obMinDate}}" end="{{obToday}}"
+            bindchange="onObBirthday">
+      <view class="ob-row">
+        <text class="ob-label">出生日期<text class="req">*</text></text>
+        <text class="ob-value {{obBirthday ? '' : 'ob-value-ph'}}">{{obBirthday || '请选择'}}</text>
+      </view>
+    </picker>
+
+    <!-- 选填，且只在「出生 + 4 个月 ≤ 今天」时出现：不满 4 个月没有合法值 -->
+    <picker wx:if="{{obFoodReady}}" mode="date" value="{{obFoodStart || obToday}}"
+            start="{{obFoodMinDate}}" end="{{obToday}}" bindchange="onObFoodStart">
+      <view class="ob-row">
+        <text class="ob-label">首次辅食日期<text class="ob-opt">选填</text></text>
+        <text class="ob-value {{obFoodStart ? '' : 'ob-value-ph'}}">{{obFoodStart || '还没开始吃'}}</text>
+      </view>
+    </picker>
+
+    <button class="btn btn-primary ob-ok" bindtap="confirmOnboard">开始用</button>
+    <view class="ob-skip" bindtap="skipOnboard">先随便看看</view>
+  </view>
+
+  <!-- 身高体重记录 · 贴底面板（v3.2 从档案页搬来，用户 2026-10-19）：
+       档案页第 5 步删除后，这里是唯一的录入入口。默认载入「今天」这条 ——
+       今天已有记录 → 带出旧值，保存 = 覆盖今天（此时出「删除这条记录」）；
+       今天没有 → 空表单新建。改「测量日期」到某条已有记录上，自动变成编辑那条。
+       区间提示与标签来自 storage.GROWTH_METRICS / growth.METRICS —— 不在这写死。 -->
+  <view class="sheet-mask" wx:if="{{metricOpen}}" bindtap="closeMetricSheet"
+        catchtouchmove="noop"></view>
+  <view class="sheet" wx:if="{{metricOpen}}">
+    <view class="ms-head">
+      <view class="ms-head-btn" bindtap="closeMetricSheet">取消</view>
+      <view class="ms-title">{{metricHasRecord ? '编辑记录' : '记一次测量'}}</view>
+      <view class="ms-save" bindtap="onMetricSave">保存</view>
+    </view>
+    <view class="ms-body">
+      <view class="row">
+        <text class="row-label">身长（cm）</text>
+        <input class="row-input" type="digit" value="{{mForm.length}}" placeholder="{{ph.length}}"
+               placeholder-class="row-input-ph" bindinput="onMetricInput" data-k="length" />
+      </view>
+      <view class="row">
+        <text class="row-label">体重（kg）</text>
+        <input class="row-input" type="digit" value="{{mForm.weight}}" placeholder="{{ph.weight}}"
+               placeholder-class="row-input-ph" bindinput="onMetricInput" data-k="weight" />
+      </view>
+      <view class="row">
+        <text class="row-label">头围（cm）</text>
+        <input class="row-input" type="digit" value="{{mForm.head}}" placeholder="{{ph.head}}"
+               placeholder-class="row-input-ph" bindinput="onMetricInput" data-k="head" />
+      </view>
+      <picker mode="date" value="{{mForm.date}}" start="{{mForm.minDate}}" end="{{mForm.maxDate}}"
+              bindchange="onMetricDate">
+        <view class="row">
+          <text class="row-label">测量日期</text>
+          <text class="row-value">{{mForm.date}}</text>
+        </view>
+      </picker>
+    </view>
+    <!-- 只有「当天已经有记录」时才出：删除通道必须落在用户看得见的地方 -->
+    <view class="ms-del" wx:if="{{metricHasRecord}}" bindtap="onMetricDelete">删除这条记录</view>
+  </view>
 </view>

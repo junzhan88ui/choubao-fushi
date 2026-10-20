@@ -1,0 +1,127 @@
+<!-- 生长曲线（v3.0 · pages/growth）——只做记录与展示，不做营养评估 -->
+<view class="page-wrap page-wrap--safe">
+
+  <!-- 头卡：宝宝 · 生理月龄；没填性别在此提示（记录照常，曲线不出） -->
+  <view class="card" wx:if="{{configured}}">
+    <view class="gr-head">
+      <view class="gr-head-name">{{name}}</view>
+      <view class="gr-head-age muted">{{ageText}}</view>
+    </view>
+    <view class="gr-gate" wx:if="{{!hasSex}}">
+      <view class="gr-gate-text">档案里还没填性别，查不了 WHO 百分位表（男、女各一套）。记录照常存，补填之后就能出曲线。</view>
+      <button class="btn btn-ghost gr-gate-btn" bindtap="goProfile">去补填性别</button>
+    </view>
+  </view>
+
+  <!-- 没填出生日期：日龄算不出来，先去档案 -->
+  <view class="card" wx:if="{{!configured}}">
+    <view class="gr-gate">
+      <view class="gr-gate-text">还没填出生日期 —— 日龄算不出来，曲线画不了。先去档案补一下。</view>
+      <button class="btn btn-ghost gr-gate-btn" bindtap="goProfile">去档案填写</button>
+    </view>
+  </view>
+
+  <!-- 分段切换：体重 / 身长 / 头围 -->
+  <view class="gr-seg" wx:if="{{showChart}}">
+    <view
+      wx:for="{{metrics}}"
+      wx:key="key"
+      class="gr-seg-item {{metricKey === item.key ? 'gr-seg-item--on' : ''}}"
+      data-k="{{item.key}}"
+      bindtap="onMetricTap"
+    >{{item.label}}</view>
+  </view>
+
+  <!-- 曲线卡：canvas 自绘（六带 + P3/P10/P50/P90/P97 参考线 + 实测绿线）
+       v3.5（用户 2026-10-20 拍板方案 C-1）：当前位置压进本卡，值 + 区间 + 差值一行读完，
+       原来那张独立的「当前位置」卡让位给「测量记录」—— 从「我的」点进来的人多是来翻记录的，
+       记录必须落在首屏末尾，而不是第 1.3 屏外。
+       画布 440rpx → 392rpx 就是为这一行腾的位置（曲线仍占卡片主体，不缩成缩略图）。 -->
+  <view class="card" wx:if="{{showChart}}">
+    <view class="card-title">{{metricLabel}}曲线 · 0–60 月</view>
+    <view class="gr-cur" wx:if="{{cur}}">
+      <text class="gr-cur-val">{{cur.valueText}}</text>
+      <text class="tag tag-grey" wx:if="{{cur.hasBand}}">{{cur.bandLabel}}</text>
+      <text class="gr-cur-meta">{{cur.metaText}}</text>
+    </view>
+    <view class="card-sub">灰带与参考线是 WHO 同龄同性别百分位（P3–P97），绿线是实测记录。</view>
+    <canvas type="2d" id="curve" class="gr-canvas"></canvas>
+    <view class="gr-legend">右缘标各参考线的百分位名，只表示在同龄同性别中的位置 —— 百分位不是健康评价。</view>
+  </view>
+
+  <!-- 超 60 月：曲线覆盖外，记录照常 -->
+  <view class="card" wx:if="{{configured && beyond}}">
+    <view class="card-title">超出曲线覆盖</view>
+    <view class="card-sub">已超出 WHO 0–5 岁（0–60 月）覆盖范围，百分位不再显示；下面的记录照常存。</view>
+  </view>
+
+  <!-- 曲线卡不出的两种情形（没填性别 / 超 60 月）：当前值仍要看得见，
+       单独一张小卡兜住 —— 否则把 cur 并进曲线卡就等于把这两个分支的信息删了 -->
+  <view class="card card-tight" wx:if="{{cur && !showChart}}">
+    <view class="gr-cur">
+      <text class="gr-cur-val">{{cur.valueText}}</text>
+      <text class="tag tag-grey" wx:if="{{cur.hasBand}}">{{cur.bandLabel}}</text>
+      <text class="gr-cur-meta">{{cur.metaText}}</text>
+    </view>
+    <view class="gr-cur-note muted">百分位只表示在同龄同性别中的位置，不是健康评价。</view>
+  </view>
+
+  <!-- 空态 -->
+  <view class="card" wx:if="{{empty && configured}}">
+    <view class="empty">还没有记录 —— 可以先录一条出生体重，曲线就有起点了。</view>
+  </view>
+
+  <!-- 记录列表：点一行改 / 删。v3.5 起它紧跟曲线卡 —— 它就是「我的」页那一行
+       跳过来要看的东西，也是全站唯一一份测量记录清单（「我的」页不再复制）。 -->
+  <view class="card" wx:if="{{!empty && configured}}">
+    <view class="card-title">测量记录 · {{records.length}} 次</view>
+    <view class="card-sub">点一行可以修改或删除；同一天再记一次会覆盖当天旧值。</view>
+    <view
+      class="gr-row {{editing && editDate === item.date ? 'gr-row--on' : ''}}"
+      wx:for="{{records}}"
+      wx:key="date"
+      data-date="{{item.date}}"
+      bindtap="onRowTap"
+    >
+      <view class="gr-row-l">
+        <view class="gr-row-date">{{item.date}}</view>
+        <view class="gr-row-vals">{{item.vText}}</view>
+      </view>
+      <view class="gr-row-r">
+        <view class="tag tag-grey" wx:if="{{item.hasBand}}">{{item.band}}</view>
+        <view class="gr-row-p" wx:if="{{item.hasBand}}">{{item.p}}</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 录入卡 -->
+  <view class="card" wx:if="{{configured}}">
+    <view class="card-title">{{editing ? '修改记录' : '记一次测量'}}</view>
+    <view class="card-sub">数据只存本机，导出备份也一起带走，不上传。</view>
+    <picker mode="date" value="{{form.date}}" start="{{form.minDate}}" end="{{form.maxDate}}" bindchange="onDateChange">
+      <view class="row">
+        <text class="row-label">日期</text>
+        <text class="row-value">{{form.date}}</text>
+      </view>
+    </picker>
+    <view class="row">
+      <text class="row-label">体重（kg）</text>
+      <input class="gr-input" type="digit" value="{{form.weight}}" placeholder="{{ph.weight}}" placeholder-class="gr-input-ph" bindinput="onWeightInput" />
+    </view>
+    <view class="row">
+      <text class="row-label">身长（cm）</text>
+      <input class="gr-input" type="digit" value="{{form.length}}" placeholder="{{ph.length}}" placeholder-class="gr-input-ph" bindinput="onLengthInput" />
+    </view>
+    <view class="row">
+      <text class="row-label">头围（cm）</text>
+      <input class="gr-input" type="digit" value="{{form.head}}" placeholder="{{ph.head}}" placeholder-class="gr-input-ph" bindinput="onHeadInput" />
+    </view>
+    <view class="gr-actions">
+      <button class="btn btn-primary gr-actions-btn" bindtap="onSave">{{editing ? '保存修改' : '保存记录'}}</button>
+      <button class="btn btn-ghost gr-actions-btn gr-actions-btn--gap" wx:if="{{editing}}" bindtap="onCancelEdit">取消</button>
+      <button class="btn btn-ghost gr-actions-btn gr-actions-btn--gap" wx:if="{{editing}}" bindtap="onDelete">删除</button>
+    </view>
+  </view>
+
+  <view class="disclaimer">{{disclaimer}} 本页只做记录与展示，不做营养评估。</view>
+</view>

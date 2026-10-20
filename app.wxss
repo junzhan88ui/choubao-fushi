@@ -25,6 +25,11 @@ page {
   --c-red-bg: #fcebeb;
   --c-blue: #185fa5;
   --c-blue-bg: #e6f1fb;
+  /* 首页头卡手写体标题（批⑫ · 用户 2026-10-16：手写体不用品牌绿，改浅蓝）。
+     压品牌浅绿 --c-green-tint 3.9:1 —— 标题 40rpx/600 按 WCAG 算「大字」，
+     过 AA 的 3:1 门槛。不用 --c-blue：那枚是链接/语义蓝，6.0:1 偏深、不「浅」。
+     头卡另有「不许出现蓝」的旧钉（§6x-19d），本色是用户这次拍板的修订例外。 */
+  --c-hand-title: #3d7fc4;
 
   /* —— 字号 —— */
   --fs-xs: 22rpx;
@@ -129,6 +134,47 @@ page {
   color: var(--c-text);
   font-size: var(--fs-base);
   font-weight: 500;
+}
+
+/* 行内输入框：靠右，和 .row-value 落在同一视觉位置。
+   占位符用 muted，和「点击选择」那个右值一致。
+   v3.2 从 profile.wxss 提到这里：档案页（辅食日期）和首页（测量面板）
+   两处贴底面板共用，各留一份迟早走样。 */
+.row-input {
+  flex: 1;
+  text-align: right;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.row-input-ph {
+  color: var(--c-text-3);
+}
+
+/* 贴底面板骨架（v3.2 从 profile.wxss 提到这里）：遮罩 + 圆角面板。
+   档案页的辅食日期面板、首页的测量面板都用这一套 —— 全站只有一种
+   「从底部升起来的东西」，别在页面里各画各的。 */
+.sheet-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(44, 44, 42, 0.45);
+  z-index: 100;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 101;
+  background: var(--c-card);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  /* 全面屏底部安全区：面板内容别贴着 Home 条 */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* 标签 */

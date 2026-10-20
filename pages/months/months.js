@@ -16,6 +16,7 @@ const foods = require('../../data/foods.js')
 const age = require('../../utils/age.js')
 const plan = require('../../utils/plan.js')
 const storage = require('../../utils/storage.js')
+const share = require('../../utils/share.js')
 
 // 7–12 月龄知识组（与 index.js 的 guideLater 同一张映射表）
 const LATER = {
@@ -162,5 +163,14 @@ Page({
       if (!!s.active !== on) upd['slides[' + i + '].active'] = on
     })
     this.setData(upd)
+  },
+
+  // 分享（批⑧）：月龄指南内容型标题，微信自动截当前页，path 落回本页
+  onShareAppMessage() {
+    return share.card(share.TITLES.months, '/pages/months/months')
+  },
+
+  onShareTimeline() {
+    return share.card(share.TITLES.months, '/pages/months/months')
   }
 })

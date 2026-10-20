@@ -24,20 +24,6 @@
   color: var(--c-text-3);
 }
 
-/* 名称输入框：靠右，和 .row-value 落在同一视觉位置。
-   占位符用 muted，和「点击选择」那个右值一致 */
-.row-input {
-  flex: 1;
-  text-align: right;
-  font-size: var(--fs-base);
-  font-weight: 500;
-  color: var(--c-text);
-}
-
-.row-input-ph {
-  color: var(--c-text-3);
-}
-
 /* 必填星号（名称 / 出生日期） */
 .req {
   color: var(--c-red);
@@ -144,7 +130,7 @@
   color: var(--c-text-2);
 }
 
-/* 首次辅食日期（v2.32 双时钟）：选填引导（没填生日时）与清除通道 */
+/* 首次辅食日期（v2.32 双时钟）：选填引导（没填生日时） */
 .food-start-hint {
   font-size: var(--fs-sm);
   color: var(--c-text-2);
@@ -152,11 +138,64 @@
   margin-top: 8rpx;
 }
 
-.food-start-clear {
-  font-size: var(--fs-sm);
+.fs-head {
+  display: flex;
+  align-items: center;
+  border-bottom: 1rpx solid var(--c-line);
+}
+
+/* 三格等宽：靠 flex:1 平分，取消/清除左中、确定右 —— 位置与原生 picker 一致，
+   只在中间多出「清除」一格（这正是原生做不到的那一格） */
+.fs-head-btn {
+  flex: 1;
+  text-align: center;
+  font-size: var(--fs-base);
+  padding: 26rpx 0;
   color: var(--c-text-2);
-  text-align: right;
-  margin-top: 10rpx;
+}
+
+.fs-head-ok {
+  color: var(--c-green-dark);
+  font-weight: 600;
+}
+
+/* 清除只在「已经选过首次辅食日期」后可点（用户 2026-10-15 口径）：没选过时压淡，
+   handler 里也照样挡住 —— 视觉与行为两处对齐，不做「看着能点其实没反应」 */
+.fs-head-off {
+  color: var(--c-text-3);
+  opacity: 0.45;
+}
+
+/* 滚轮：88rpx 一行 × 5 行 —— indicator 高度写死同值（wxml 的 indicator-style），
+   否则高亮条会落在两行之间 */
+.fs-pv {
+  width: 100%;
+  height: 440rpx;
+}
+
+.fs-pv-item {
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: var(--fs-base);
+  color: var(--c-text);
+}
+
+/* 生长曲线前置字段（v3.0）：性别两选一互斥行 */
+.grow-sex {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid var(--c-line);
+}
+
+.grow-sex-opts {
+  display: flex;
+}
+
+.grow-sex-opts .chip {
+  margin-bottom: 0;
 }
 
 /* 搜索框沿用 app.wxss 的全局 .search（默认即卡片内嵌样式） */
@@ -182,4 +221,119 @@
   font-size: var(--fs-md);
   color: var(--c-text-3);
   text-align: right;
+}
+
+/* ── v3.1 分步向导（用户 2026-10-19 拍板）─────────────────────────────────
+   一屏一张卡：头部（进度条 + 步骤号）和底部（上一步/下一步）固定，
+   中间是一张卡。固定头部让长列表翻到底也知道自己在第几步；
+   固定底部让「下一步」永远在拇指够得着的位置。 */
+
+.wiz {
+  min-height: 100vh;
+  background: var(--c-bg);
+}
+
+.wiz-head {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  padding: 20rpx 24rpx 0;
+  background: var(--c-bg);
+  /* 细线而不是阴影：§6l 的「卡片阴影唯一」是硬基线，头脚各一条 1rpx
+     发丝线，滚动时卡片有明确的截断边界，又不会抢卡片的层级。 */
+  border-bottom: 1rpx solid var(--c-line);
+}
+
+.stepper {
+  display: flex;
+  gap: 8rpx;
+}
+
+/* 每段可点跳步：视觉 8rpx，靠上下 14rpx 的 margin 把热区撑到 36rpx，
+   手指才点得中（纯 8rpx 高的条是点不着的）。 */
+.step-pip {
+  flex: 1;
+  height: 8rpx;
+  margin: 14rpx 0;
+  border-radius: 4rpx;
+  background: #e5e3dc;
+}
+
+.step-pip.on {
+  background: var(--c-green);
+}
+
+.wiz-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0 10rpx;
+}
+
+.wiz-step {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.5rpx;
+  color: var(--c-text-3);
+}
+
+/* 跳过：2–4 步才出现（这三步全选填）。文字链而非按钮 ——
+   它的分量必须低于「下一步」，否则用户会以为跳过是推荐路径。 */
+.wiz-skip {
+  padding: 4rpx 0 4rpx 16rpx;
+  font-size: var(--fs-sm);
+  color: var(--c-green);
+}
+
+/* 上下留白 = 固定头部高（约 120rpx）+ 固定底栏高（约 80rpx + 安全区），
+   卡片才不会被压住 */
+.wiz-body {
+  padding: 120rpx 24rpx 220rpx;
+}
+
+/* 卡片高度：44vh（v3.5 · 用户 2026-10-20 两次拍板，从 56vh 降）。
+   原来 56vh 是为了「短表单不缩成一竖条 + 底部 tip 有地方落」，现在四张卡的
+   提示行（wiz-tip）全部删完，flex 的 auto 边距也跟着没了 —— 56vh 只剩纯空白。
+   44vh 是短卡（第 1/2/3 步）的下限；第 4 步（53 个 chip）本身就超高，不受影响。 */
+.wiz-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 44vh;
+}
+
+/* 卡内小标题（有反应的食材）：比 card-title 低一档 */
+.wiz-sub {
+  padding: 2rpx 0 6rpx;
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--c-text);
+}
+
+.wiz-divider {
+  height: 1rpx;
+  margin: 30rpx 0 22rpx;
+  background: var(--c-line);
+}
+
+/* 底栏固定：宽度撑满、按钮平分。env() 兜住 iPhone 底部横条，
+   calc 里同时给 16rpx 基础间距，全面屏和非全面屏都不贴边。 */
+.wiz-foot {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  background: var(--c-bg);
+  border-top: 1rpx solid var(--c-line);
+}
+
+.wiz-btn {
+  flex: 1;
+  width: auto;
+  padding: 24rpx 0;
+  font-size: var(--fs-base);
 }

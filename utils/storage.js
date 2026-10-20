@@ -10,11 +10,16 @@
  */
 
 const KEYS = {
-  BABY: 'bb_baby',        // { name, birthday, foodStart? }  foodStart = 首次辅食日期（v2.32 双时钟，选填）
+  BABY: 'bb_baby',        // { name, birthday, foodStart?, sex?, birthWeight?, birthLength?, note? }
+                          //   date 之外全选填：foodStart = 首次辅食日期（v2.32 双时钟）；
+                          //   sex/birthWeight/birthLength = 成长曲线前置（v3.0 批①）；
+                          //   note = 一句话描述（v3.0 批⑨，首页头卡个性行）
   INTRO: 'bb_introduced', // [{ foodId, date, status }]  status: safe | bad（v2.30 起 observing 绝版，读取时迁移为 safe）
   STATUS: 'bb_status',    // [keys] 当前状态，可多选（合法 key 见 STATUSES）
   PLAN: 'bb_plan',        // { generatedAt, months, stageKey, days, shopping }
   MEALS: 'bb_meals',      // [{ date, recipeId, status, reaction, at }] 每餐打卡（v2.1）
+  GROWTH: 'bb_growth',    // [{ date, weight, length, head? }] 生长测量记录（v3.0 成长曲线）
+  PHOTO: 'bb_photo',      // 照片文件路径（v3.0 批⑦，选填）—— 只记路径，图是本机文件
 
   // 旧版单选字段，只用于把老用户的设置迁移进 bb_status（见 ensureInit）
   LEGACY_ISSUE: 'bb_issue',
@@ -176,6 +181,56 @@ function sanitizeBabyName(v) {
   return s.replace(/\s+/g, ' ').trim().slice(0, BABY_NAME_MAX)
 }
 
+/** 默认名「宝贝 + 4 位编号」（v3.1 · 用户 2026-10-19 拍板）：
+ *  首次进入弹窗用它预填，用户可以直接改，也可以不改。
+ *
+ *  ⚠️ 只生成一次、必须落库 —— 调用方拿到就 setBaby({ name })。
+ *  每次启动重算会让「宝贝8943」变成「宝贝1207」，用户一眼看出是假的。
+ *
+ *  1000 + rand*9000 = 四位且无前导零（「宝贝0007」读起来像 bug）。
+ *  本地单用户场景不查重：同一台设备只有一份档案，撞号没有语义。 */
+function defaultBabyName() {
+  return '宝贝' + (1000 + Math.floor(Math.random() * 9000))
+}
+
+/** 性别（v3.0 成长曲线前置字段，选填）：'m' | 'f' | ''（空 = 没填）。
+ *  WHO 百分位表分男女两套 —— 没填时曲线页只出记录、不出百分位，
+ *  空值是合法状态，不拦建档、不进计划指纹。 */
+function sanitizeSex(v) {
+  return v === 'm' || v === 'f' ? v : ''
+}
+
+/* 出生指标（v3.0，选填）：区间外一律当「没填」—— 手滑打错（170cm 身长、
+   3.2g 体重）宁可空着，也不让脏值进库画出假曲线。归一到 1 位小数。
+   区间按用户 2026-10-16 拍板放宽：出生体重**大于 2 kg 且小于 15 kg**（端点不算，
+   2.0 与 15.0 都按越界拒收）、出生身长 20–70 cm（含端点，用户没让动）。
+   下限从 3 放到 2，是为了让低出生体重宝宝（2.0–3.0 那一段）也能建档；
+   配合档案页「打字期不归一、blur 再校验」一起，修掉「身长 50 打到 5 就被清空、
+   永远填不进」的受控输入 bug（§6x-16 钉）。 */
+const BIRTH_WEIGHT_MIN = 2     // kg，严格大于（端点拒收）
+const BIRTH_WEIGHT_MAX = 15    // kg，严格小于（端点拒收）
+const BIRTH_LENGTH_MIN = 20    // cm，含
+const BIRTH_LENGTH_MAX = 70    // cm，含
+
+function sanitizeBirthMetric(v, min, max, strict) {
+  if (v === '' || v === null || v === undefined) return ''
+  const n = Number(v)
+  if (!isFinite(n)) return ''
+  // strict 只给出生体重用：用户口径是「大于 2 且小于 15」，端点不算；
+  // 出生身长沿用含端点的 20–70
+  if (strict ? (n <= min || n >= max) : (n < min || n > max)) return ''
+  return Math.round(n * 10) / 10
+}
+
+/* 一句话描述（v3.0 批⑨，选填）：首页头卡「是个爱笑的小家伙。」那种个性行。
+   压掉换行/连续空格、去首尾、截断上限 —— 用户自己的话，不拦建档、不进指纹。 */
+const BABY_NOTE_MAX = 24
+
+function sanitizeBabyNote(v) {
+  const s = v === null || v === undefined ? '' : String(v)
+  return s.replace(/\s+/g, ' ').trim().slice(0, BABY_NOTE_MAX)
+}
+
 /**
  * 更新宝宝档案。
  *
@@ -192,7 +247,11 @@ function setBaby(patch) {
     return
   }
   const cur = wx.getStorageSync(KEYS.BABY) || {}
-  const next = { name: cur.name, birthday: cur.birthday, foodStart: cur.foodStart }
+  const next = {
+    name: cur.name, birthday: cur.birthday, foodStart: cur.foodStart,
+    sex: cur.sex, birthWeight: cur.birthWeight, birthLength: cur.birthLength,
+    note: cur.note
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'name')) {
     next.name = sanitizeBabyName(patch.name)
   }
@@ -203,6 +262,22 @@ function setBaby(patch) {
   // foodMonthsOf 对空值自动回退生理月龄（= 现状）
   if (Object.prototype.hasOwnProperty.call(patch, 'foodStart')) {
     next.foodStart = patch.foodStart || ''
+  }
+  // 性别与出生指标（v3.0 成长曲线前置字段，全选填）：性别是 WHO 百分位表的
+  // 取表条件，出生指标兼作曲线的第一条锚点。三项都不进计划指纹 ——
+  // 改它们绝不触发计划重算（§6x 钉）。
+  if (Object.prototype.hasOwnProperty.call(patch, 'sex')) {
+    next.sex = sanitizeSex(patch.sex)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'birthWeight')) {
+    next.birthWeight = sanitizeBirthMetric(patch.birthWeight, BIRTH_WEIGHT_MIN, BIRTH_WEIGHT_MAX, true)
+  }
+  if (Object.prototype.hasOwnProperty.call(patch, 'birthLength')) {
+    next.birthLength = sanitizeBirthMetric(patch.birthLength, BIRTH_LENGTH_MIN, BIRTH_LENGTH_MAX)
+  }
+  // 一句话描述（v3.0 批⑨，选填，首页头卡个性行）：不进计划指纹
+  if (Object.prototype.hasOwnProperty.call(patch, 'note')) {
+    next.note = sanitizeBabyNote(patch.note)
   }
   wx.setStorageSync(KEYS.BABY, next)
 }
@@ -408,11 +483,132 @@ function refusedRecipeIds(now) {
 
 /* ---------- 其他 ---------- */
 
+/* ---------- 生长测量记录（v3.0 · 成长曲线批①） ---------- */
+
+/* 三条指标的区间与单位。越界一律整条拒收 —— 手滑打错单位（把 170cm 身长
+   当体重录进来）宁可不存，也不让脏值在曲线上画出一根假线。 */
+const GROWTH_METRICS = {
+  weight: { min: 0.3, max: 40, unit: 'kg' }, // 0–60 月龄 WHO 体重上限 <25kg，40 留足余量
+  length: { min: 30, max: 130, unit: 'cm' }, // 新生儿 ~50cm，24 月 ~90cm，130 封顶
+  head: { min: 25, max: 60, unit: 'cm' }     // 新生儿 ~34cm，头围只做选填项
+}
+
+/** 清洗单条记录：日期格式对、至少一项指标有值且都在区间内才返回归一化条目，
+ *  否则返回 null（整条丢弃）。数值归一到 1 位小数，同日覆写交由调用方处理。 */
+function cleanGrowthEntry(it) {
+  if (!it || typeof it !== 'object') return null
+  const date = String(it.date || '')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null
+  const out = { date: date }
+  let any = false
+  Object.keys(GROWTH_METRICS).forEach(function (k) {
+    if (it[k] === undefined || it[k] === null || it[k] === '') return
+    const n = Number(it[k])
+    const m = GROWTH_METRICS[k]
+    if (!isFinite(n) || n < m.min || n > m.max) return // 单项越界：丢这一项，不影响其它项
+    out[k] = Math.round(n * 10) / 10
+    any = true
+  })
+  return any ? out : null
+}
+
+/** 全部生长记录，恒按 date 升序。读到脏条目会清洗并回写（一次性自愈），
+ *  与 getIntroduced 的 observing→safe 迁移同思路。 */
+function getGrowth() {
+  const raw = wx.getStorageSync(KEYS.GROWTH)
+  if (!Array.isArray(raw)) return []
+  const byDate = {}
+  let changed = false
+  raw.forEach(function (it) {
+    const c = cleanGrowthEntry(it)
+    if (!c) { changed = true; return }
+    if (byDate[c.date]) changed = true // 同日重复：留后一条
+    byDate[c.date] = c
+  })
+  const out = Object.keys(byDate).sort().map(function (d) { return byDate[d] })
+  if (changed || out.length !== raw.length) setGrowth(out) // 自愈回写
+  return out
+}
+
+function setGrowth(list) {
+  const byDate = {}
+  ;(Array.isArray(list) ? list : []).forEach(function (it) {
+    const c = cleanGrowthEntry(it)
+    if (c) byDate[c.date] = c
+  })
+  const out = Object.keys(byDate).sort().map(function (d) { return byDate[d] })
+  wx.setStorageSync(KEYS.GROWTH, out)
+}
+
+/** 记一条测量（同日覆写）。日期闸门：不晚于今天、不早于出生日期 ——
+ *  曲线横轴是日龄，未来点/出生前点画不进 0–60 月的图。
+ *  注意不挡「没性别」：记录先攒着，补填性别后照样能算百分位。
+ *  @returns {boolean} false = 被拒，没写库 */
+function upsertGrowthRecord(rec) {
+  const c = cleanGrowthEntry(rec)
+  if (!c) return false
+  const today = todayStr()
+  if (c.date > today) return false
+  const baby = getBaby()
+  if (baby && baby.birthday && c.date < baby.birthday) return false
+  const list = getGrowth().filter(function (it) { return it.date !== c.date })
+  list.push(c)
+  setGrowth(list)
+  return true
+}
+
+function removeGrowthRecord(date) {
+  setGrowth(getGrowth().filter(function (it) { return it.date !== date }))
+}
+
 function todayStr(d) {
   const n = d || new Date()
   const mm = n.getMonth() + 1
   const dd = n.getDate()
   return n.getFullYear() + '-' + (mm < 10 ? '0' + mm : mm) + '-' + (dd < 10 ? '0' + dd : dd)
+}
+
+/* ---------- 宝宝照片（v3.0 批⑦ · 用户 2026-10-15 拍板：头卡贴纸可传一张真照片）----------
+ * chooseMedia 给的是临时文件（会话结束即失效），必须落盘才跨启动存活：
+ *   固定路径 USER_DATA_PATH/baby-photo.jpg ——「只存一张」由固定文件名保证，
+ *   新照片先删旧文件再覆盖，storage 里只记路径。
+ * 纯本机：文件不上传、不联网（隐私口径不变）；**不进备份信封** —— 图是二进制，
+ * 文本信封装不下，换机后让用户重选一张即可（resetAll 连文件一起删）。 */
+const PHOTO_NAME = 'baby-photo.jpg'
+
+function photoPath() {
+  const base = (wx.env && wx.env.USER_DATA_PATH) || ''
+  return base + '/' + PHOTO_NAME
+}
+
+function getBabyPhoto() {
+  const p = wx.getStorageSync(KEYS.PHOTO)
+  return typeof p === 'string' ? p : ''
+}
+
+/** 选中的临时照片 → 本机固定路径。同步落盘，返回落盘路径；失败返回 ''
+ *  （调用方保留旧照/占位，不留死图）。 */
+function saveBabyPhoto(tempFilePath) {
+  if (!tempFilePath) return ''
+  try {
+    const fs = wx.getFileSystemManager()
+    const dest = photoPath()
+    try { fs.unlinkSync(dest) } catch (e) { /* 还没有旧图，忽略 */ }
+    fs.copyFileSync(tempFilePath, dest)
+    wx.setStorageSync(KEYS.PHOTO, dest)
+    return dest
+  } catch (e) {
+    return ''
+  }
+}
+
+/** 移除照片：文件与路径一起清（文件不在时只清路径）。 */
+function clearBabyPhoto() {
+  try {
+    const dest = wx.getStorageSync(KEYS.PHOTO)
+    if (dest) wx.getFileSystemManager().unlinkSync(dest)
+  } catch (e) { /* 文件已不在，只清路径 */ }
+  wx.removeStorageSync(KEYS.PHOTO)
 }
 
 function resetAll() {
@@ -421,6 +617,8 @@ function resetAll() {
   wx.removeStorageSync(KEYS.STATUS)
   wx.removeStorageSync(KEYS.PLAN)
   wx.removeStorageSync(KEYS.MEALS)
+  wx.removeStorageSync(KEYS.GROWTH)
+  clearBabyPhoto() // 照片连本机文件一起删（v3.0 批⑦）—— 只删 key 会留孤儿文件
   // 旧版字段一起清：否则清完之后 ensureInit 会拿它们把状态原样迁回来。
   // （此前这里漏了 bb_sick —— 「清除全部数据」后生病状态仍残留）
   wx.removeStorageSync(KEYS.LEGACY_ISSUE)
@@ -436,22 +634,26 @@ function resetAll() {
  * 隐私口径不变（问卷仍填「未采集」）：程序只提供复制/粘贴两个动作，
  * 不上传、不联网 —— 备份文本经用户自己的手转存（§6v 钉无网络调用）。
  *
- * 导出 = 4 个用户数据 key 打成一段带信封的 JSON 文本：
- *   baby / statuses / introduced / mealLogs
+ * 导出 = 5 个用户数据 key 打成一段带信封的 JSON 文本：
+ *   baby / statuses / introduced / mealLogs / growth（v3.0 成长曲线）
  * bb_plan 是派生缓存，**不进备份**：导入后清空强制重算（§6v 钉）。
+ * bb_photo（v3.0 批⑦ 照片路径）也**不进备份**：图是本机二进制、路径换机
+ * 必失效，文本信封装不下 —— 换机后在头卡重选一张即可（§6x-16 实跑钉）。
  *
  * 导入 = 粘贴文本 → 信封校验（app 标记 + fmt 版本，防误粘贴别的 JSON）
  *   → 逐字段清洗（脏条目丢弃）→ 整包覆盖写入。导入前页面必须弹确认框
  *   （导入 = 整包替换，§6v 钉 showModal）。
  */
 const BACKUP_MARK = 'choubao-fushi'
-const BACKUP_FMT = 1
+const BACKUP_FMT = 2          // v3.0：新增 growth 段，fmt 从 1 升到 2
+const BACKUP_FMT_MIN = 1      // 允许导入的最低 fmt —— 老备份（fmt 1）要能照常导，不逼老用户重录
 
 /** 是不是本小程序的备份文本（导入前的预检，页面拿它决定弹不弹确认框） */
 function isBackupText(text) {
   try {
     const pack = JSON.parse(String(text || ''))
-    return !!(pack && pack.app === BACKUP_MARK && pack.fmt === BACKUP_FMT)
+    return !!(pack && pack.app === BACKUP_MARK &&
+      pack.fmt >= BACKUP_FMT_MIN && pack.fmt <= BACKUP_FMT)
   } catch (e) { return false }
 }
 
@@ -465,7 +667,8 @@ function exportUserData() {
     // getStatuses 自带合法 key 过滤，导出侧就干净
     statuses: getStatuses(),
     introduced: getIntroduced(),
-    mealLogs: getMealLogs()
+    mealLogs: getMealLogs(),
+    growth: getGrowth() // v3.0 成长曲线记录
   })
 }
 
@@ -473,15 +676,21 @@ function importUserData(text) {
   if (!isBackupText(text)) return false
   const pack = JSON.parse(String(text))
 
-  // 逐字段清洗：档案只认 name/birthday/foodStart（与 setBaby 同一套白名单）；
-  // 状态只认合法 key；引入记录只认 {foodId, date, status∈safe|bad}
-  // （observing 一并升 safe —— 与 v2.30 读取迁移同口径，observing 绝版）；
-  // 打卡只认 {date, recipeId, status, reaction, at}。脏条目直接丢弃。
+  // 逐字段清洗：档案只认 name/birthday/foodStart/sex/birthWeight/birthLength/note
+  // （与 setBaby 同一套白名单）；状态只认合法 key；引入记录只认
+  // {foodId, date, status∈safe|bad}（observing 一并升 safe —— 与 v2.30 读取
+  // 迁移同口径，observing 绝版）；打卡只认 {date, recipeId, status, reaction, at}。
+  // 生长记录（v3.0）走 cleanGrowthEntry：日期格式对 + 至少一项指标在区间内。
+  // 脏条目直接丢弃。
   const baby = (pack.baby && typeof pack.baby === 'object')
     ? {
         name: sanitizeBabyName(pack.baby.name),
         birthday: typeof pack.baby.birthday === 'string' ? pack.baby.birthday : '',
-        foodStart: typeof pack.baby.foodStart === 'string' ? pack.baby.foodStart : ''
+        foodStart: typeof pack.baby.foodStart === 'string' ? pack.baby.foodStart : '',
+        sex: sanitizeSex(pack.baby.sex),
+        birthWeight: sanitizeBirthMetric(pack.baby.birthWeight, BIRTH_WEIGHT_MIN, BIRTH_WEIGHT_MAX, true),
+        birthLength: sanitizeBirthMetric(pack.baby.birthLength, BIRTH_LENGTH_MIN, BIRTH_LENGTH_MAX),
+        note: sanitizeBabyNote(pack.baby.note)
       }
     : null
   const statuses = (Array.isArray(pack.statuses) ? pack.statuses : []).filter(isStatusKey)
@@ -508,10 +717,17 @@ function importUserData(text) {
 
   // 整包覆盖（导入语义 = 替换，不是合并）；派生缓存一并清掉，
   // 旧计划是按旧数据生成的，必须重算。
+  // v3.0 fmt 1 老备份没有 growth 字段 → 落成空数组（页面判空口径统一，
+  // 也别把老备份当成「有生长数据但全空」的歧义状态）。
+  const growth = (Array.isArray(pack.growth) ? pack.growth : [])
+    .map(cleanGrowthEntry)
+    .filter(function (c) { return !!c })
+
   wx.setStorageSync(KEYS.BABY, baby)
   wx.setStorageSync(KEYS.STATUS, statuses)
   wx.setStorageSync(KEYS.INTRO, introduced)
   wx.setStorageSync(KEYS.MEALS, meals)
+  wx.setStorageSync(KEYS.GROWTH, growth)
   wx.setStorageSync(KEYS.PLAN, null)
   return true
 }
@@ -528,8 +744,17 @@ module.exports = {
   ensureInit: ensureInit,
   BABY_NAME_MAX: BABY_NAME_MAX,
   sanitizeBabyName: sanitizeBabyName,
+  defaultBabyName: defaultBabyName,
   getBaby: getBaby,
   setBaby: setBaby,
+  sanitizeSex: sanitizeSex,
+  sanitizeBirthMetric: sanitizeBirthMetric,
+  BABY_NOTE_MAX: BABY_NOTE_MAX,
+  sanitizeBabyNote: sanitizeBabyNote,
+  BIRTH_WEIGHT_MIN: BIRTH_WEIGHT_MIN,
+  BIRTH_WEIGHT_MAX: BIRTH_WEIGHT_MAX,
+  BIRTH_LENGTH_MIN: BIRTH_LENGTH_MIN,
+  BIRTH_LENGTH_MAX: BIRTH_LENGTH_MAX,
   isConfigured: isConfigured,
   missingFields: missingFields,
   getIntroduced: getIntroduced,
@@ -548,6 +773,15 @@ module.exports = {
   getSick: getSick,
   getPlan: getPlan,
   setPlan: setPlan,
+  getGrowth: getGrowth,
+  setGrowth: setGrowth,
+  upsertGrowthRecord: upsertGrowthRecord,
+  removeGrowthRecord: removeGrowthRecord,
+  cleanGrowthEntry: cleanGrowthEntry,
+  GROWTH_METRICS: GROWTH_METRICS,
+  getBabyPhoto: getBabyPhoto,
+  saveBabyPhoto: saveBabyPhoto,
+  clearBabyPhoto: clearBabyPhoto,
   getMealLogs: getMealLogs,
   logMeal: logMeal,
   refusedRecipeIds: refusedRecipeIds,

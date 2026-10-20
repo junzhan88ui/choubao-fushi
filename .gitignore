@@ -11,3 +11,9 @@ miniprogram_npm/
 .DS_Store
 Thumbs.db
 *.log
+
+# 数据生成脚本的现拉缓存（WHO xlsx / 字体二进制，跑 scripts/gen-*.py 自动重建）
+scripts/.cache/
+
+# 本地智能体工作记忆（与代码无关）
+.workbuddy/
