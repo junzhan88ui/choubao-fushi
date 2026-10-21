@@ -26,49 +26,49 @@ module.exports = [
   {
     id: 'rice', name: '大米', alias: ['白米'],
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '熬成很烂的粥，取上层米油或压成米糊' },
+    firstIntro: { amount: '1–2 小勺', method: '熬 25 分钟成很烂的粥（米粒开花、粥体浓稠），取上层米油或压成米糊' },
     note: '粥要熬到米粒开花、入口即化。',
     source: SOURCE
   },
   {
     id: 'millet', name: '小米',
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '熬成小米粥，取上层米汤或压成糊' },
+    firstIntro: { amount: '1–2 小勺', method: '熬 20 分钟成小米粥，取上层米汤或压成糊' },
     note: '比大米更容易消化，适合初期。',
     source: SOURCE
   },
   {
     id: 'oat', name: '燕麦', alias: ['燕麦片'],
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '用即食纯燕麦片煮软，压成糊' },
+    firstIntro: { amount: '1–2 小勺', method: '用即食纯燕麦片煮 5 分钟至软烂，压成糊' },
     note: '选无糖无添加的纯燕麦片，不要选速溶调味麦片。',
     source: SOURCE
   },
   {
     id: 'potato', name: '土豆', alias: ['马铃薯'],
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟压成细泥，用温水或奶调稀' },
+    firstIntro: { amount: '1–2 小勺', method: '切薄片蒸 15–20 分钟（筷子能戳穿），压成细泥，用温水或奶调稀' },
     note: '发芽或表皮发绿的土豆不能吃。',
     source: SOURCE
   },
   {
     id: 'sweet_potato', name: '红薯', alias: ['地瓜', '番薯'],
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟压成细泥，可加少量温水调稀' },
+    firstIntro: { amount: '1–2 小勺', method: '蒸 15–20 分钟至筷子能戳穿，压成细泥，可加少量温水调稀' },
     note: '口感甜、接受度高。吃多了可能胀气，初期量要小。',
     source: SOURCE
   },
   {
     id: 'yam', name: '山药', alias: ['淮山'],
     category: '谷物', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟压成细泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮切小丁蒸 15–20 分钟至软，压成细泥' },
     note: '处理生山药时手会痒，建议戴手套。',
     source: SOURCE
   },
   {
     id: 'corn', name: '玉米', alias: ['玉米粒'],
     category: '谷物', minMonth: 8, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '煮熟后取玉米粒打成泥并过筛去皮' },
+    firstIntro: { amount: '1–2 小勺', method: '煮 10–15 分钟后取玉米粒，打成泥并过筛去皮' },
     note: '玉米皮不易消化，初期一定要过筛去皮。',
     source: SOURCE
   },
@@ -84,91 +84,91 @@ module.exports = [
   {
     id: 'pumpkin', name: '南瓜',
     category: '蔬菜', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '去皮去瓤切块蒸熟，压成细泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮去瓤切块蒸 10 分钟，压成细泥' },
     note: '天然带甜味，是很好的初期蔬菜。',
     source: SOURCE
   },
   {
     id: 'carrot', name: '胡萝卜',
     category: '蔬菜', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟或煮熟后压成细泥' },
+    firstIntro: { amount: '1–2 小勺', method: '切薄片蒸 12–15 分钟（胡萝卜最耐煮，别凭感觉），压成细泥' },
     note: '胡萝卜素是脂溶性的，可滴一两滴食用油帮助吸收。',
     source: SOURCE
   },
   {
     id: 'broccoli', name: '西兰花',
     category: '蔬菜', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '取花球部分焯水煮软，压成细泥' },
+    firstIntro: { amount: '1–2 小勺', method: '取花球部分焯水 2–3 分钟至梗能掐动，压成细泥' },
     note: '只用花球，梗部纤维粗，初期不用。',
     source: SOURCE
   },
   {
     id: 'zucchini', name: '西葫芦',
     category: '蔬菜', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '去皮去籽蒸熟，压成细泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮去籽蒸 6–8 分钟，压成细泥' },
     note: '水分多、质地软，容易压泥。',
     source: SOURCE
   },
   {
     id: 'spinach', name: '菠菜',
     category: '蔬菜', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '焯水后挤干，取嫩叶压成泥' },
+    firstIntro: { amount: '1 小勺', method: '焯水 1 分钟（只为去草酸，别煮烂）后挤干，取嫩叶压成泥' },
     note: '含草酸，必须先焯水再给，且不要与高钙食物同一餐大量同吃。',
     source: SOURCE
   },
   {
     id: 'pea', name: '豌豆', alias: ['青豆'],
     category: '蔬菜', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '煮烂后去皮压成泥并过筛' },
+    firstIntro: { amount: '1–2 小勺', method: '煮 8–10 分钟至烂，去皮压成泥并过筛' },
     note: '外皮不易消化，初期必须去皮过筛。',
     source: SOURCE
   },
   {
     id: 'tomato', name: '番茄', alias: ['西红柿'],
     category: '蔬菜', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '去皮去籽，煮熟后压成泥' },
+    firstIntro: { amount: '1 小勺', method: '去皮去籽，煮 3–5 分钟出汁后压成泥' },
     note: '偏酸，部分宝宝会出现口周发红，属刺激反应而非过敏，可停几天再试。',
     source: SOURCE
   },
   {
     id: 'cabbage', name: '小白菜', alias: ['青菜', '油菜'],
     category: '蔬菜', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '焯水后取嫩叶剁碎或压泥' },
+    firstIntro: { amount: '1 小勺', method: '焯水 1 分钟后取嫩叶剁碎或压泥' },
     note: '选嫩叶，菜梗纤维粗，初期不用。',
     source: SOURCE
   },
   {
     id: 'winter_melon', name: '冬瓜',
     category: '蔬菜', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '去皮去瓤蒸熟压泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮去瓤蒸 10 分钟至透明，压成泥' },
     note: '水分多、性质温和。',
     source: SOURCE
   },
   {
     id: 'white_radish', name: '白萝卜',
     category: '蔬菜', minMonth: 8, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '煮烂后压成泥或剁碎' },
+    firstIntro: { amount: '1–2 小勺', method: '煮 10–15 分钟至勺子能压碎，压成泥或剁碎' },
     note: '生萝卜辛辣，必须彻底煮软。',
     source: SOURCE
   },
   {
     id: 'lotus_root', name: '莲藕',
     category: '蔬菜', minMonth: 9, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '煮至软烂后剁成细末' },
+    firstIntro: { amount: '1–2 小勺', method: '煮 20–30 分钟至软烂（莲藕最费火，时间别省），剁成细末' },
     note: '纤维较粗，要煮到能用勺子轻松压碎。',
     source: SOURCE
   },
   {
     id: 'mushroom', name: '香菇', alias: ['蘑菇'],
     category: '蔬菜', minMonth: 9, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '泡发后煮烂，剁成细末' },
+    firstIntro: { amount: '1 小勺', method: '泡发后煮 10 分钟至软塌，剁成细末' },
     note: '气味较重，先从极少量开始，有些宝宝不接受。',
     source: SOURCE
   },
   {
     id: 'eggplant', name: '茄子',
     category: '蔬菜', minMonth: 9, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '去皮蒸熟，压成泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮蒸 10 分钟至塌软，压成泥' },
     note: '吸油，不要用油炒的方式做给一岁内宝宝。',
     source: SOURCE
   },
@@ -177,42 +177,42 @@ module.exports = [
   {
     id: 'apple', name: '苹果',
     category: '水果', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟或煮熟后压成泥（生苹果泥偏硬，初期建议熟食）' },
+    firstIntro: { amount: '1–2 小勺', method: '蒸 8–10 分钟至勺子能刮下软肉，压成泥（生苹果泥偏硬，初期建议熟食）' },
     note: '熟苹果泥较温和，初期优先选熟食。',
     source: SOURCE
   },
   {
     id: 'banana', name: '香蕉',
     category: '水果', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '选熟透的香蕉，用勺背直接压成泥' },
+    firstIntro: { amount: '1–2 小勺', method: '选熟透带黑斑的香蕉（不用加热），用勺背直接压成泥' },
     note: '不用加热。生香蕉含鞣酸，可能加重便秘，要选熟透带斑点的。',
     source: SOURCE
   },
   {
     id: 'pear', name: '梨',
     category: '水果', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '蒸熟或煮熟后压成泥' },
+    firstIntro: { amount: '1–2 小勺', method: '蒸 8–10 分钟至勺子能刮下软肉，压成泥' },
     note: '水分多，对大便偏干的宝宝比较友好。',
     source: SOURCE
   },
   {
     id: 'avocado', name: '牛油果', alias: ['鳄梨'],
     category: '水果', minMonth: 6, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '选熟软的，直接压成泥' },
+    firstIntro: { amount: '1–2 小勺', method: '选按压微软、熟透的（不用加热），直接压成泥' },
     note: '脂肪含量高、能量密度大，适合长身体阶段。',
     source: SOURCE
   },
   {
     id: 'peach', name: '桃', alias: ['水蜜桃'],
     category: '水果', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '去皮蒸熟后压成泥' },
+    firstIntro: { amount: '1–2 小勺', method: '去皮蒸 6–8 分钟，压成泥' },
     note: '表面绒毛可能刺激皮肤，务必去皮。',
     source: SOURCE
   },
   {
     id: 'blueberry', name: '蓝莓',
     category: '水果', minMonth: 8, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '煮软后压成泥，大月龄可对半切开' },
+    firstIntro: { amount: '1 小勺', method: '煮 2–3 分钟至破皮后压成泥，大月龄可对半切开' },
     note: '整颗蓝莓有窒息风险，一岁内务必压碎或切开。',
     source: SOURCE
   },
@@ -249,35 +249,35 @@ module.exports = [
   {
     id: 'pork', name: '猪肉', alias: ['瘦肉'],
     category: '肉禽', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '选里脊等瘦肉，煮熟后剁成极细的肉末或打成泥' },
+    firstIntro: { amount: '1 小勺', method: '选里脊等瘦肉，冷水下锅、水开后煮 12–15 分钟（中心不见粉色），剁成极细的肉末或打成泥' },
     note: '红肉含铁，是 6 个月后补铁的重要来源。',
     source: SOURCE
   },
   {
     id: 'chicken', name: '鸡肉', alias: ['鸡胸肉'],
     category: '肉禽', minMonth: 7, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '鸡胸肉煮熟后撕成丝再剁成细末' },
+    firstIntro: { amount: '1 小勺', method: '鸡胸肉冷水下锅，水开后煮 10–12 分钟，撕成丝再剁成细末' },
     note: '鸡胸肉纤维较粗，一定要剁得很细。',
     source: SOURCE
   },
   {
     id: 'beef', name: '牛肉',
     category: '肉禽', minMonth: 8, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '选牛里脊，煮熟后剁成细末或打成泥' },
+    firstIntro: { amount: '1 小勺', method: '选牛里脊，煮 15–20 分钟至能咬断，剁成细末或打成泥' },
     note: '含铁量高，但纤维粗，要处理得比猪肉更细。',
     source: SOURCE
   },
   {
     id: 'liver_pork', name: '猪肝',
     category: '肉禽', minMonth: 8, allergen: false,
-    firstIntro: { amount: '1 小勺', method: '充分浸泡去血水，煮熟后压成泥' },
+    firstIntro: { amount: '1 小勺', method: '充分浸泡去血水后切片，水开后煮 8–10 分钟（中心无血色）压成泥' },
     note: '补铁效果好，但维生素 A 含量极高，每周不超过 1–2 次、每次少量。',
     source: SOURCE
   },
   {
     id: 'lamb', name: '羊肉',
     category: '肉禽', minMonth: 10, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '选嫩部位煮熟剁碎' },
+    firstIntro: { amount: '1–2 小勺', method: '选嫩部位煮 25–30 分钟至能轻松咬断，剁碎' },
     note: '气味较重，先从极少量试。',
     source: SOURCE
   },
@@ -286,21 +286,21 @@ module.exports = [
   {
     id: 'salmon', name: '三文鱼',
     category: '水产', minMonth: 8, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '蒸熟后仔细挑刺，压成泥' },
+    firstIntro: { amount: '1 小勺', method: '水开后蒸 8 分钟（肉一压就散），仔细挑刺后压成泥' },
     note: '富含 DHA。属于常见致敏食材，需单独引入观察；务必彻底挑净鱼刺。',
     source: SOURCE
   },
   {
     id: 'cod', name: '鳕鱼',
     category: '水产', minMonth: 8, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '蒸熟后挑刺压成泥' },
+    firstIntro: { amount: '1 小勺', method: '水开后蒸 8 分钟，挑刺后压成泥' },
     note: '刺少肉嫩，但仍是致敏食材，需单独引入观察。',
     source: SOURCE
   },
   {
     id: 'shrimp', name: '虾', alias: ['虾仁'],
     category: '水产', minMonth: 9, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '去壳去虾线，煮熟后剁成极细的末' },
+    firstIntro: { amount: '1 小勺', method: '去壳去虾线，水开后煮 2–3 分钟（变红卷曲），剁成极细的末' },
     note: '致敏性较高，建议较晚引入。虾肉弹牙，务必剁细防噎。',
     source: SOURCE
   },
@@ -309,14 +309,14 @@ module.exports = [
   {
     id: 'egg_yolk', name: '蛋黄',
     category: '蛋奶', minMonth: 6, allergen: true,
-    firstIntro: { amount: '1/4 个', method: '鸡蛋煮全熟，取蛋黄压碎，用温水或奶调成糊' },
+    firstIntro: { amount: '1/4 个', method: '鸡蛋冷水下锅、水开后煮 8–10 分钟（全熟），取蛋黄压碎，用温水或奶调成糊' },
     note: '从 1/4 个开始，观察 2–3 天无异常再逐步加量。含铁，是早期重要来源。',
     source: SOURCE
   },
   {
     id: 'egg_whole', name: '全蛋', alias: ['蛋清', '鸡蛋'],
     category: '蛋奶', minMonth: 8, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '煮全熟后压碎，或做成蛋羹（不加盐）' },
+    firstIntro: { amount: '1 小勺', method: '煮 8–10 分钟至全熟后压碎，或做成蛋羹（水开后中小火蒸 10–12 分钟，不加盐）' },
     note: '蛋清致敏性高于蛋黄，建议在蛋黄适应后再引入全蛋。必须全熟。',
     source: SOURCE
   },
@@ -339,21 +339,21 @@ module.exports = [
   {
     id: 'tofu', name: '豆腐', alias: ['嫩豆腐'],
     category: '豆类', minMonth: 8, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '嫩豆腐焯水后压成泥' },
+    firstIntro: { amount: '1 小勺', method: '嫩豆腐焯水 1 分钟（去豆腥）后压成泥' },
     note: '大豆制品属于常见致敏食材。选嫩豆腐，老豆腐纤维粗。',
     source: SOURCE
   },
   {
     id: 'red_bean', name: '红豆', alias: ['赤小豆'],
     category: '豆类', minMonth: 10, allergen: false,
-    firstIntro: { amount: '1–2 小勺', method: '提前浸泡，煮到极烂后压成泥并过筛去皮' },
+    firstIntro: { amount: '1–2 小勺', method: '提前浸泡 4 小时以上，煮 40 分钟至一压就成沙，压成泥并过筛去皮' },
     note: '豆皮不易消化，务必煮烂并去皮。',
     source: SOURCE
   },
   {
     id: 'soybean', name: '黄豆',
     category: '豆类', minMonth: 10, allergen: true,
-    firstIntro: { amount: '1 小勺', method: '充分浸泡煮烂后压成泥过筛' },
+    firstIntro: { amount: '1 小勺', method: '充分浸泡 4 小时以上，煮 40 分钟至烂，压成泥过筛' },
     note: '致敏性较高，且整粒黄豆有窒息风险，必须彻底煮烂并压碎。',
     source: SOURCE
   },

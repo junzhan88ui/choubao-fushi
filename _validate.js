@@ -5058,6 +5058,119 @@ if (typeof age.isFoodReady !== 'function') E('age.js 缺 isFoodReady')
   }
 }
 
+/* ---------- 6x-23. 食材「怎么弄熟」时长（v4.1 · 用户 2026-10-21 拍板方案 B） ----------
+ *  用户问题：菜谱写「熟香蕉压成泥」，家长不知道香蕉要不要蒸、蒸多久。
+ *  拆成两件事，两件都要钉：
+ *   ① 「熟X」是歧义词 —— 这里的「熟」= **熟透**（表皮带黑斑），不是「做熟」。
+ *      香蕉 / 牛油果 / 橙子 / 草莓 / 猕猴桃 / 芒果**不用加热**；只有
+ *      苹果 / 梨 / 桃 / 蓝莓要弄熟。反向钉：这些生吃水果的段落里不许出现蒸/煮/焯，
+ *      食材详情的引入方式也不许 —— 「熟香蕉」这种写法一回来，家长又要想怎么煮熟它。
+ *   ② 时长原来散在两处（菜谱步骤 + 食材详情 method）且大半没写（84/208 步、38/53 食材）。
+ *      v4.1 起 `data/prep.js` 是唯一口径：写了 time 的食材，foods.js 的
+ *      firstIntro.method 必须包含**同一个**时长串；菜谱步骤按「，。；」切段后，
+ *      凡出现加热动词的段必须带 \d+ 分钟/秒/小时（「不用油炒 / 不加油 / 不加盐」豁免，
+ *      油脂类食材不进 prep 表）。
+ *  为什么按段而不是按整条步骤查：一条步骤里常有「泡 30 分钟去血水，煮熟压泥」——
+ *  整条含「30 分钟」，但煮的时间照样漏了。按段查才抓得到。 */
+{
+  const errsBeforePrep = errs.length
+  const prep = require('./data/prep.js')
+  if (!prep || !prep.PREP || typeof prep.prepOf !== 'function' || typeof prep.prepLine !== 'function')
+    E('data/prep.js 没导出 PREP / prepOf / prepLine —— 方案 B 的单一数据源没落地（§6x-23）')
+  const P = (prep && prep.PREP) || {}
+  const WAYS = ['蒸', '煮', '焯', '熬', '生']
+  const foodIds = foods.map((f) => f.id)
+  const TIME_RE = /^\d+(–\d+)? (分钟|秒|小时)$/
+  let prepWithTime = 0
+  Object.keys(P).forEach((id) => {
+    const p = P[id]
+    if (foodIds.indexOf(id) < 0) E(`prep.js 的 ${id} 不是食材库里的 id —— 孤儿条目（§6x-23）`)
+    if (WAYS.indexOf(p.way) < 0) E(`prep.js ${id} 的 way「${p.way}」不在 [${WAYS}] 里（§6x-23）`)
+    if (p.way === '生') {
+      if (p.time) E(`prep.js ${id} 是生吃（不用加热）却写了时长「${p.time}」（§6x-23）`)
+    } else {
+      prepWithTime++
+      if (!TIME_RE.test(p.time || ''))
+        E(`prep.js ${id} 的 time「${p.time}」格式不对 —— 统一写「8–10 分钟」，不带「约」（§6x-23）`)
+    }
+    if (!p.cue) E(`prep.js ${id} 缺熟度判断（cue）—— 只给分钟数会被蒸锅功率和切块大小打脸（§6x-23）`)
+  })
+  if (prepWithTime < 30) E(`prep.js 只有 ${prepWithTime} 条带时长的食材 —— 覆盖不到食材库的加热面（§6x-23）`)
+
+  // ② 食材详情：写了时长的食材，method 必须包含同一个时长串
+  let methodHits = 0
+  Object.keys(P).forEach((id) => {
+    const p = P[id]
+    const f = foods.filter((x) => x.id === id)[0]
+    if (!f || !p.time) return
+    if ((f.firstIntro.method || '').indexOf(p.time) < 0)
+      E(`食材「${f.name}」的引入方式没写 prep.js 的时长「${p.time}」—— 菜谱和详情页两处口径分叉了（§6x-23）`)
+    else methodHits++
+  })
+  if (methodHits < 30) E(`只有 ${methodHits} 个食材的引入方式带上了 prep 时长 —— 注入没做实（§6x-23）`)
+
+  // ③ 菜谱步骤：分段级（一段里出现加热动词就得有时长）
+  const HEAT = /蒸|煮|焯|熬|炖|煎|炒|焖|烙|烤/
+  const DUR = /\d+\s*(分钟|秒|小时)/
+  const SKIP = /不用(油)?炒|不加油|不加盐/
+  recipes.forEach((r) => {
+    ;(r.steps || []).forEach((s) => {
+      String(s).split(/[，。；]/).forEach((seg) => {
+        if (!HEAT.test(seg) || DUR.test(seg) || SKIP.test(seg)) return
+        E(`菜谱 ${r.id}「${r.name}」有加热动作却没时长：「${seg}」—— 家长不知道蒸几分钟（§6x-23）`)
+      })
+    })
+  })
+
+  // ③b 单食材泥糊类：时长必须与 prep.js 完全一致
+  //     泥糊（texture 细泥）是「这个食材到底蒸多久」最直接的答案页，多道菜里各写一个
+  //     数（土豆泥 20 分钟、鸡肉土豆泥 12–15 分钟）就等于自己打自己。这里只在
+  //     「恰好一个 prep 食材」的泥糊菜上查，避免把馒头/蒸糕这类「整道菜的蒸制时间」
+  //     误判成食材时间。
+  const NUM = (s) => {
+    const m = String(s).match(/(\d+)(?:–(\d+))?\s*分钟/)
+    if (!m) return null
+    return m[2] ? [+m[1], +m[2]] : [+m[1], +m[1]]
+  }
+  let pureeChecked = 0
+  recipes.filter((r) => r.texture === '细泥').forEach((r) => {
+    const ids = (r.mainFoods || []).concat(r.sideFoods || []).filter((id) => P[id] && P[id].time)
+    if (ids.length !== 1) return
+    const want = NUM(P[ids[0]].time)
+    if (!want) return
+    pureeChecked++
+    ;(r.steps || []).forEach((s) => {
+      if (!/蒸|煮|焯|熬|炖|焖|煎/.test(s)) return
+      const got = NUM(s)
+      if (!got) return
+      if (got[0] !== want[0] || got[1] !== want[1])
+        E(`泥糊「${r.name}」写的是 ${got[0]}${got[0] === got[1] ? '' : '–' + got[1]} 分钟，prep.js 里 ${ids[0]} 是「${P[ids[0]].time}」—— 同一食材两个时长（§6x-23）`)
+    })
+  })
+  if (pureeChecked < 10) E(`只查到 ${pureeChecked} 道单食材泥糊 —— 覆盖太少，这条钉形同空转（§6x-23）`)
+
+  // ④ 反向钉：生吃水果的段落 / 详情里不许出现蒸煮焯（「熟香蕉」不许回潮）
+  Object.keys(P).filter((id) => P[id].way === '生').forEach((id) => {
+    const f = foods.filter((x) => x.id === id)[0]
+    if (!f) return
+    if (HEAT.test(f.firstIntro.method || ''))
+      E(`食材「${f.name}」不用加热，引入方式里却出现了加热动作 —— 「熟X」歧义会把人带偏（§6x-23）`)
+    recipes.forEach((r) => {
+      ;(r.steps || []).forEach((s) => {
+        String(s).split(/[，。；]/).forEach((seg) => {
+          if (seg.indexOf(f.name) < 0) return
+          if (/蒸|煮|焯/.test(seg))
+            E(`菜谱 ${r.id} 的步骤让「${f.name}」下锅了 —— ${f.name}不用加热，选熟透的直接压泥（§6x-23）`)
+        })
+      })
+    })
+  })
+
+  if (errs.length === errsBeforePrep) {
+    console.log(`  6x-23 食材「怎么弄熟」时长(v4.1·方案 B)：prep.js ${Object.keys(P).length} 条（带时长 ${prepWithTime} / 生吃 ${Object.keys(P).length - prepWithTime}）✓、食材 method 同口径 ${methodHits} 条 ✓、菜谱步骤分段级零漏时长 ✓、单食材泥糊 ${pureeChecked} 道与 prep 同数 ✓、生吃水果加热反向钉 ✓`)
+  }
+}
+
 /* ---------- 7. 统计 ---------- */
 const byCat = {}
 foods.forEach((f) => { byCat[f.category] = (byCat[f.category] || 0) + 1 })
